@@ -1,0 +1,72 @@
+{
+  "description": "Windows host tools and Mini ARM sysroot. All downloads stay in .local/miyoo/cache; SHA-256 is checked before extraction.",
+  "packages": {
+    "gcc": {
+      "filename": "gcc-arm-10.3-2021.07-mingw-w64-i686-arm-none-linux-gnueabihf.tar.xz",
+      "url": "https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-mingw-w64-i686-arm-none-linux-gnueabihf.tar.xz",
+      "sha256": "fdba7b7f526e4d3cffbd5e60a14dedbce7f474080b35b5b6601973ecf5951a6d",
+      "kind": "tar",
+      "prefix": "gcc-arm-10.3-2021.07-mingw-w64-i686-arm-none-linux-gnueabihf/",
+      "probes": ["gcc/bin/arm-none-linux-gnueabihf-gcc.exe", "gcc/bin/arm-none-linux-gnueabihf-strip.exe", "gcc/lib/gcc/arm-none-linux-gnueabihf/10.3.1/include/stddef.h"]
+    },
+    "sysroot": {
+      "filename": "miyoomini-toolchain-v0.0.3.tar.xz",
+      "url": "https://github.com/shauninman/miyoomini-toolchain-buildroot/releases/download/v0.0.3/miyoomini-toolchain.tar.xz",
+      "sha256": "e158b6ebde0c933ecd57b36760fb8602fad4176a09fb61559dc7bcffe6624f2e",
+      "kind": "tar",
+      "prefix": "miyoomini-toolchain/arm-linux-gnueabihf/libc/",
+      "absolute_links": true,
+      "subtrees": ["lib", "usr/include", "usr/lib"],
+      "probes": ["sysroot/usr/include/SDL/SDL.h", "sysroot/usr/lib/libSDL.so", "sysroot/usr/lib/libSDL_mixer.so", "sysroot/usr/lib/libSDL_ttf.so", "sysroot/lib/libc.so.6"]
+    },
+    "7zr": {
+      "filename": "7zr-25.01.exe",
+      "url": "https://github.com/ip7z/7zip/releases/download/25.01/7zr.exe",
+      "sha256": "27cbe3d5804ad09e90bbcaa916da0d5c3b0be9462d0e0fb6cb54be5ed9030875"
+    },
+    "7zip": {
+      "filename": "7z2501-x64.exe",
+      "url": "https://github.com/ip7z/7zip/releases/download/25.01/7z2501-x64.exe",
+      "sha256": "78afa2a1c773caf3cf7edf62f857d2a8a5da55fb0fff5da416074c0d28b2b55f",
+      "kind": "7zip",
+      "probes": ["7zip/7z.exe", "7zip/7z.dll"]
+    },
+    "qemu": {
+      "filename": "qemu-w64-setup-20260729.exe",
+      "url": "https://qemu.weilnetz.de/w64/qemu-w64-setup-20260729.exe",
+      "sha256": "f88141ccb5597ceb7bed58ffb6cd173d3fc14233772bc6edff6583c7b4bb816c",
+      "kind": "qemu",
+      "probes": ["qemu/qemu-system-arm.exe", "qemu/libglib-2.0-0.dll", "qemu/libpixman-1-0.dll"]
+    },
+    "platform-tools": {
+      "filename": "platform-tools_r37.0.1-win.zip",
+      "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip",
+      "sha256": "45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99",
+      "kind": "zip",
+      "prefix": "platform-tools/",
+      "probes": ["platform-tools/mke2fs.exe", "platform-tools/mke2fs.conf"]
+    },
+    "kernel": {
+      "filename": "linux-image-6.12.111+deb13-armmp_6.12.111-1_armhf.deb",
+      "url": "https://snapshot.debian.org/file/1afe49486413041f8b2952f435462b2d93f34368",
+      "sha256": "8525d291b64e786c6044080d4967a4535a238385568e3b011b8c421375222a42",
+      "kind": "kernel",
+      "probes": ["vm/kernel.deb", "vm/zImage"]
+    },
+    "busybox": {
+      "filename": "busybox-static_1.38.0-3+b1_armhf.deb",
+      "url": "https://snapshot.debian.org/file/9939f54d27d97f4a5419df19dd65ffc36fca21d3",
+      "sha256": "2579b47034cb784e0b8bda852d7ef320cb3925003ea4392edc6efe162890583c",
+      "kind": "busybox",
+      "probes": ["vm/busybox"]
+    },
+    "ffmpeg": {
+      "filename": "ffmpeg-8.1.2-essentials_build.7z",
+      "url": "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.7z",
+      "sha256": "e25b682664025d49034c981afb4bae36238a40f29a3cc1c713ad9a8b5b3528f6",
+      "kind": "ffmpeg",
+      "prefix": "ffmpeg-8.1.2-essentials_build",
+      "probes": ["ffmpeg/bin/ffmpeg.exe", "ffmpeg/LICENSE"]
+    }
+  }
+}

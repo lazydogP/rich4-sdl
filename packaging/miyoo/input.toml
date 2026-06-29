@@ -1,0 +1,15 @@
+# Hardware buttons are adapted in miyoo_input.c before game dispatch.
+[keyboard]
+cursor_up = "up"
+cursor_down = "down"
+cursor_left = "left"
+cursor_right = "right"
+confirm = "return"
+cancel = "escape"
+
+[joystick]
+joy_confirm = 0
+joy_cancel = 1
+
+[cursor]
+cursor_speed = 5

@@ -1,0 +1,8 @@
+# Optional SDL settings. Built-in defaults apply when RICH4-SDL.CFG is absent.
+# Copy this file to RICH4-SDL.CFG beside your game data folders to customize.
+# Keep an existing RICH4-SDL.CFG when updating the game.
+# Music bank: original or multiverse_journey.
+music_bank=multiverse_journey
+# SDL-only map selector inset, in normalized 640x480 logical pixels.
+# Set to 0 to restore the original exact edge comparisons.
+edge_scroll_inset=16

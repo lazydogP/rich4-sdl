@@ -1,0 +1,104 @@
+[
+  {
+    "file": "src/platform/sdl1/game_card_panel_render.c",
+    "hex": "a1d12575",
+    "text": "×%u",
+    "reason": "SDL inventory quantity format using a valid CP950 multiplication sign."
+  },
+  {
+    "file": "src/platform/sdl1/game_event_presentation.c",
+    "hex": "b655b4dac1d9a6b32564a4d1a8ecb4c1",
+    "text": "貸款還有%d天到期",
+    "reason": "Existing SDL three-day loan reminder. Original 0x436A5A uses 0x43695E bank UI at three days; restoring that modal is a flow/UI task beyond transcription. Days 0/1/2 now use the exact original notices."
+  },
+  {
+    "file": "src/platform/sdl1/game_event_presentation.c",
+    "hex": "25730a0ab8b3a8c6aaf825730a0abdd0a5492564a4b8ab4fc049b64f",
+    "text": "%s\n\n董事長%s\n\n請付%d元保險費",
+    "reason": "Specialized composition of 0x463A31 with the original fee label 保險費 from table 0x47517C. Visible wording is equivalent."
+  },
+  {
+    "file": "src/platform/sdl1/game_event_presentation_actor.c",
+    "hex": "a1d12575",
+    "text": "×%u",
+    "reason": "Existing SDL inventory quantity marker; valid CP950 multiplication sign, not a copied original sentence."
+  },
+  {
+    "file": "src/platform/sdl1/game_event_presentation_visits.c",
+    "hex": "a5aac1e4a9cebd54bb7bc1e4b0b1a4ee",
+    "text": "左鍵或確認鍵停止",
+    "reason": "Existing SDL roulette control hint for controller/keyboard input; synthesized text, not an original transcription."
+  },
+  {
+    "file": "src/platform/sdl1/game_event_presentation_visits.c",
+    "hex": "bb7bc1cabcc6b671a14725640a0aa843aad1bbf9aee6a1472564a4b80a0aabf6a4e8a656c1e4bdd5bee3a141bd54bb7bc1cab652",
+    "text": "認購數量：%d\n\n每股價格：%d元\n\n按方向鍵調整，確認購買",
+    "reason": "Existing SDL company subscription summary and keyboard hint. Synthesized UI text; no byte transcription claim."
+  },
+  {
+    "file": "src/platform/sdl1/game_loop_sale_panel.c",
+    "hex": "a661b2a32025303364",
+    "text": "地產 %03d",
+    "reason": "Existing fallback when original map name data is unavailable. 地產 matches 0x4638E6; the numeric ID is a SDL diagnostic suffix."
+  },
+  {
+    "file": "src/platform/sdl1/game_loop_sale_panel.c",
+    "hex": "b35dac492025303364",
+    "text": "設施 %03d",
+    "reason": "Existing fallback when original map name data is unavailable. 設施 is valid CP950; the numeric ID is a SDL diagnostic suffix."
+  },
+  {
+    "file": "src/platform/sdl1/game_loop_sale_panel.c",
+    "hex": "a5bcaabeaaabab7e",
+    "text": "未知物品",
+    "reason": "Existing fallback for unsupported sale item domains, not an original transcription."
+  },
+  {
+    "file": "src/platform/sdl1/game_loop_tool_panel_support.c",
+    "hex": "a1d12575",
+    "text": "×%u",
+    "reason": "Existing SDL inventory quantity marker; valid CP950 multiplication sign, not a copied original sentence."
+  },
+  {
+    "file": "src/platform/sdl1/render/game_map_info.c",
+    "hex": "be6caad13a2575",
+    "text": "餘股:%u",
+    "reason": "Original 0x463918 is 餘股:%d. Unsigned format matches the SDL field type and gives the same displayed positive share count."
+  },
+  {
+    "file": "src/platform/sdl1/render/scene_new_game_setup_draw.c",
+    "hex": "313030adbf",
+    "text": "100倍",
+    "reason": "Existing setup goal selector multiplier label. The display path formats fund * multiplier; these labels are synthesized numeric units rather than a copied sentence."
+  },
+  {
+    "file": "src/platform/sdl1/render/scene_new_game_setup_draw.c",
+    "hex": "3530adbf",
+    "text": "50倍",
+    "reason": "Existing setup goal selector multiplier label. The display path formats fund * multiplier; these labels are synthesized numeric units rather than a copied sentence."
+  },
+  {
+    "file": "src/platform/sdl1/render/scene_new_game_setup_draw.c",
+    "hex": "3130adbf",
+    "text": "10倍",
+    "reason": "Existing setup goal selector multiplier label. The display path formats fund * multiplier; these labels are synthesized numeric units rather than a copied sentence."
+  },
+  {
+    "file": "src/platform/sdl1/render/scene_new_game_setup_draw.c",
+    "hex": "35adbf",
+    "text": "5倍",
+    "reason": "Existing setup goal selector multiplier label. The display path formats fund * multiplier; these labels are synthesized numeric units rather than a copied sentence."
+  },
+  {
+    "file": "src/platform/sdl1/render/scene_new_game_setup_draw.c",
+    "hex": "33adbf",
+    "text": "3倍",
+    "reason": "Existing setup goal selector multiplier label. The display path formats fund * multiplier; these labels are synthesized numeric units rather than a copied sentence."
+  },
+  {
+    "file": "src/platform/sdl1/render/scene_options_render.c",
+    "hex": "b657aec9aac5",
+    "text": "超時空",
+    "reason": "Existing music bank switch label introduced with MultiverseJourney support; not an original copied UI label."
+  }
+]

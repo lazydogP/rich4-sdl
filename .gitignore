@@ -1,0 +1,53 @@
+# Build outputs
+/build/
+/bin/
+/.local/
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+
+# User-provided commercial resources and local media
+/assets/original/*
+!/assets/original/README.md
+/assets/music/*
+!/assets/music/README.md
+/assets/fonts/*
+!/assets/fonts/README.md
+
+# Local configuration and mods
+/config/*.toml
+/config/*.json
+/mods/*
+!/mods/README.md
+
+# Runtime settings and save slots
+/RICH4.CFG
+/RICH4-SDL.CFG
+/saves/
+
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pyc
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

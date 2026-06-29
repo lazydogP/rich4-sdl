@@ -1,0 +1,251 @@
+{
+  "window_seconds": [
+    10,
+    16
+  ],
+  "strict_equivalence": false,
+  "runs": [
+    {
+      "run": "ab-r3-01",
+      "renderer": "3",
+      "capture": "none",
+      "status": "INVALID_CAPTURE",
+      "graphics_errors": 1,
+      "probe_sha256": "35d7d412bb46af6382e708d795c99cce950da71fd2bf35b8a8fdc9f2fabd54d7",
+      "costs": {
+        "bltfast@5c2b": {
+          "count": 55,
+          "total_ms": 179.719,
+          "mean_ms": 3.2676181818181815,
+          "p95_ms": 8.484,
+          "max_ms": 20.532
+        },
+        "unlock@2348": {
+          "count": 55,
+          "total_ms": 150.512,
+          "mean_ms": 2.736581818181818,
+          "p95_ms": 5.524,
+          "max_ms": 19.374
+        },
+        "unlock@244c": {
+          "count": 55,
+          "total_ms": 200.626,
+          "mean_ms": 3.647745454545454,
+          "p95_ms": 8.793,
+          "max_ms": 16.755
+        }
+      },
+      "timer_dispatch_gap": {
+        "count": 54,
+        "total_ms": 5906.825,
+        "mean_ms": 109.38564814814815,
+        "p95_ms": 122.651,
+        "max_ms": 124.272
+      },
+      "resources_sha256": "e0a94c3f13c04b304b3b35186a2b01549b6f17bc1a90e43f94a95cb6b49ddd1b",
+      "artifacts_sha256": {
+        "events.csv": "fc0750612d928be8c7f468ef7da348b71941c522b322359875aa867835181bf7",
+        "manifest.json": "fe31f7cfe9dfc112554db7b5b3cdb376434e744f22ebfeb855bf9859297a8ffd",
+        "launcher.log": "f178305441975c2f23f74400165621063e2d9ec815141e7125c27358b2baa506"
+      },
+      "exe_sha256": "5a90aee28ee5f7a5c3ba5cb935c9e55751a529c25fcd91208748a66293569550",
+      "dxwnd_sha256": "b0dfd9b439595c2079b303fb15e7393b2ec22a00dfea7b24d3a4f86418b229e1",
+      "source_profile_sha256": "e23e456cce9d3576bf861605754ac9c79e60491859aabfbbbcaaa7708ccddfd1"
+    },
+    {
+      "run": "ab-r5-01",
+      "renderer": "5",
+      "capture": "none",
+      "status": "OBSERVED",
+      "graphics_errors": 0,
+      "probe_sha256": "35d7d412bb46af6382e708d795c99cce950da71fd2bf35b8a8fdc9f2fabd54d7",
+      "costs": {
+        "bltfast@5c2b": {
+          "count": 55,
+          "total_ms": 29.358,
+          "mean_ms": 0.5337818181818181,
+          "p95_ms": 0.686,
+          "max_ms": 0.948
+        },
+        "unlock@2348": {
+          "count": 55,
+          "total_ms": 25.527,
+          "mean_ms": 0.4641272727272727,
+          "p95_ms": 0.627,
+          "max_ms": 0.919
+        },
+        "unlock@244c": {
+          "count": 55,
+          "total_ms": 33.208,
+          "mean_ms": 0.6037818181818182,
+          "p95_ms": 0.756,
+          "max_ms": 0.833
+        }
+      },
+      "timer_dispatch_gap": {
+        "count": 54,
+        "total_ms": 5933.023,
+        "mean_ms": 109.87079629629629,
+        "p95_ms": 123.54,
+        "max_ms": 123.948
+      },
+      "resources_sha256": "e0a94c3f13c04b304b3b35186a2b01549b6f17bc1a90e43f94a95cb6b49ddd1b",
+      "artifacts_sha256": {
+        "events.csv": "5d69f48f1b7d58794117c6f8df40a77ecb2b319060ee2913a1130f9433c8c659",
+        "manifest.json": "1423da4b74a0a2eb1448ba466c95021109a8991dcad0b49e55a1e619800fcb24",
+        "launcher.log": "d73bf05c3ace701ccbdf2295dcdb5912f37fa2e6ecc126f7ef1a7c95b2295c4b"
+      },
+      "exe_sha256": "5a90aee28ee5f7a5c3ba5cb935c9e55751a529c25fcd91208748a66293569550",
+      "dxwnd_sha256": "b0dfd9b439595c2079b303fb15e7393b2ec22a00dfea7b24d3a4f86418b229e1",
+      "source_profile_sha256": "e23e456cce9d3576bf861605754ac9c79e60491859aabfbbbcaaa7708ccddfd1"
+    },
+    {
+      "run": "ab-r5-02",
+      "renderer": "5",
+      "capture": "none",
+      "status": "OBSERVED",
+      "graphics_errors": 0,
+      "probe_sha256": "35d7d412bb46af6382e708d795c99cce950da71fd2bf35b8a8fdc9f2fabd54d7",
+      "costs": {
+        "bltfast@5c2b": {
+          "count": 55,
+          "total_ms": 28.152,
+          "mean_ms": 0.5118545454545455,
+          "p95_ms": 0.651,
+          "max_ms": 0.749
+        },
+        "unlock@2348": {
+          "count": 55,
+          "total_ms": 24.801,
+          "mean_ms": 0.45092727272727273,
+          "p95_ms": 0.628,
+          "max_ms": 0.642
+        },
+        "unlock@244c": {
+          "count": 55,
+          "total_ms": 32.012,
+          "mean_ms": 0.5820363636363636,
+          "p95_ms": 0.767,
+          "max_ms": 1.006
+        }
+      },
+      "timer_dispatch_gap": {
+        "count": 54,
+        "total_ms": 5913.433,
+        "mean_ms": 109.50801851851853,
+        "p95_ms": 122.169,
+        "max_ms": 123.805
+      },
+      "resources_sha256": "e0a94c3f13c04b304b3b35186a2b01549b6f17bc1a90e43f94a95cb6b49ddd1b",
+      "artifacts_sha256": {
+        "events.csv": "8297209b114750737be30673bb098d291f38364da53f7c48c9f1d3c479acc2f6",
+        "manifest.json": "2bec0a5234ee767080571366da6a6d05eba4942f025dee47e5dbb1fd0d0e5c12",
+        "launcher.log": "3bc5ae7d8af70e28f61c930f04955bef6a5e0cf7576719c9acf50a7b2e1d213c"
+      },
+      "exe_sha256": "5a90aee28ee5f7a5c3ba5cb935c9e55751a529c25fcd91208748a66293569550",
+      "dxwnd_sha256": "b0dfd9b439595c2079b303fb15e7393b2ec22a00dfea7b24d3a4f86418b229e1",
+      "source_profile_sha256": "e23e456cce9d3576bf861605754ac9c79e60491859aabfbbbcaaa7708ccddfd1"
+    },
+    {
+      "run": "ab-r3-02",
+      "renderer": "3",
+      "capture": "none",
+      "status": "OBSERVED",
+      "graphics_errors": 0,
+      "probe_sha256": "35d7d412bb46af6382e708d795c99cce950da71fd2bf35b8a8fdc9f2fabd54d7",
+      "costs": {
+        "bltfast@5c2b": {
+          "count": 55,
+          "total_ms": 147.005,
+          "mean_ms": 2.672818181818182,
+          "p95_ms": 3.85,
+          "max_ms": 15.405
+        },
+        "unlock@2348": {
+          "count": 55,
+          "total_ms": 141.903,
+          "mean_ms": 2.5800545454545456,
+          "p95_ms": 3.193,
+          "max_ms": 19.346
+        },
+        "unlock@244c": {
+          "count": 55,
+          "total_ms": 196.64,
+          "mean_ms": 3.5752727272727274,
+          "p95_ms": 10.276,
+          "max_ms": 20.631
+        }
+      },
+      "timer_dispatch_gap": {
+        "count": 54,
+        "total_ms": 5913.9,
+        "mean_ms": 109.51666666666667,
+        "p95_ms": 123.55,
+        "max_ms": 124.657
+      },
+      "resources_sha256": "e0a94c3f13c04b304b3b35186a2b01549b6f17bc1a90e43f94a95cb6b49ddd1b",
+      "artifacts_sha256": {
+        "events.csv": "ace271af5f1fa834c06bb560754163498d0665f1ef797fc4148a23cdb9a02372",
+        "manifest.json": "dff34aac0128b20586637c22deed9cd0f229581913301100c09323218461c249",
+        "launcher.log": "d42c5bb23a22e6cf09f8180653cff9392805c8b3437fa7771e64f7680ceb69ba"
+      },
+      "exe_sha256": "5a90aee28ee5f7a5c3ba5cb935c9e55751a529c25fcd91208748a66293569550",
+      "dxwnd_sha256": "b0dfd9b439595c2079b303fb15e7393b2ec22a00dfea7b24d3a4f86418b229e1",
+      "source_profile_sha256": "e23e456cce9d3576bf861605754ac9c79e60491859aabfbbbcaaa7708ccddfd1"
+    }
+  ],
+  "same_probe": true,
+  "same_initial_resources": true,
+  "date": "2026-10-22",
+  "test": "phase1 native observational setup, capture disabled",
+  "final_capture": {
+    "status": "OBSERVED",
+    "strict_equivalence": false,
+    "counts": {
+      "boot": 2,
+      "hook": 8,
+      "ddraw": 4,
+      "surface": 109,
+      "lock": 1010,
+      "frame": 594,
+      "unlock": 1010,
+      "clock": 13501,
+      "seed": 1,
+      "timer_set": 4,
+      "timer": 1915,
+      "peek": 323,
+      "getdc": 38,
+      "releasedc": 38,
+      "bltfast": 105,
+      "vblank": 6,
+      "timer_kill": 2,
+      "rng": 95,
+      "end": 1
+    },
+    "rng": {
+      "calls": 95,
+      "status": "VALID",
+      "errors": []
+    },
+    "preview_complete": true,
+    "errors": [],
+    "graphics_errors": [],
+    "run": "game-full-final",
+    "last_frame": {
+      "file": "frame-000594.png",
+      "seq": 594,
+      "us": 39992075,
+      "width": 640,
+      "height": 480,
+      "object": "2bcaa38",
+      "reason": "unlock",
+      "sha256": "a46bde87dbc8ceaff604072f0b630452cd4596c8f45a1c0ec2cad4c06c7090b1",
+      "preview_sha256": "8d68c17ff0f5ff5d04cc6bcd9e36ddd3a9d45137fb8e391c2585b59846b28923"
+    },
+    "artifacts_sha256": {
+      "events.csv": "aef2677736eab8286f881e58a076b39eeb5dfe97eac6ab167547cee3edcfb46a",
+      "manifest.json": "f7981c8c003c0b373c97d2638c3ad7083914605e8bcbe9b7aafd2a30cce38913",
+      "launcher.log": "a8ced183d3767b3c37234fe5305adac36d72fbba73ed6ea191e05d4eaa069bd6"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+module	behavior	classification	authority	evidence	test
+src/core/new_game_init.c	new-game state initialization	confirmed-original	0x406DE7;../rich4/csrc/game_init.c	docs/evidence/r4-new-game-init.md	tests/unit/test_new_game_init.c
+src/core/player_status.c	current-player action and blocking decision	confirmed-original	0x40C912	docs/evidence/40c912-player-status.md	tests/unit/test_player_status.c
+src/core/first_turn_dispatch.c	first-landing result to SDL flow mapping	confirmed-original	0x40C912;0x418C55	docs/evidence/m2-nonvisual-closure.md	tests/unit/test_first_turn_dispatch.c
+src/core/status_countdown.c	ordered status countdown and handler dispatch	confirmed-original	0x41C84F	docs/evidence/r6-status-countdown.md	tests/unit/test_status_countdown.c
+src/core/turn_rotation.c	normal/special player rotation and round rollover	confirmed-original	0x418EBD	docs/evidence/418ebd-turn.md	tests/unit/test_turn_rotation.c
+src/core/turn_flow.c	first-turn landing before preroll/action panel	characterized-compatible	pre-refactor runtime path;R0 landing trace	docs/evidence/regression-landing-camera.md	tests/unit/test_turn_flow.c
+src/core/victory.c	day and confirmed asset victory candidate calculation	confirmed-original	0x41D89E;0x4239B9	docs/evidence/41d89e-victory.md	tests/unit/test_victory.c
+src/core/route_movement.c	route stepping, preselected first-landing edge and branch command boundary	confirmed-original	0x408312-0x408348;0x40B221	docs/evidence/41982d-property-dialog-color-delay.md	tests/unit/test_route_movement.c
+src/core/route_event_queue.c	PASS/STOP event ordering and explicit deferred handlers	characterized-compatible	R0 replay;unimplemented handlers explicit	docs/evidence/r5-route-event-queue.md	tests/unit/test_route_event_queue.c
+src/core/route_event_queue.c	raw-object family dispatch and pausable command-resumed execution	confirmed-original	0x418E7F;0x41982D	docs/evidence/m3-1-route-event-executor.md	tests/unit/test_route_event_executor.c
+src/core/game_command.c	platform-independent command representation	architecture	goal R5.1	docs/evidence/completion-command-event-pipeline.md	tests/unit/test_game_command.c
+src/core/game_dispatch.c	shared human/AI/replay command dispatch	architecture	goal completion boundary	docs/evidence/completion-command-event-pipeline.md	tests/unit/test_game_dispatch.c
+src/core/game_event.c	bounded domain-event transport	architecture	goal completion boundary	docs/evidence/completion-core-game-events.md	tests/unit/test_game_dispatch.c
+src/core/rng.c	deterministic MSVCRT-compatible random sequence	characterized-compatible	R0 fixed-seed trace	docs/evidence/r9-build-matrix.md	tests/unit/test_rng.c
+src/data/map_data.c	MAP/MAPDAT resource lifetime and record parsing	confirmed-original	0x407AD2;../rich4/csrc/map_data.c	docs/evidence/407ad2-map-data.md	tests/resource/test_map_data.c
+src/data/map_object_ref.c	object id/table/coordinate decoding	confirmed-original	0x40AF12	docs/evidence/40af12-map-object.md	tests/unit/test_map_object_ref.c
+src/data/resource_catalog.c	confirmed archive/resource-index mappings	confirmed-original	per-entry IDA evidence_address	docs/evidence/r3-resource-catalog.md	tests/unit/test_resource_catalog.c
+src/resource/flc_animation.c	Autodesk Animator FLC frame/chunk decoding	confirmed-original	0x450CED;0x45144F;V3.11 opcode scan	docs/evidence/r2-flc-real-resource-scan.md	tests/resource/test_flc_animation.c
+src/resource/flc_player.c	frame timing, delta lifetime, and replay seek	confirmed-original	0x450CED;0x45144F	docs/evidence/r7-flc-player.md	tests/resource/test_flc_player.c
+src/resource/spr_smp.c	SPR/SMP metadata and pixel decoding	format-mechanical	../rich4/docs;real resource probes	docs/evidence/r2-spr-smp.md	tests/resource/test_spr_smp.c
+src/resource/resource_store.c	archive/cache ownership	architecture	goal R2.4	docs/evidence/r2-resource-store.md	tests/resource/test_resource_store.c
+src/resource/mkf.c	MKF archive indexing and owned reads	format-mechanical	../rich4 MKF format implementation	docs/evidence/r2-resource-store.md	tests/resource/test_mkf_failures.c
+src/resource/mkf_decompress.c	MKF compression decoding	format-mechanical	../rich4 MKF decompressor	docs/evidence/r2-resource-store.md	tests/resource/test_mkf_failures.c
+src/view/game_view_model.c	projection and confirmed actor resource selection	mixed-explicit	0x407A2C;0x40B93B partial branches tagged	docs/evidence/r7-game-view-model.md	tests/unit/test_game_view_model.c
+src/view/map_renderer.c	visible-list projection/composition; stable tie is characterization	mixed-explicit	0x40829D confirmed-original;R0 SDL characterization	docs/evidence/40829d-map-render.md	tests/unit/test_map_renderer.c
+src/view/flc_compositor.c	Rich4 index-0/source-framebuffer composition	confirmed-original	0x45144F call-layer behavior	docs/evidence/r7-flc-player.md	tests/resource/test_flc_player.c
+src/app/scene.c	scene lifecycle and explicit transitions	architecture	goal R8.1	docs/evidence/r8-scene-interface.md	tests/unit/test_scene.c
+src/app/audio_event.c	domain-to-platform audio event queue	architecture	goal R8.2	docs/evidence/r8-audio-events.md	tests/unit/test_audio_event.c
+src/app/new_game_setup_flow.c	setup stage timing and portable interruption	confirmed-original	0x404E44	docs/evidence/m2-nonvisual-closure.md	tests/unit/test_new_game_setup_flow.c
+src/platform/sdl1/input_adapter.c	640x480 logical-coordinate input adapter	architecture	goal R8.2	docs/evidence/r8-sdl1-input-adapter.md	tests/unit/test_sdl1_input_adapter.c
+src/platform/sdl1/runtime_main.c	menu/new-game/intro/game orchestration and compatibility fallbacks	mixed-explicit	per-site IDA comments;R0 replay;fallback labels	docs/evidence/completion-behavior-traceability.md	tests/characterization/test_trace.c
+src/core/ledger.c	payment order, fee modifiers, insufficient-liquidity bankruptcy cleanup and terminal victory	confirmed-original	0x40CD87;0x41D2C6;0x41D709;0x41D89E;0x4239B9	docs/evidence/m3-2-ledger-bankruptcy.md	tests/unit/test_ledger.c
+src/core/property.c	ordinary-land purchase, upgrade, grouped toll and AI affordability	confirmed-original	0x419744;0x4198B9-0x41A168;0x40FA61;0x41D559;0x41D7D4	docs/evidence/m3-3-ordinary-land.md	tests/unit/test_property.c
+src/core/facility.c	facility purchase, construction, subtype level caps, upgrade, valuation and subtype 1/2/3 toll flow; resource presentation boundary remains partial	mixed-explicit	0x41A17F-0x41A9AF;0x4239B9;ref_00474940	docs/evidence/m3-4-facility-company.md	tests/unit/test_facility.c
+src/core/card.c	30-card catalog, 60-slot inventory, AI eligibility boundary and transactional handlers 1/14/30	mixed-explicit	0x41E69E;0x441262;0x441343;0x441BAA;0x475D5C	docs/evidence/m3-5-card-system.md	tests/unit/test_card.c
+src/core/tool.c	13-tool catalog, 60-byte quantity inventory, transactional placement/vehicles and placed-object triggers	mixed-explicit	0x420E9A;0x447D97;0x40E033;0x40E14D;0x41B42D;0x475DD5	docs/evidence/m3-6-tool-system.md	tests/unit/test_tool.c
+src/core/special_event.c	two-phase news/fortune/magic selection, handlers and snapshot	mixed-explicit	0x448B81;0x448BE2;0x44B6DF;0x44BAEA;0x44BB4B;0x44DB81;0x431842;0x431CAA;0x43380A	docs/evidence/m3-8-special-events.md	tests/unit/test_special_event.c
+src/core/stock.c	shared human/AI stock trades, volume, company ranking, daily pricing, history and snapshot	confirmed-original	0x428D01;0x428D2A;0x428E23;0x428EC5;0x42915A;0x4291D6;0x4294D5	docs/evidence/m3-9-stock-system.md	tests/unit/test_stock.c
+src/data/character_speech.c	property purchase/toll character text, Speaking.MKF ids and threshold selection	confirmed-original	0x44EF41;0x44F354;0x44F42D;0x44F4ED;0x44F627	docs/evidence/41982d-property-dialog-color-delay.md	tests/unit/test_character_speech.c
+src/core/route_event_queue.c	pause ordinary-land charge until original presentation sequence completes	confirmed-original	0x419A67-0x419F8B;0x451985	docs/evidence/41982d-property-dialog-color-delay.md	tests/unit/test_route_event_executor.c
+src/core/route_event_queue.c	action 6/7/8 score commits and action 15 shop transactions	confirmed-original	0x414858;0x414BBC;0x414FCD;0x42D37F;0x42E931	docs/evidence/special-place-point-games-shop.md	tests/unit/test_route_event_executor.c
+src/platform/sdl1/runtime_main.c	action 6/7/8 and action 15 original-resource UI/input/audio orchestration	confirmed-original	0x414858;0x414BBC;0x414FCD;0x42D37F	docs/evidence/special-place-point-games-shop.md	tests/unit/test_route_event_executor.c
+src/platform/sdl1/runtime_main.c	top-toolbar map button, modal overview rendering/input/audio	confirmed-original	0x407AD2;0x40A4E1;0x40A801;0x40A9BD;0x417D65;0x417E26	docs/evidence/40a9bd-small-map-ui.md	tests/unit/test_renderer_viewmodel_boundary.c
+src/view/game_view_model.c	company ownership projection for full-map facility markers	confirmed-original	0x40A68A-0x40A7E0	docs/evidence/40a9bd-small-map-ui.md	tests/unit/test_game_view_model.c

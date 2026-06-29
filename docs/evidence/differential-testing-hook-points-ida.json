@@ -1,0 +1,81 @@
+{
+  "inspected_on": "2026-10-22",
+  "executable": "assets/original/Rich4.exe",
+  "sha256": "5a90aee28ee5f7a5c3ba5cb935c9e55751a529c25fcd91208748a66293569550",
+  "imagebase": "0x400000",
+  "source": "IDA Pro MCP read-only decompilation and imports",
+  "note": "Decompiled types are not verified hook ABIs. No runtime scheduling or DxWnd measurements performed.",
+  "functions": [
+    {
+      "addr": "0x4020FA",
+      "code": "void sub_4020FA()\n{\n  if ( !lpBuffer ) /*0x402102*/\n  {\n    lpBuffer = (LPVOID)sub_450441(dword_48A0E4, 0, 0, 0); /*0x40211a*/\n    dword_48A0E8 = sub_451A5A(32, 32, 0, 0); /*0x40212f*/\n    byte_48A179 = 0; /*0x402136*/\n    byte_48A17A = 0; /*0x40213c*/\n    byte_48A178 = 0; /*0x402142*/\n    x = -1; /*0x402148*/\n    ShowCursor(0); /*0x402154*/\n    n108 = 108; /*0x40215b*/\n    (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0DC + 100))( /*0x402178*/\n      dword_48A0DC,\n      0,\n      &n108,\n      1,\n      0);\n    word_46CB14 = dword_48A108 >> 1; /*0x402182*/\n    (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0DC + 128))(dword_48A0DC, 0); /*0x402192*/\n    uTimerID = timeSetEvent(0x14u, 5u, fptc, 0, 1u); /*0x4021ac*/\n  }\n}"
+    },
+    {
+      "addr": "0x456F2D",
+      "code": "unsigned int *rand()\n{\n  unsigned int *result; // eax\n  unsigned int v1; // edx\n\n  result = (unsigned int *)initrandnext(); /*0x456f2d*/\n  if ( result ) /*0x456f34*/\n  {\n    v1 = 1103515245 * *result + 12345; /*0x456f3d*/\n    *result = v1; /*0x456f43*/\n    return (unsigned int *)(HIWORD(v1) & 0x7FFF); /*0x456f4a*/\n  }\n  return result; /*0x456f36*/\n}"
+    },
+    {
+      "addr": "0x456F23",
+      "code": "int initrandnext()\n{\n  return psub_4585CD() + 12; /*0x456f2c*/\n}"
+    },
+    {
+      "addr": "0x401F98",
+      "code": "void __stdcall fptc(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2)\n{\n  int v5; // ebx\n  int v6; // eax\n  __int16 v7; // di\n  struct tagPOINT x; // [esp+20h] [ebp-14h] BYREF\n\n  v5 = 0; /*0x401f9e*/\n  if ( byte_46CB01 ) /*0x401fa7*/\n  {\n    v6 = (unsigned __int8)byte_46CB20[(unsigned __int8)lpBuffer__14]; /*0x401fba*/\n    if ( v6 <= ++dword_46CB23 ) /*0x401fce*/\n    {\n      dword_46CB23 = 0; /*0x401fd0*/\n      byte_46CAFA = 1; /*0x401fd6*/\n    }\n    if ( (byte_48A179 & 1) != 0 && !byte_48A17A && !byte_46CAF9 ) /*0x401ffe*/\n    {\n      byte_48A17A = 1; /*0x402004*/\n      if ( word_48A170 > 1 && ++word_48A176 >= word_48A174 ) /*0x402030*/\n      {\n        word_48A176 = 0; /*0x402034*/\n        v7 = word_48A172 + 1; /*0x402042*/\n        word_48A172 = v7; /*0x402043*/\n        if ( v7 == word_48A170 ) /*0x402056*/\n          word_48A172 = word_48A170 ^ v7; /*0x40205a*/\n        v5 = 1; /*0x402060*/\n      }\n      GetCursorPos(&x); /*0x402068*/\n      if ( x.x != ::x || x.y != y || v5 ) /*0x402088*/\n      {\n        if ( (byte_48A179 & 2) == 0 ) /*0x402091*/\n          lpDD->lpVtbl->WaitForVerticalBlank(lpDD, 1, 0); /*0x40209f*/\n        (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0DC + 100))( /*0x4020b5*/\n          dword_48A0DC,\n          0,\n          &n108,\n          1,\n          0);\n        dword_46CB1C = dword_48A11C; /*0x4020bd*/\n        sub_401F5E(); /*0x4020c2*/\n        sub_401E59(x.x, x.y); /*0x4020d1*/\n        (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0DC + 128))(dword_48A0DC, 0); /*0x4020e3*/\n      }\n      byte_48A17A = 0; /*0x4020eb*/\n    }\n  }\n}"
+    },
+    {
+      "addr": "0x45285E",
+      "code": "void __cdecl sub_45285E(DWORD a1)\n{\n  DWORD Time; // esi\n  DWORD v2; // ebx\n  struct tagMSG Msg; // [esp+0h] [ebp-28h] BYREF\n\n  if ( a1 ) /*0x45286a*/\n  {\n    Time = timeGetTime(); /*0x452873*/\n    do /*0x4528b0*/\n    {\n      v2 = timeGetTime() - Time; /*0x45287e*/\n      if ( PeekMessageA(&Msg, 0, 0, 0, 1u) && Msg.message == 953 && Msg.wParam == 1 ) /*0x4528a7*/\n        sub_454D2C(); /*0x4528a9*/\n    }\n    while ( v2 < a1 ); /*0x4528b0*/\n  }\n}"
+    },
+    {
+      "addr": "0x4528B9",
+      "code": "int __cdecl sub_4528B9(DWORD a1)\n{\n  int v1; // ebx\n  DWORD Time; // edi\n  DWORD v4; // esi\n  struct tagMSG Msg; // [esp+0h] [ebp-2Ch] BYREF\n\n  v1 = 0; /*0x4528c4*/\n  if ( !a1 ) /*0x4528c8*/\n    return 0; /*0x4528ca*/\n  Time = timeGetTime(); /*0x4528d8*/\n  do /*0x45293a*/\n  {\n    v4 = timeGetTime() - Time; /*0x4528e3*/\n    if ( PeekMessageA(&Msg, 0, 0, 0, 1u) ) /*0x4528f2*/\n    {\n      if ( Msg.message == 514 || Msg.message == 517 || Msg.message == 257 ) /*0x452917*/\n        v1 = 1; /*0x452919*/\n      if ( Msg.message == 953 && Msg.wParam == 1 ) /*0x45292d*/\n        sub_454D2C(); /*0x45292f*/\n    }\n  }\n  while ( v4 < a1 && !v1 ); /*0x45293a*/\n  return v1; /*0x45293e*/\n}"
+    },
+    {
+      "addr": "0x4543C4",
+      "code": "DWORD sub_4543C4()\n{\n  DWORD result; // eax\n  DWORD v3; // esi\n  unsigned int n0x3E8; // ebx\n  _BYTE v5[12]; // [esp+8h] [ebp-Ch] BYREF\n\n  result = timeGetTime(); /*0x4543c9*/\n  v3 = result; /*0x4543d0*/\n  if ( pUnkOuter && dword_48CAE4 && n4_8 ) /*0x4543eb*/\n  {\n    do /*0x454412*/\n    {\n      n0x3E8 = timeGetTime() - v3; /*0x4543f6*/\n      result = (*(int (__stdcall **)(int, _BYTE *))(*(_DWORD *)dword_48CAE4 + 36))(dword_48CAE4, v5); /*0x454403*/\n    }\n    while ( (v5[0] & 1) != 0 && n0x3E8 < 0x3E8 ); /*0x454412*/\n  }\n  return result; /*0x454414*/\n}"
+    },
+    {
+      "addr": "0x456F50",
+      "code": "_DWORD *__cdecl srand(int a1)\n{\n  _DWORD *result; // eax\n\n  result = (_DWORD *)initrandnext(); /*0x456f50*/\n  if ( result ) /*0x456f57*/\n    *result = a1; /*0x456f5d*/\n  return result; /*0x456f5f*/\n}"
+    }
+  ],
+  "timer_imports": {
+    "result": [
+      {
+        "data": [
+          {
+            "addr": "0x4622fc",
+            "imported_name": "KillTimer",
+            "module": "USER32"
+          },
+          {
+            "addr": "0x462324",
+            "imported_name": "SetTimer",
+            "module": "USER32"
+          },
+          {
+            "addr": "0x4623b0",
+            "imported_name": "GetLocalTime",
+            "module": "KERNEL32"
+          },
+          {
+            "addr": "0x46246c",
+            "imported_name": "timeGetTime",
+            "module": "WINMM"
+          },
+          {
+            "addr": "0x462470",
+            "imported_name": "timeKillEvent",
+            "module": "WINMM"
+          },
+          {
+            "addr": "0x462474",
+            "imported_name": "timeSetEvent",
+            "module": "WINMM"
+          }
+        ],
+        "next_offset": null
+      }
+    ]
+  }
+}

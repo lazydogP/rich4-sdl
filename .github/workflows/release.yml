@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-x64, miyoo-mini]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Prepare Windows host tools
+        run: ./scripts/setup-windows-toolchain.ps1 -SkipVerify
+
+      - name: Verify release packaging
+        run: python tests/unit/test_package_release.py
+
+      - name: Run tests without original game data
+        if: matrix.platform == 'windows-x64'
+        run: python scripts/make_minimal.py test-unit test-resource --progress
+
+      - name: Build Windows runtime
+        if: matrix.platform == 'windows-x64'
+        run: python scripts/make_minimal.py sdl stage-sdl-runtime --progress
+
+      - name: Build Miyoo runtime
+        if: matrix.platform == 'miyoo-mini'
+        run: python scripts/make_minimal.py miyoo --progress
+
+      - name: Package release
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+        run: python scripts/package_release.py --platform "${{ matrix.platform }}" --version "$env:RELEASE_VERSION"
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: build/release/*.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: Rich4-*.zip
+          merge-multiple: true
+          skip-decompress: true
+          path: dist
+
+      - name: Publish release
+        shell: bash
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          archives=(*.zip)
+          test "${#archives[@]}" -eq 2
+          cat > notes.txt <<'EOF'
+          Windows x64 portable runtime and Miyoo Mini / Mini Plus program update.
+
+          Packages exclude original game data, music, fonts, saves and personal settings.
+          Supply legally obtained MKF files and a CJK font as described in each package's README.txt.
+          The Miyoo update requires an existing installation with its runtime libraries and font.
+          EOF
+          flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "$RELEASE_TAG" --generate-notes --notes-file notes.txt "${flags[@]}"
+          fi
+          gh release upload "$RELEASE_TAG" --clobber -- "${archives[@]}"
+          gh release edit "$RELEASE_TAG" --draft=false

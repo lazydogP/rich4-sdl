@@ -1,0 +1,1209 @@
+{
+  "purpose": "Original function evidence for test-only clock/input/message adapter; captured through IDA MCP",
+  "p2main": {
+    "addr": "0x401b9c",
+    "code": "int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)\n{\n  int result; // eax\n  int nWidth; // eax\n  int v6; // ebx\n  char v7; // ch\n  int v8; // ebx\n  int nHeight; // [esp-14h] [ebp-64h]\n  HINSTANCE hInstance_1; // [esp-8h] [ebp-58h]\n  WNDCLASSA style; // [esp+0h] [ebp-50h] BYREF\n  struct tagMSG Msg; // [esp+28h] [ebp-28h] BYREF\n\n  ::hInstance = hInstance; /*0x401ba6*/\n  style.style = 0; /*0x401bad*/\n  style.lpfnWndProc = sub_4019DD; /*0x401bb0*/\n  style.cbClsExtra = 0; /*0x401bba*/\n  style.cbWndExtra = 0; /*0x401bbe*/\n  style.hInstance = hInstance; /*0x401bc2*/\n  style.hIcon = LoadIconA(hInstance, IconName); // \"RICH4_ICON\" /*0x401bd3*/\n  style.hCursor = LoadCursorA(0, (LPCSTR)0x7F00); /*0x401be4*/\n  style.hbrBackground = (HBRUSH)GetStockObject(4); /*0x401bf1*/\n  style.lpszMenuName = 0; /*0x401bf5*/\n  style.lpszClassName = WindowName;             // \"Rich4\" /*0x401bfe*/\n  if ( !RegisterClassA(&style) ) /*0x401c05*/\n    return -1; /*0x401c11*/\n  hInstance_1 = ::hInstance; /*0x401c21*/\n  nHeight = GetSystemMetrics(1); /*0x401c2d*/\n  nWidth = GetSystemMetrics(0); /*0x401c2f*/\n  hWnd = CreateWindowExA(0, WindowName, WindowName, 0x80000000, 0, 0, nWidth, nHeight, 0, 0, hInstance_1, 0);// \"Rich4\" /*0x401c48*/\n  result = sub_4015D6( /*0x401c4d*/\n             style.style,\n             style.lpfnWndProc,\n             style.cbClsExtra,\n             style.cbWndExtra,\n             style.hInstance,\n             style.hIcon,\n             style.hCursor);\n  if ( result ) /*0x401c54*/\n  {\n    ShowWindow(hWnd, 5); /*0x401c63*/\n    UpdateWindow(hWnd); /*0x401c71*/\n    sub_451677((int)aStartAvi, (LPARAM)&lParam_, 1);// \"START.AVI\" /*0x401c84*/\nLABEL_5:\n    while ( 2 ) /*0x401c8c*/\n    {\n      lpBuffer__0 = 0; /*0x401c8c*/\n      lpBuffer__1 = 0; /*0x401c95*/\n      lpBuffer__27 = 0; /*0x401c9e*/\n      lParam_0 = 0; /*0x401ca6*/\n      v6 = sub_4029FD(); /*0x401cb1*/\nLABEL_6:\n      switch ( v6 ) /*0x401cb8*/\n      {\n        case 0: /*0x401cb8*/\n          goto LABEL_8;\n        case 1: /*0x401cb8*/\n          sub_4190CF(); /*0x401d08*/\n          lParam_0 = 1; /*0x401d0d*/\n          sub_401981(1); /*0x401d16*/\n          goto LABEL_13; /*0x401d16*/\n        case 3: /*0x401cb8*/\n          sub_401815(); /*0x401d18*/\n          DestroyWindow(hWnd); /*0x401d24*/\n          goto LABEL_13; /*0x401d24*/\n        case 4: /*0x401cb8*/\n          lpBuffer__1 = 1; /*0x401cbf*/\nLABEL_8:\n          if ( !sub_406DE7((unsigned __int8)lParam_0) ) /*0x401cda*/\n            continue; /*0x401cda*/\n          sub_401543(); /*0x401cdc*/\n          sub_407AD2(); /*0x401ce1*/\n          sub_4190CF(); /*0x401ce6*/\n          sub_4291D6(); /*0x401ceb*/\n          sub_415872(); /*0x401cf0*/\n          lParam_0 = 1; /*0x401cf5*/\n          sub_401981(0); /*0x401cfe*/\n          break; /*0x401cfe*/\n        default:\n          goto LABEL_13;\n      }\n      break;\n    }\n    while ( 1 ) /*0x401d41*/\n    {\nLABEL_13:\n      while ( !PeekMessageA(&Msg, 0, 0, 0, 1u) ) /*0x401d41*/\n      {\n        if ( byte_46CB01 ) /*0x401d6f*/\n        {\n          if ( dword_475110 ) /*0x401d78*/\n            sub_4192F7(); /*0x401d7a*/\n          if ( byte_46CAFA ) /*0x401d86*/\n            sub_40D7C4(); /*0x401d88*/\n          if ( !byte_498EA2[52 * *(_DWORD *)n8] ) /*0x401d94*/\n          {\n            v7 = byte_498EA0[52 * *(_DWORD *)n8]; /*0x401d9d*/\n            if ( v7 < 0 ) /*0x401da6*/\n            {\n              byte_498EA0[52 * *(_DWORD *)n8] = v7 & 0x7F; /*0x401dad*/\n              sub_418C55(); /*0x401db3*/\n            }\n          }\n          if ( n2_5 ) /*0x401dc0*/\n          {\n            n51 = 0; /*0x401dc4*/\n            v8 = (unsigned __int8)n2_5; /*0x401dcc*/\n            sub_419228(); /*0x401dce*/\n            sub_4019D2(); /*0x401dd3*/\n            n2_5 = 0; /*0x401dda*/\n            switch ( v8 ) /*0x401de8*/\n            {\n              case 1: /*0x401de8*/\n                goto LABEL_5;\n              case 2: /*0x401de8*/\n                v6 = 0; /*0x401def*/\n                sub_4075C1(); /*0x401df1*/\n                if ( byte_46CAF9 ) /*0x401dfd*/\n                  goto LABEL_27; /*0x401dfd*/\n                goto LABEL_6; /*0x401dfd*/\n              case 3: /*0x401de8*/\n                sub_4075C1(); /*0x401e25*/\n                goto LABEL_5; /*0x401e2a*/\n              case 4: /*0x401de8*/\n                if ( sub_403D74(0) == -1 ) /*0x401e3c*/\n                  goto LABEL_5; /*0x401e3c*/\n                v6 = 1; /*0x401e42*/\n                break; /*0x401e47*/\n              default:\n                goto LABEL_27;\n            }\n            goto LABEL_6; /*0x401e47*/\n          }\nLABEL_27:\n          if ( byte_46CAF9 ) /*0x401e0a*/\n          {\n            sub_451B36(); /*0x401e10*/\n            sub_401815(); /*0x401e15*/\n            DestroyWindow(hWnd); /*0x401e20*/\n          }\n        }\n      }\n      if ( Msg.message == 18 ) /*0x401d48*/\n        return Msg.wParam; /*0x401e4c*/\n      TranslateMessage(&Msg); /*0x401d53*/\n      DispatchMessageA(&Msg); /*0x401d5f*/\n    }\n  }\n  return result; /*0x401e50*/\n}"
+  },
+  "p2options": {
+    "addr": "0x411b80",
+    "code": "unsigned int __cdecl sub_411B53(int a1)\n{\n  int n10; // ebx\n  int n3; // ebx\n  int n52; // esi\n  int n14; // ebx\n  int n62; // esi\n  int n33; // edi\n  int n12; // ebx\n  int v8; // esi\n  __int16 v9; // bx\n  unsigned int n3_1; // eax\n  int v11; // [esp+0h] [ebp-20h] BYREF\n  int v12; // [esp+4h] [ebp-1Ch]\n  int v13; // [esp+8h] [ebp-18h]\n  int v14; // [esp+Ch] [ebp-14h]\n\n  dword_48BB58 = a1; /*0x411b5e*/\n  dword_48BB60 = sub_450441(dword_48A0E4, 3, 0, 0); /*0x411b78*/\n  sub_44F9D8(15, 1052688, 0, 2, 1); /*0x411b8a*/\n  for ( n10 = 0; n10 < 10; ++n10 ) /*0x411b92*/\n    sub_44FABC(dword_48BB60 + 12, (&off_474A54)[n10], word_474B38[3 * n10], word_474B3A[3 * n10], word_474B3C[3 * n10]); /*0x411bc7*/\n  n3 = 0; /*0x411bd5*/\n  n52 = 52; /*0x411bd7*/\n  do /*0x411c04*/\n  {\n    sub_44FABC(dword_48BB60 + 24, (&off_474B2C)[n3++], n52, 296, 2u); /*0x411bf5*/\n    n52 += 113; /*0x411bfe*/\n  }\n  while ( n3 < 3 ); /*0x411c04*/\n  sub_44F9D8(12, 15790320, 1052688, 1, 0); /*0x411c16*/\n  n14 = 0; /*0x411c1e*/\n  n62 = 62; /*0x411c20*/\n  n33 = 33; /*0x411c25*/\n  do /*0x411c30*/\n  {\n    sub_44FABC(dword_48BB60 + 24, (&off_474ABC)[n14], n62, n33, 2u); /*0x411c47*/\n    n33 += 16; /*0x411c4f*/\n    if ( n14 == 14 ) /*0x411c55*/\n    {\n      n62 = 208; /*0x411c57*/\n      n33 = 33; /*0x411c5c*/\n    }\n    ++n14; /*0x411c2c*/\n  }\n  while ( n14 < 28 ); /*0x411c30*/\n  sub_44F9D8(20, 1052688, 1052688, 2, 1); /*0x411c73*/\n  sub_44FABC(dword_48BB60 + 12, lpchText_0, word_474B74, word_474B76, n4_0); /*0x411ca2*/\n  sub_44FABC(dword_48BB60 + 12, lpchText_1, word_474B7A, word_474B7C, n4_1); /*0x411cd2*/\n  for ( n12 = 12; n12 < 15; ++n12 ) /*0x411cda*/\n    sub_44FABC( /*0x411d32*/\n      12 * (dword_48BB58 + 10) + dword_48BB60 + 12,\n      (&(&off_474A54)[3 * dword_48BB58])[n12],\n      word_474B38[3 * n12],\n      word_474B3A[3 * n12],\n      word_474B3C[3 * n12]);\n  sub_456280(dword_48BB60 + 12, dword_48BB60 + 12 + 12 * (dword_48BB58 + 10), 168, 2); /*0x411d68*/\n  sub_44FABC(dword_48BB60 + 48, lpchText_0, 30, 14, 2u); /*0x411d86*/\n  sub_44FABC(dword_48BB60 + 60, lpchText_1, 30, 14, 2u); /*0x411da4*/\n  v11 = 320 - (*(__int16 *)(dword_48BB60 + 12) >> 1); /*0x411dbe*/\n  v12 = 240 - (*(__int16 *)(dword_48BB60 + 14) >> 1); /*0x411dce*/\n  v13 = *(__int16 *)(dword_48BB60 + 12) + v11; /*0x411ddb*/\n  v14 = *(__int16 *)(dword_48BB60 + 14) + v12; /*0x411de9*/\n  v8 = sub_451E7E(&v11); /*0x411df5*/\n  v9 = sub_4018E7((int)sub_4103A3, v11 + (v12 << 16)); /*0x411e12*/\n  sub_451EDB(v8, v11, v12); /*0x411e1f*/\n  sub_456E11(dword_48BB60); /*0x411e2e*/\n  if ( !a1 && byte_47E772 < 0 ) /*0x411e44*/\n    sub_454EDC(); /*0x411e46*/\n  n3_1 = v9 & 0x7FFF; /*0x411e4d*/\n  if ( n3_1 < 2 ) /*0x411e55*/\n  {\n    if ( n3_1 == 1 ) /*0x411e63*/\n      n3_1 = sub_411AA3(); /*0x411e65*/\n  }\n  else if ( n3_1 <= 2 ) /*0x411e57*/\n  {\n    n3_1 = sub_411AE0(); /*0x411e6c*/\n  }\n  else if ( n3_1 == 3 ) /*0x411e5c*/\n  {\n    n3_1 = sub_411B46(); /*0x411e73*/\n  }\n  if ( v9 < 0 ) /*0x411e7b*/\n    return sub_41906A(1); /*0x411e7f*/\n  return n3_1; /*0x411e87*/\n}"
+  },
+  "p2cd": {
+    "addr": "0x45011a",
+    "code": "int sub_45011A()\n{\n  int v0; // ebp\n  int v2; // eax\n  int j; // ebx\n  int v4; // eax\n  int i; // ebx\n  int v6; // eax\n  int v7; // esi\n  CHAR FileName[60]; // [esp+0h] [ebp-54h] BYREF\n  CHAR RootPathName[4]; // [esp+3Ch] [ebp-18h] BYREF\n  HWND hWnd; // [esp+40h] [ebp-14h]\n\n  strcpy(RootPathName, \"A:\\\\\"); /*0x450126*/\n  hWnd = 0; /*0x45012c*/\n  v0 = 0; /*0x450130*/\n  do /*0x450140*/\n  {\n    RootPathName[0] = (_BYTE)hWnd + 65; /*0x450148*/\n    if ( GetDriveTypeA(RootPathName) != 2 ) /*0x45015b*/\n      FileName[v0++ + 32] = RootPathName[0]; /*0x450161*/\n    hWnd = (HWND)((char *)hWnd + 1); /*0x450139*/\n  }\n  while ( (int)hWnd < 26 ); /*0x450140*/\n  if ( v0 ) /*0x45016a*/\n  {\n    v2 = sub_4573BF(aDataMkf_0, (int)&unk_4660C4);// \"DATA.MKF\" /*0x450191*/\n    if ( v2 ) /*0x45019b*/\n    {\n      fclose(v2); /*0x450235*/\n      hWnd = 0; /*0x45023f*/\n      while ( 1 ) /*0x450243*/\n      {\n        for ( i = 0; i < v0 && !hWnd; ++i ) /*0x450243*/\n        {\n          sprintf(FileName, \"%c:OVER.AVI\", (unsigned __int8)FileName[i + 32]); /*0x450264*/\n          v6 = sub_4573BF(FileName, (int)&unk_4660C4); /*0x450276*/\n          v7 = v6; /*0x45027b*/\n          if ( v6 ) /*0x450282*/\n          {\n            fseek(v6, 0, 2u); /*0x450289*/\n            ftell(v7); /*0x450292*/\n            fclose(v7); /*0x45029d*/\n            byte_476374 = FileName[i + 32]; /*0x4502b1*/\n            hWnd = (HWND)1; /*0x4502b6*/\n          }\n        }\n        if ( !hWnd && MessageBoxA(0, &lpText_, &lpCaption_, 0x15u) != 4 ) /*0x4502e0*/\n          break; /*0x4502e0*/\n        if ( hWnd ) /*0x4502eb*/\n          return 1; /*0x4502f1*/\n      }\n    }\n    else\n    {\n      hWnd = 0; /*0x4501a1*/\n      while ( 1 ) /*0x4501a5*/\n      {\n        for ( j = 0; j < v0 && !hWnd; ++j ) /*0x4501a5*/\n        {\n          sprintf(FileName, \"%c:DATA.MKF\", (unsigned __int8)FileName[j + 32]); /*0x4501c3*/\n          v4 = sub_4573BF(FileName, (int)&unk_4660C4); /*0x4501d5*/\n          if ( v4 ) /*0x4501df*/\n          {\n            byte_476374 = FileName[j + 32]; /*0x4501e5*/\n            fclose(v4); /*0x4501ec*/\n            hWnd = (HWND)1; /*0x4501f4*/\n          }\n        }\n        if ( !hWnd && MessageBoxA(0, &lpText__0, &lpCaption_, 0x15u) != 4 ) /*0x45021e*/\n          break; /*0x45021e*/\n        if ( hWnd ) /*0x450229*/\n          return 1; /*0x450229*/\n      }\n    }\n  }\n  else\n  {\n    MessageBoxA(0, &lpText__1, &lpCaption_, 0x10u); /*0x450179*/\n  }\n  return 0; /*0x4502f6*/\n}"
+  },
+  "p2_0x4502fe": {
+    "addr": "0x4502fe",
+    "code": "HANDLE __cdecl sub_4502FE(LPCSTR lpFileName)\n{\n  int v1; // esi\n  HANDLE hFile; // edi\n  HANDLE hFile_1; // eax\n  DWORD FileSize; // eax\n  SIZE_T dwSize; // ebp\n  CHAR FileName[40]; // [esp+0h] [ebp-40h] BYREF\n  DWORD NumberOfBytesRead; // [esp+28h] [ebp-18h] BYREF\n  LONG Buffer[5]; // [esp+2Ch] [ebp-14h] BYREF\n\n  v1 = 0; /*0x450305*/\n  if ( dword_4762F4[0] == -1 ) /*0x45030e*/\n    sub_456F60(dword_4762F4, 0, 128); /*0x45031b*/\n  hFile = CreateFileA(lpFileName, 0x80000000, 0, 0, 3u, 0x80u, 0); /*0x450341*/\n  if ( hFile != (HANDLE)-1 /*0x450387*/\n    || (sprintf(FileName, \"%s%s\", &byte_476374, lpFileName),\n        hFile_1 = CreateFileA(FileName, 0x80000000, 0, 0, 3u, 0x80u, 0),\n        hFile = hFile_1,\n        hFile_1 != (HANDLE)-1) )\n  {\n    while ( dword_4762F4[2 * v1] ) /*0x450396*/\n      ++v1; /*0x450398*/\n    dword_4762F4[2 * v1] = (int)hFile; /*0x45039b*/\n    ReadFile(hFile, Buffer, 4u, &NumberOfBytesRead, 0); /*0x4503af*/\n    FileSize = GetFileSize(hFile, 0); /*0x4503b8*/\n    dwSize = FileSize - Buffer[0]; /*0x4503c5*/\n    SetFilePointer(hFile, Buffer[0], 0, 0); /*0x4503cd*/\n    dword_4762F8[2 * v1] = sub_456F80(dwSize); /*0x4503dd*/\n    ReadFile(hFile, (LPVOID)dword_4762F8[2 * v1], dwSize, &NumberOfBytesRead, 0); /*0x4503f3*/\n    return (HANDLE)v1; /*0x4503fa*/\n  }\n  return hFile_1; /*0x4503fc*/\n}"
+  },
+  "setup": {
+    "addr": "0x405d2c",
+    "code": "LRESULT __stdcall sub_404E44(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)\n{\n  int n2; // ecx\n  int n12_1; // ebx\n  int v6; // esi\n  int k; // ebx\n  int v9; // ecx\n  int v10; // ebx\n  int v11; // edx\n  int v12; // ebx\n  int v13; // esi\n  int n13; // ebx\n  int v15; // eax\n  int n4_1; // edx\n  int v17; // ebx\n  int n3; // ebx\n  int n4; // ebx\n  int n10; // eax\n  int n12; // ebx\n  int n4_2; // edx\n  int v23; // esi\n  int v24; // ebx\n  int i; // ebx\n  int v26; // ecx\n  bool v27; // zf\n  int j; // ebx\n  int v29; // edi\n  struct tagPAINTSTRUCT lpPaint_; // [esp+10h] [ebp-7Ch] BYREF\n  RECT Rect; // [esp+50h] [ebp-3Ch] BYREF\n  int v32; // [esp+60h] [ebp-2Ch] BYREF\n  LONG top_1; // [esp+64h] [ebp-28h]\n  int n640; // [esp+68h] [ebp-24h]\n  LONG top; // [esp+6Ch] [ebp-20h]\n  _BYTE v36[28]; // [esp+70h] [ebp-1Ch]\n\n  n2 = n2_2; /*0x404e67*/\n  if ( n2_2 ) /*0x404e6f*/\n  {\n    if ( n2_2 == 1 ) /*0x405c4b*/\n    {\n      if ( Msg >= 0xF ) /*0x405c54*/\n      {\n        if ( Msg <= 0xF ) /*0x405c5a*/\n        {\n          (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x405da1*/\n            dword_48A0E0,\n            0,\n            &n108_0,\n            n2_2,\n            0);\n          sub_456180(n3_11, lpBuffer_2, n1280_1); /*0x405db8*/\n          sub_4563F5(n3_11, dword_48A3A4, 4, 10); /*0x405dd2*/\n          sub_4563F5(n3_11, dword_48A3A0, 445, 10); /*0x405dee*/\n          for ( i = 0; i < dword_46CB3C[0] + 2; ++i ) /*0x405df6*/\n          {\n            if ( dword_48A364[3 * i] ) /*0x405e12*/\n            {\n              sub_45663E(n3_11, dword_48A364[3 * i], dword_48A360[3 * i], dword_46CB58[4 * dword_46CB3C[0] + i], 440); /*0x405e47*/\n              v26 = dword_48A360[3 * i]; /*0x405e59*/\n              if ( *(_DWORD *)(dword_48A364[3 * i] + 4) - 1 <= v26 ) /*0x405e61*/\n                dword_48A360[3 * i] = 0; /*0x405e70*/\n              else\n                dword_48A360[3 * i] = v26 + 1; /*0x405e66*/\n            }\n          }\n          (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x405e86*/\n          (*(void (__stdcall **)(int, _DWORD, _DWORD, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x405ea6*/\n            dword_48A0DC,\n            0,\n            0,\n            dword_48A0E0,\n            &lParam_,\n            16);\n          ValidateRect(hWnd, 0); /*0x405eac*/\n          return 0; /*0x405eb3*/\n        }\n        if ( Msg == 275 ) /*0x405c65*/\n        {\n          if ( !byte_46CB01 || wParam != nIDEvent ) /*0x405c7e*/\n            return 0; /*0x405c7e*/\n          n1280_1 += 4; /*0x405c8c*/\n          if ( n1280_1 >= 1280 ) /*0x405c96*/\n          {\n            n2 = 0; /*0x405c98*/\n            n1280_1 = 0; /*0x405c9a*/\n          }\n          n10 = ::n10++; /*0x405ca0*/\n          if ( n10 >= 10 ) /*0x405cb1*/\n          {\n            n12 = 0; /*0x405cb7*/\n            ::n10 = 0; /*0x405cb9*/\n            n4_2 = ::n4; /*0x405cc7*/\n            if ( ::n4 == dword_46CB3C[0] + 2 ) /*0x405cd0*/\n            {\n              KillTimer(hWnd, uIDEvent); /*0x405cda*/\n              uIDEvent = SetTimer(hWnd, nIDEvent, 0x32u, 0); /*0x405cf3*/\n              n2_2 = 2; /*0x405cf8*/\n              sub_4542CE(dword_46CCD0, 0); /*0x405d08*/\n              return 0; /*0x405d08*/\n            }\n            v23 = 0; /*0x405d0d*/\n            do /*0x405d15*/\n            {\n              if ( !lpBuffer__28[n12] ) /*0x405d17*/\n                v36[v23++] = n12; /*0x405d20*/\n              ++n12; /*0x405d11*/\n            }\n            while ( n12 < 12 ); /*0x405d15*/\n            v24 = (unsigned __int8)v36[rand(n2, n4_2) % v23]; /*0x405d35*/\n            lpBuffer__28[v24] = 1; /*0x405d39*/\n            sub_404D0A(::n4, v24); /*0x405d49*/\n            sub_4542CE(dword_482322, 0); /*0x405d58*/\n            sub_40423C(-1); /*0x405d62*/\n            LOBYTE(v24) = ::n4; /*0x405d6a*/\n            HIBYTE(dword_48A35C[3 * ::n4]) |= 0x80u; /*0x405d7a*/\n            ::n4 = v24 + 1; /*0x405d84*/\n          }\n          goto LABEL_25; /*0x405d8a*/\n        }\n      }\n      return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x405c65*/\n    }\n    if ( n2_2 != 2 ) /*0x405ebb*/\n      return 0; /*0x405ebb*/\n    if ( Msg < 0x113 ) /*0x405ec6*/\n    {\n      if ( Msg < 0xF ) /*0x405ef5*/\n        return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x405ef5*/\n      if ( Msg <= 0xF ) /*0x405ef7*/\n      {\n        (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x405f93*/\n          dword_48A0E0,\n          0,\n          &n108_0,\n          1,\n          0);\n        sub_456180(n3_11, lpBuffer_1, n1280_1); /*0x405faa*/\n        if ( !::n10 ) /*0x405fb9*/\n          ::n10 = sub_4563F5(n3_11, dword_48A3A4, 4, n10_0); /*0x405fd9*/\n        if ( !dword_48A3D0 ) /*0x405fe5*/\n          dword_48A3D0 = sub_4563F5(n3_11, dword_48A3A0, n445, 10); /*0x406006*/\n        for ( j = 0; j < dword_46CB3C[0] + 2; ++j ) /*0x40600b*/\n        {\n          if ( !dword_48A3D4[j] ) /*0x406022*/\n          {\n            dword_48A3D4[j] = sub_45663E(n3_11, dword_48A364[3 * j], dword_48A360[3 * j], dword_48A3EC[j], 440); /*0x40605e*/\n            v29 = dword_48A360[3 * j]; /*0x40606e*/\n            if ( *(_DWORD *)(dword_48A364[3 * j] + 4) - 1 <= v29 ) /*0x406076*/\n              dword_48A360[3 * j] = 0; /*0x406085*/\n            else\n              dword_48A360[3 * j] = v29 + 1; /*0x40607b*/\n          }\n        }\n        (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x40609b*/\n        (*(void (__stdcall **)(int, _DWORD, _DWORD, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x4060bb*/\n          dword_48A0DC,\n          0,\n          0,\n          dword_48A0E0,\n          &lParam_,\n          16);\n        ValidateRect(hWnd, 0); /*0x4060c1*/\n        if ( dword_48A3D8[dword_46CB3C[0]] ) /*0x4060cd*/\n          PostMessageA(hWnd, 0x100u, 0, 0); /*0x4060e4*/\n        return 0; /*0x4060e4*/\n      }\n      v27 = Msg == 256; /*0x405efd*/\n    }\n    else\n    {\n      if ( Msg <= 0x113 ) /*0x405ec8*/\n      {\n        if ( !byte_46CB01 || wParam != nIDEvent ) /*0x405f17*/\n          return 0; /*0x405f17*/\n        n6_0 += n2_2; /*0x405f1d*/\n        if ( n30 < 30 ) /*0x405f2c*/\n          ++n30; /*0x405f31*/\n        n10_0 -= n6_0; /*0x405f3c*/\n        n445 += n6_0; /*0x405f42*/\n        dword_48A3EC[0] += n30; /*0x405f4d*/\n        dword_48A3F0 += n30; /*0x405f53*/\n        dword_48A3F4 += n30; /*0x405f59*/\n        dword_48A3F8 += n30; /*0x405f5f*/\n        goto LABEL_25; /*0x405f65*/\n      }\n      if ( Msg < 0x202 ) /*0x405ecf*/\n        return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x405ecf*/\n      if ( Msg <= 0x202 ) /*0x405ed1*/\n      {\nLABEL_165:\n        KillTimer(hWnd, uIDEvent); /*0x405f6a*/\n        PostMessageA_w(1); /*0x405f7b*/\n        return 0; /*0x405f7b*/\n      }\n      v27 = Msg == 517; /*0x405ed7*/\n    }\n    if ( !v27 ) /*0x405edc*/\n      return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x405edc*/\n    goto LABEL_165; /*0x405edc*/\n  }\n  if ( Msg < 0x201 ) /*0x404e7a*/\n  {\n    if ( Msg < 0x113 ) /*0x404eb5*/\n    {\n      if ( Msg != 15 ) /*0x404ed0*/\n        return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x404ed0*/\n      BeginPaint(hWnd, &lpPaint_); /*0x405b08*/\n      if ( lpPaint_.rcPaint.top || lpPaint_.rcPaint.bottom != 480 ) /*0x405b22*/\n      {\n        sub_40235D(&lpPaint_.rcPaint.left); /*0x405c00*/\n        (*(void (__stdcall **)(int, LONG, LONG, int, RECT *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x405c28*/\n          dword_48A0DC,\n          lpPaint_.rcPaint.left,\n          lpPaint_.rcPaint.top,\n          dword_48A0E0,\n          &lpPaint_.rcPaint,\n          16);\n        sub_402250(&lpPaint_.rcPaint.left); /*0x405c30*/\n      }\n      else\n      {\n        sub_4024C0(&Rect); /*0x405b2d*/\n        v32 = 0; /*0x405b37*/\n        n640 = 640; /*0x405b3b*/\n        if ( Rect.top > 0 ) /*0x405b49*/\n        {\n          top_1 = 0; /*0x405b4d*/\n          top = Rect.top; /*0x405b51*/\n          (*(void (__stdcall **)(int, _DWORD, _DWORD, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x405b75*/\n            dword_48A0DC,\n            0,\n            0,\n            dword_48A0E0,\n            &v32,\n            16);\n        }\n        top_1 = Rect.top; /*0x405b7c*/\n        top = Rect.bottom; /*0x405b84*/\n        sub_40235D(0); /*0x405b8a*/\n        (*(void (__stdcall **)(int, int, LONG, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x405bb2*/\n          dword_48A0DC,\n          v32,\n          top_1,\n          dword_48A0E0,\n          &v32,\n          16);\n        sub_402250(0); /*0x405bb7*/\n        if ( Rect.bottom < 480 ) /*0x405bc8*/\n        {\n          top_1 = Rect.bottom; /*0x405bca*/\n          top = 480; /*0x405bce*/\n          (*(void (__stdcall **)(int, int, LONG, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x405bf6*/\n            dword_48A0DC,\n            v32,\n            Rect.bottom,\n            dword_48A0E0,\n            &v32,\n            16);\n        }\n      }\n      EndPaint(hWnd, &lpPaint_); /*0x405c3c*/\n    }\n    else if ( Msg <= 0x113 ) /*0x404eb7*/\n    {\n      if ( byte_46CB01 && wParam == nIDEvent ) /*0x404ffa*/\n      {\n        n1280_1 += 4; /*0x405005*/\n        if ( n1280_1 >= 1280 ) /*0x405011*/\n          n1280_1 = n2_2; /*0x405013*/\n        (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x40502c*/\n          dword_48A0E0,\n          0,\n          &n108_0,\n          1,\n          0);\n        sub_456180(n3_11, lpBuffer_2, n1280_1); /*0x405043*/\n        for ( k = 0; k < dword_46CB3C[0] + 2; ++k ) /*0x40504b*/\n        {\n          if ( dword_48A364[3 * k] ) /*0x405067*/\n          {\n            sub_45663E(n3_11, dword_48A364[3 * k], dword_48A360[3 * k], dword_46CB58[4 * dword_46CB3C[0] + k], 440); /*0x40509c*/\n            v9 = dword_48A360[3 * k]; /*0x4050ae*/\n            if ( *(_DWORD *)(dword_48A364[3 * k] + 4) - 1 <= v9 ) /*0x4050b6*/\n              dword_48A360[3 * k] = 0; /*0x4050c5*/\n            else\n              dword_48A360[3 * k] = v9 + 1; /*0x4050bb*/\n          }\n        }\n        (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x4050db*/\n        sub_4563F5(n3_11, dword_48A3A4, 4, 10); /*0x4050f3*/\n        sub_4563F5(n3_11, dword_48A3A0, 445, 10); /*0x40510f*/\n        InvalidateRect(hWnd, 0, 0); /*0x40511c*/\n        if ( lParam_2 ) /*0x40512a*/\n        {\n          if ( ++n2_4 == 10 ) /*0x405140*/\n          {\n            ::n13 = 1; /*0x405146*/\n            PostMessageA(hWnd, 0x202u, 0, 0); /*0x405157*/\n          }\n        }\n      }\n    }\n    else\n    {\n      if ( Msg != 512 ) /*0x404ec2*/\n        return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x404ec2*/\n      if ( !lParam_2 ) /*0x40516a*/\n      {\n        if ( (unsigned __int16)lParam < 8u /*0x4051a4*/\n          || (unsigned __int16)lParam >= 0x1B8u\n          || HIWORD(lParam) < 0xFu\n          || HIWORD(lParam) >= 0x9Fu )\n        {\n          if ( byte_48A410 != -1 ) /*0x40520f*/\n          {\n            byte_48A410 = -1; /*0x405211*/\n            sub_40423C(-1); /*0x40521a*/\n          }\n        }\n        else\n        {\n          v10 = ((unsigned __int16)lParam - 8) / 72 + 6 * ((HIWORD(lParam) - 15) / 72); /*0x4051cd*/\n          if ( v10 != byte_48A410 ) /*0x4051d8*/\n          {\n            byte_48A410 = ((unsigned __int16)lParam - 8) / 72 + 6 * ((HIWORD(lParam) - 15) / 72); /*0x4051da*/\n            if ( !lpBuffer__28[(char)v10] ) /*0x4051e3*/\n            {\n              sub_4542CE(&dword_48231A, n2_2); /*0x4051f3*/\n              sub_40423C(byte_48A410); /*0x405203*/\n            }\n          }\n        }\n        if ( n2_3 != -1 ) /*0x40522c*/\n        {\n          if ( (unsigned __int16)lParam < word_46CC88[4 * n2_3] /*0x405261*/\n            || (v11 = word_46CC8A[4 * n2_3], HIWORD(lParam) < v11)\n            || (unsigned __int16)lParam >= word_46CC8C[4 * n2_3]\n            || HIWORD(lParam) >= word_46CC8E[4 * n2_3] )\n          {\n            if ( byte_48A40C != -1 ) /*0x4052a3*/\n            {\n              byte_48A40C = -1; /*0x4052a9*/\n              sub_40482C(n2_3, -1); /*0x4052ba*/\n            }\n          }\n          else\n          {\n            v12 = (HIWORD(lParam) - v11) / 23; /*0x405273*/\n            if ( v12 != byte_48A40C ) /*0x40527e*/\n            {\n              byte_48A40C = (HIWORD(lParam) - v11) / 23; /*0x405284*/\n              sub_40482C(n2_3, (char)v12); /*0x40528f*/\n            }\n          }\n        }\n      }\n    }\n    return 0; /*0x40528f*/\n  }\n  if ( Msg <= 0x201 ) /*0x404e7c*/\n  {\nLABEL_62:\n    HIWORD(v13) = HIWORD(lParam_2); /*0x4052bc*/\n    if ( lParam_2 ) /*0x4052c4*/\n      return 0; /*0x4052c4*/\n    LOWORD(v13) = lParam; /*0x4052d7*/\n    if ( n2_3 != -1 ) /*0x4052e6*/\n    {\n      if ( byte_48A40C == -1 ) /*0x405679*/\n      {\n        n2_3 = -1; /*0x405737*/\n        byte_48A40C = -1; /*0x40573d*/\n      }\n      else\n      {\n        if ( byte_48A40C != dword_46CB3C[n2_3] ) /*0x405688*/\n        {\n          dword_46CB3C[n2_3] = byte_48A40C; /*0x40568e*/\n          if ( n2_3 ) /*0x40569b*/\n          {\n            if ( n2_3 == 2 ) /*0x40569f*/\n            {\n              for ( n4 = 0; n4 < 4; ++n4 ) /*0x4056ee*/\n              {\n                if ( dword_48A364[3 * n4] ) /*0x405702*/\n                  sub_404D0A(n4, dword_48A35C[3 * n4]); /*0x405713*/\n              }\n            }\n          }\n          else\n          {\n            for ( n3 = 3; n3 >= dword_46CB3C[0] + 2; --n3 ) /*0x4056a6*/\n            {\n              if ( dword_48A364[3 * n3] ) /*0x4056c1*/\n              {\n                sub_404D82(dword_48A35C[3 * n3]); /*0x4056d1*/\n                --::n4; /*0x4056d9*/\n              }\n            }\n            sub_40423C(-1); /*0x4056e4*/\n          }\n        }\n        n2_3 = -1; /*0x40571f*/\n        byte_48A40C = -1; /*0x405725*/\n      }\n      goto LABEL_99; /*0x405725*/\n    }\n    for ( n13 = 0; n13 < 13; ++n13 ) /*0x4052ec*/\n    {\n      if ( v13 >= word_46CC18[4 * n13] /*0x405325*/\n        && HIWORD(lParam) >= word_46CC1A[4 * n13]\n        && v13 < word_46CC1C[4 * n13]\n        && HIWORD(lParam) < word_46CC1E[4 * n13] )\n      {\n        break; /*0x405325*/\n      }\n    }\n    switch ( n13 ) /*0x405332*/\n    {\n      case 0: /*0x405332*/\n        v15 = byte_48A410; /*0x405339*/\n        if ( byte_48A410 == -1 ) /*0x405343*/\n          return 0; /*0x405343*/\n        if ( lpBuffer__28[byte_48A410] || (n4_1 = ::n4, ::n4 >= dword_46CB3C[0] + 2) ) /*0x405364*/\n        {\n          if ( lpBuffer__28[byte_48A410] != 1 ) /*0x4053ac*/\n            return 0; /*0x4053ac*/\n          sub_404D82(byte_48A410); /*0x4053b3*/\n          lpBuffer__28[byte_48A410] = 0; /*0x4053c4*/\n          --::n4; /*0x4053d1*/\n          sub_4542CE(dword_482322, 0); /*0x4053d7*/\n        }\n        else\n        {\n          lpBuffer__28[byte_48A410] = 1; /*0x405366*/\n          sub_404D0A(n4_1, v15); /*0x40536f*/\n          ++::n4; /*0x40537e*/\n          sub_4542CE(dword_482322, 0); /*0x405384*/\n        }\n        sub_40423C(byte_48A410); /*0x405394*/\n        break; /*0x405399*/\n      case 1: /*0x405332*/\n      case 2: /*0x405332*/\n        ::n13 = n13; /*0x4053d9*/\n        sub_456280( /*0x40541d*/\n          dword_48A3A0,\n          12 * (n13 + 1) + dword_48A3B8 + 12,\n          word_46CC18[4 * n13] - 445,\n          word_46CC1A[4 * n13] - 10);\n        Rect.left = word_46CC18[4 * n13]; /*0x40542c*/\n        Rect.right = word_46CC1C[4 * n13]; /*0x405437*/\n        Rect.top = word_46CC1A[4 * n13]; /*0x405442*/\n        Rect.bottom = word_46CC1E[4 * n13]; /*0x40544d*/\n        (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x405464*/\n          dword_48A0E0,\n          0,\n          &n108_0,\n          1,\n          0);\n        sub_45643D( /*0x405498*/\n          n3_11,\n          dword_48A3A0,\n          Rect.left,\n          Rect.top,\n          Rect.left - 445,\n          Rect.top - 10,\n          Rect.right - Rect.left,\n          Rect.bottom - Rect.top);\n        (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x4054aa*/\n        InvalidateRect(hWnd, &Rect, 0); /*0x4054b8*/\n        sub_4542CE((_DWORD *)&dword_48231A + 2 * n13 + 2, 0); /*0x4054cb*/\n        return 0; /*0x4054cb*/\n      case 3: /*0x405332*/\n      case 4: /*0x405332*/\n      case 5: /*0x405332*/\n      case 6: /*0x405332*/\n      case 7: /*0x405332*/\n      case 8: /*0x405332*/\n        ::n13 = n13; /*0x4054d8*/\n        sub_456280(dword_48A3A0, dword_48A3B8 + 60, word_46CC18[4 * n13] - 445, word_46CC1A[4 * n13] - 10); /*0x405508*/\n        Rect.left = word_46CC18[4 * n13]; /*0x405518*/\n        Rect.right = word_46CC1C[4 * n13]; /*0x405524*/\n        Rect.top = word_46CC1A[4 * n13]; /*0x405530*/\n        Rect.bottom = word_46CC1E[4 * n13]; /*0x40553c*/\n        (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x405553*/\n          dword_48A0E0,\n          0,\n          &n108_0,\n          1,\n          0);\n        sub_45643D( /*0x405586*/\n          n3_11,\n          dword_48A3A0,\n          Rect.left,\n          Rect.top,\n          Rect.left - 445,\n          Rect.top - 10,\n          Rect.right - Rect.left,\n          Rect.bottom - Rect.top);\n        (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x405598*/\n        InvalidateRect(hWnd, &Rect, 0); /*0x4055a6*/\n        sub_4542CE(&dword_48231A, 0); /*0x4055b4*/\n        return 0; /*0x4055b4*/\n      case 9: /*0x405332*/\n      case 10: /*0x405332*/\n      case 11: /*0x405332*/\n      case 12: /*0x405332*/\n        v17 = n13 - 9; /*0x4055b9*/\n        if ( v17 != lpBuffer__40 ) /*0x4055c2*/\n        {\n          sub_4542CE(dword_482322, 0); /*0x4055cf*/\n          lpBuffer__40 = v17; /*0x4055d7*/\n          sub_456280(dword_48A3A0, dword_48A390, 138, 15); /*0x4055f2*/\n          sub_4562A5(dword_48A3A0, dword_48A3B8 + 108, 150, word_46CC80[lpBuffer__40]); /*0x40561d*/\n          sub_450441(dword_48A3B0, lpBuffer__40 + 4 * lpBuffer__1, lpBuffer_1, 0); /*0x405645*/\n          sub_4552B7(lpBuffer_2, lpBuffer_1, 614400, -16); /*0x405662*/\n          goto LABEL_25; /*0x40566a*/\n        }\n        return 0; /*0x4055c2*/\n      default:\n        return 0;\n    }\n    return 0; /*0x404fe8*/\n  }\n  if ( Msg < 0x203 ) /*0x404e87*/\n  {\n    if ( ::n13 == -1 ) /*0x40574f*/\n      return 0; /*0x40574f*/\n    if ( !::n13 ) /*0x40575c*/\n      goto LABEL_110; /*0x40575c*/\n    if ( (unsigned __int8)::n13 <= 1u ) /*0x405762*/\n    {\n      sub_456280(dword_48A3A0, dword_48A398, word_46CC18[4 * ::n13] - 445, word_46CC1A[4 * ::n13] - 10); /*0x4057a3*/\n      Rect.left = word_46CC18[4 * ::n13]; /*0x4057ba*/\n      Rect.right = word_46CC1C[4 * ::n13]; /*0x4057cd*/\n      Rect.top = word_46CC1A[4 * ::n13]; /*0x4057e0*/\n      Rect.bottom = word_46CC1E[4 * ::n13]; /*0x4057f3*/\n      (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x405811*/\n        dword_48A0E0,\n        0,\n        &n108_0,\n        1,\n        0);\n      sub_45643D( /*0x405844*/\n        n3_11,\n        dword_48A3A0,\n        Rect.left,\n        Rect.top,\n        Rect.left - 445,\n        Rect.top - 10,\n        Rect.right - Rect.left,\n        Rect.bottom - Rect.top);\n      (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x40585c*/\n      InvalidateRect(hWnd, &Rect, 0); /*0x40586a*/\n      if ( ::n4 ) /*0x405878*/\n      {\n        sub_456F60(&::n10, 0, 24); /*0x405888*/\n        ::n10 = 10; /*0x405895*/\n        n10_0 = 10; /*0x40589b*/\n        n445 = 445; /*0x4058a1*/\n        dword_48A3EC[0] = dword_46CB58[4 * dword_46CB3C[0]]; /*0x4058b9*/\n        dword_48A3F0 = dword_46CB5C[4 * dword_46CB3C[0]]; /*0x4058cc*/\n        dword_48A3F4 = dword_46CB60[4 * dword_46CB3C[0]]; /*0x4058df*/\n        dword_48A3F8 = dword_46CB64[4 * dword_46CB3C[0]]; /*0x4058f2*/\n        n6_0 = 6; /*0x4058f7*/\n        n30 = 4; /*0x405901*/\n        n2_2 = 1; /*0x40590b*/\n        sub_402460(0); /*0x405917*/\n      }\n      goto LABEL_111; /*0x405917*/\n    }\n    if ( ::n13 == 2 ) /*0x405766*/\n    {\n      sub_456280(dword_48A3A0, dword_48A394, unk_46CC28 - 445, unk_46CC2A - 10); /*0x405956*/\n      Rect.left = word_46CC18[4 * ::n13]; /*0x40596d*/\n      Rect.right = word_46CC1C[4 * ::n13]; /*0x405980*/\n      Rect.top = word_46CC1A[4 * ::n13]; /*0x405993*/\n      Rect.bottom = word_46CC1E[4 * ::n13]; /*0x4059a6*/\n      (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x4059c4*/\n        dword_48A0E0,\n        0,\n        &n108_0,\n        1,\n        0);\n      sub_45643D( /*0x4059f7*/\n        n3_11,\n        dword_48A3A0,\n        Rect.left,\n        Rect.top,\n        Rect.left - 445,\n        Rect.top - 10,\n        Rect.right - Rect.left,\n        Rect.bottom - Rect.top);\n      (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x405a0f*/\n      InvalidateRect(hWnd, &Rect, 0); /*0x405a1d*/\n      sub_402460(0); /*0x405a26*/\n      KillTimer(hWnd, uIDEvent); /*0x405a36*/\n      PostMessageA_w(0); /*0x405a3f*/\n    }\n    else\n    {\nLABEL_110:\n      sub_456280(dword_48A3A0, dword_48A39C, word_46CC18[4 * ::n13] - 445, word_46CC1A[4 * ::n13] - 10); /*0x405a78*/\n      n2_3 = ::n13 - 3; /*0x405a87*/\n      sub_40482C((char)(::n13 - 3), byte_48A40C); /*0x405a9c*/\n    }\nLABEL_111:\n    ::n13 = -1; /*0x405aa4*/\n    return 0; /*0x405aab*/\n  }\n  if ( Msg <= 0x203 ) /*0x404e8d*/\n    goto LABEL_62; /*0x404e8d*/\n  if ( Msg >= 0x205 ) /*0x404e98*/\n  {\n    if ( Msg > 0x205 ) /*0x404e9e*/\n    {\n      if ( Msg != 1025 ) /*0x404ea9*/\n        return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x404ea9*/\n      n1280_1 = n2_2; /*0x404edb*/\n      n2_4 = n2_2; /*0x404ee1*/\n      lParam_2 = lParam; /*0x404ee7*/\n      ::n13 = -1; /*0x404eef*/\n      n2_3 = -1; /*0x404ef5*/\n      byte_48A40C = -1; /*0x404efb*/\n      byte_48A410 = -1; /*0x404f01*/\n      hWnd_0 = hWnd; /*0x404f07*/\n      (*(void (__stdcall **)(int, int, int *, int, int))(*(_DWORD *)dword_48A0E0 + 100))( /*0x404f25*/\n        dword_48A0E0,\n        n2_2,\n        &n108_0,\n        1,\n        n2_2);\n      memcpy(n3_11, lpBuffer_2, 614400); /*0x404f3b*/\n      (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x404f53*/\n      n12_1 = 0; /*0x404f59*/\n      v6 = 0; /*0x404f5b*/\n      do /*0x404f63*/\n      {\n        if ( !lpBuffer__28[n12_1] ) /*0x404f65*/\n          ++v6; /*0x404f6e*/\n        ++n12_1; /*0x404f5f*/\n      }\n      while ( n12_1 < 12 ); /*0x404f63*/\n      if ( v6 < dword_46CB3C[0] + 1 ) /*0x404f79*/\n        dword_46CB3C[0] = v6 - 1; /*0x404f7c*/\n      sub_40423C(byte_48A410); /*0x404f8a*/\n      sub_404504(); /*0x404f92*/\n      uIDEvent = SetTimer(hWnd, nIDEvent, 0x64u, 0); /*0x404faa*/\n      if ( lParam_2 ) /*0x404fb6*/\n      {\n        ::n4 = 1; /*0x404fcc*/\n      }\n      else\n      {\n        sub_402460(1); /*0x404fba*/\n        ::n4 = 0; /*0x404fc4*/\n      }\nLABEL_25:\n      InvalidateRect(hWnd, 0, 0); /*0x404fd3*/\n      return 0; /*0x404fd8*/\n    }\n    if ( lParam_2 ) /*0x405ab8*/\n      return 0; /*0x405ab8*/\n    if ( n2_3 == -1 ) /*0x405ac8*/\n    {\n      sub_402460(lParam_2); /*0x405ade*/\n      KillTimer(hWnd, uIDEvent); /*0x405aee*/\n      PostMessageA_w(0); /*0x405af7*/\n      return 0; /*0x405af7*/\n    }\n    n2_3 = -1; /*0x405acc*/\n    byte_48A40C = -1; /*0x405ad2*/\nLABEL_99:\n    sub_404504(); /*0x40572b*/\n    return 0; /*0x405730*/\n  }\n  return DefWindowProcA(hWnd, Msg, wParam, lParam); /*0x404fe1*/\n}"
+  },
+  "input_call_sites": {
+    "result": [
+      {
+        "addr": "0x462310",
+        "xrefs": [
+          {
+            "addr": "0x40111f",
+            "type": "code",
+            "fn": {
+              "addr": "0x401010",
+              "name": "fn",
+              "size": "0x533"
+            }
+          },
+          {
+            "addr": "0x401142",
+            "type": "code",
+            "fn": {
+              "addr": "0x401010",
+              "name": "fn",
+              "size": "0x533"
+            }
+          },
+          {
+            "addr": "0x4011d3",
+            "type": "code",
+            "fn": {
+              "addr": "0x401010",
+              "name": "fn",
+              "size": "0x533"
+            }
+          },
+          {
+            "addr": "0x401918",
+            "type": "code",
+            "fn": {
+              "addr": "0x4018e7",
+              "name": "sub_4018E7",
+              "size": "0x7f"
+            }
+          },
+          {
+            "addr": "0x401979",
+            "type": "code",
+            "fn": {
+              "addr": "0x401966",
+              "name": "PostMessageA_w",
+              "size": "0x1b"
+            }
+          },
+          {
+            "addr": "0x4019aa",
+            "type": "code",
+            "fn": {
+              "addr": "0x401981",
+              "name": "sub_401981",
+              "size": "0x51"
+            }
+          },
+          {
+            "addr": "0x405157",
+            "type": "code",
+            "fn": {
+              "addr": "0x404e44",
+              "name": "sub_404E44",
+              "size": "0x12a5"
+            }
+          },
+          {
+            "addr": "0x406273",
+            "type": "code",
+            "fn": {
+              "addr": "0x4060e9",
+              "name": "sub_4060E9",
+              "size": "0xa2b"
+            }
+          },
+          {
+            "addr": "0x406d34",
+            "type": "code",
+            "fn": {
+              "addr": "0x406b14",
+              "name": "sub_406B14",
+              "size": "0x2d3"
+            }
+          },
+          {
+            "addr": "0x41497a",
+            "type": "code",
+            "fn": {
+              "addr": "0x414858",
+              "name": "sub_414858",
+              "size": "0x34c"
+            }
+          },
+          {
+            "addr": "0x414ca9",
+            "type": "code",
+            "fn": {
+              "addr": "0x414bbc",
+              "name": "sub_414BBC",
+              "size": "0x411"
+            }
+          },
+          {
+            "addr": "0x415090",
+            "type": "code",
+            "fn": {
+              "addr": "0x414fcd",
+              "name": "sub_414FCD",
+              "size": "0x248"
+            }
+          },
+          {
+            "addr": "0x41e2a1",
+            "type": "code",
+            "fn": {
+              "addr": "0x41dda9",
+              "name": "sub_41DDA9",
+              "size": "0x59c"
+            }
+          },
+          {
+            "addr": "0x4243e6",
+            "type": "code",
+            "fn": {
+              "addr": "0x423cf3",
+              "name": "sub_423CF3",
+              "size": "0x79f"
+            }
+          },
+          {
+            "addr": "0x425fb6",
+            "type": "code",
+            "fn": {
+              "addr": "0x4258c1",
+              "name": "sub_4258C1",
+              "size": "0x7ce"
+            }
+          },
+          {
+            "addr": "0x426542",
+            "type": "code",
+            "fn": {
+              "addr": "0x42608f",
+              "name": "sub_42608F",
+              "size": "0x715"
+            }
+          },
+          {
+            "addr": "0x426667",
+            "type": "code",
+            "fn": {
+              "addr": "0x42608f",
+              "name": "sub_42608F",
+              "size": "0x715"
+            }
+          },
+          {
+            "addr": "0x426ae6",
+            "type": "code",
+            "fn": {
+              "addr": "0x4267a4",
+              "name": "sub_4267A4",
+              "size": "0x48a"
+            }
+          },
+          {
+            "addr": "0x426b75",
+            "type": "code",
+            "fn": {
+              "addr": "0x4267a4",
+              "name": "sub_4267A4",
+              "size": "0x48a"
+            }
+          },
+          {
+            "addr": "0x426f03",
+            "type": "code",
+            "fn": {
+              "addr": "0x426c2e",
+              "name": "sub_426C2E",
+              "size": "0x40d"
+            }
+          },
+          {
+            "addr": "0x426f90",
+            "type": "code",
+            "fn": {
+              "addr": "0x426c2e",
+              "name": "sub_426C2E",
+              "size": "0x40d"
+            }
+          },
+          {
+            "addr": "0x427b69",
+            "type": "code",
+            "fn": {
+              "addr": "0x42704e",
+              "name": "sub_42704E",
+              "size": "0xbd3"
+            }
+          },
+          {
+            "addr": "0x4281f6",
+            "type": "code",
+            "fn": {
+              "addr": "0x427c21",
+              "name": "sub_427C21",
+              "size": "0x854"
+            }
+          },
+          {
+            "addr": "0x428364",
+            "type": "code",
+            "fn": {
+              "addr": "0x427c21",
+              "name": "sub_427C21",
+              "size": "0x854"
+            }
+          },
+          {
+            "addr": "0x42b0cc",
+            "type": "code",
+            "fn": {
+              "addr": "0x42aaff",
+              "name": "sub_42AAFF",
+              "size": "0x7ed"
+            }
+          },
+          {
+            "addr": "0x42b1ca",
+            "type": "code",
+            "fn": {
+              "addr": "0x42aaff",
+              "name": "sub_42AAFF",
+              "size": "0x7ed"
+            }
+          },
+          {
+            "addr": "0x42b518",
+            "type": "code",
+            "fn": {
+              "addr": "0x42b3eb",
+              "name": "sub_42B3EB",
+              "size": "0x1a4"
+            }
+          },
+          {
+            "addr": "0x42d486",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42d80c",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42d877",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42dbdd",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e389",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e606",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e66e",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e875",
+            "type": "code",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42f8ed",
+            "type": "code",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x42faef",
+            "type": "code",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x430022",
+            "type": "code",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x430056",
+            "type": "code",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x4301a4",
+            "type": "code",
+            "fn": {
+              "addr": "0x43010c",
+              "name": "sub_43010C",
+              "size": "0x14c0"
+            }
+          },
+          {
+            "addr": "0x4326a6",
+            "type": "code",
+            "fn": {
+              "addr": "0x4325c2",
+              "name": "sub_4325C2",
+              "size": "0xac6"
+            }
+          },
+          {
+            "addr": "0x432a40",
+            "type": "code",
+            "fn": {
+              "addr": "0x4325c2",
+              "name": "sub_4325C2",
+              "size": "0xac6"
+            }
+          },
+          {
+            "addr": "0x433166",
+            "type": "code",
+            "fn": {
+              "addr": "0x433088",
+              "name": "sub_433088",
+              "size": "0x782"
+            }
+          },
+          {
+            "addr": "0x43463a",
+            "type": "code",
+            "fn": {
+              "addr": "0x434492",
+              "name": "sub_434492",
+              "size": "0xbbd"
+            }
+          },
+          {
+            "addr": "0x434865",
+            "type": "code",
+            "fn": {
+              "addr": "0x434492",
+              "name": "sub_434492",
+              "size": "0xbbd"
+            }
+          },
+          {
+            "addr": "0x435183",
+            "type": "code",
+            "fn": {
+              "addr": "0x435062",
+              "name": "sub_435062",
+              "size": "0xfd2"
+            }
+          },
+          {
+            "addr": "0x435788",
+            "type": "code",
+            "fn": {
+              "addr": "0x435062",
+              "name": "sub_435062",
+              "size": "0xfd2"
+            }
+          },
+          {
+            "addr": "0x43615b",
+            "type": "code",
+            "fn": {
+              "addr": "0x436034",
+              "name": "sub_436034",
+              "size": "0x634"
+            }
+          },
+          {
+            "addr": "0x4370ab",
+            "type": "code",
+            "fn": {
+              "addr": "0x436ef8",
+              "name": "sub_436EF8",
+              "size": "0xad1"
+            }
+          },
+          {
+            "addr": "0x437588",
+            "type": "code",
+            "fn": {
+              "addr": "0x436ef8",
+              "name": "sub_436EF8",
+              "size": "0xad1"
+            }
+          },
+          {
+            "addr": "0x437621",
+            "type": "code",
+            "fn": {
+              "addr": "0x436ef8",
+              "name": "sub_436EF8",
+              "size": "0xad1"
+            }
+          },
+          {
+            "addr": "0x437f1c",
+            "type": "code",
+            "fn": {
+              "addr": "0x437e61",
+              "name": "sub_437E61",
+              "size": "0x1d99"
+            }
+          },
+          {
+            "addr": "0x43a3d0",
+            "type": "code",
+            "fn": {
+              "addr": "0x43a2dd",
+              "name": "sub_43A2DD",
+              "size": "0x1af3"
+            }
+          },
+          {
+            "addr": "0x43b234",
+            "type": "code",
+            "fn": {
+              "addr": "0x43a2dd",
+              "name": "sub_43A2DD",
+              "size": "0x1af3"
+            }
+          },
+          {
+            "addr": "0x43bd34",
+            "type": "code",
+            "fn": {
+              "addr": "0x43a2dd",
+              "name": "sub_43A2DD",
+              "size": "0x1af3"
+            }
+          },
+          {
+            "addr": "0x43cbe2",
+            "type": "code",
+            "fn": {
+              "addr": "0x43caab",
+              "name": "sub_43CAAB",
+              "size": "0x859"
+            }
+          },
+          {
+            "addr": "0x43cf5f",
+            "type": "code",
+            "fn": {
+              "addr": "0x43caab",
+              "name": "sub_43CAAB",
+              "size": "0x859"
+            }
+          },
+          {
+            "addr": "0x43db2e",
+            "type": "code",
+            "fn": {
+              "addr": "0x43da27",
+              "name": "sub_43DA27",
+              "size": "0xf7d"
+            }
+          },
+          {
+            "addr": "0x43dbca",
+            "type": "code",
+            "fn": {
+              "addr": "0x43da27",
+              "name": "sub_43DA27",
+              "size": "0xf7d"
+            }
+          },
+          {
+            "addr": "0x445f77",
+            "type": "code",
+            "fn": {
+              "addr": "0x445e4d",
+              "name": "sub_445E4D",
+              "size": "0x927"
+            }
+          },
+          {
+            "addr": "0x452d82",
+            "type": "code",
+            "fn": {
+              "addr": "0x452c02",
+              "name": "sub_452C02",
+              "size": "0x942"
+            }
+          },
+          {
+            "addr": "0x452fc2",
+            "type": "code",
+            "fn": {
+              "addr": "0x452c02",
+              "name": "sub_452C02",
+              "size": "0x942"
+            }
+          },
+          {
+            "addr": "0x40111f",
+            "type": "data",
+            "fn": {
+              "addr": "0x401010",
+              "name": "fn",
+              "size": "0x533"
+            }
+          },
+          {
+            "addr": "0x401142",
+            "type": "data",
+            "fn": {
+              "addr": "0x401010",
+              "name": "fn",
+              "size": "0x533"
+            }
+          },
+          {
+            "addr": "0x4011d3",
+            "type": "data",
+            "fn": {
+              "addr": "0x401010",
+              "name": "fn",
+              "size": "0x533"
+            }
+          },
+          {
+            "addr": "0x401918",
+            "type": "data",
+            "fn": {
+              "addr": "0x4018e7",
+              "name": "sub_4018E7",
+              "size": "0x7f"
+            }
+          },
+          {
+            "addr": "0x401979",
+            "type": "data",
+            "fn": {
+              "addr": "0x401966",
+              "name": "PostMessageA_w",
+              "size": "0x1b"
+            }
+          },
+          {
+            "addr": "0x4019aa",
+            "type": "data",
+            "fn": {
+              "addr": "0x401981",
+              "name": "sub_401981",
+              "size": "0x51"
+            }
+          },
+          {
+            "addr": "0x405157",
+            "type": "data",
+            "fn": {
+              "addr": "0x404e44",
+              "name": "sub_404E44",
+              "size": "0x12a5"
+            }
+          },
+          {
+            "addr": "0x406273",
+            "type": "data",
+            "fn": {
+              "addr": "0x4060e9",
+              "name": "sub_4060E9",
+              "size": "0xa2b"
+            }
+          },
+          {
+            "addr": "0x406d34",
+            "type": "data",
+            "fn": {
+              "addr": "0x406b14",
+              "name": "sub_406B14",
+              "size": "0x2d3"
+            }
+          },
+          {
+            "addr": "0x41497a",
+            "type": "data",
+            "fn": {
+              "addr": "0x414858",
+              "name": "sub_414858",
+              "size": "0x34c"
+            }
+          },
+          {
+            "addr": "0x414ca9",
+            "type": "data",
+            "fn": {
+              "addr": "0x414bbc",
+              "name": "sub_414BBC",
+              "size": "0x411"
+            }
+          },
+          {
+            "addr": "0x415090",
+            "type": "data",
+            "fn": {
+              "addr": "0x414fcd",
+              "name": "sub_414FCD",
+              "size": "0x248"
+            }
+          },
+          {
+            "addr": "0x41e2a1",
+            "type": "data",
+            "fn": {
+              "addr": "0x41dda9",
+              "name": "sub_41DDA9",
+              "size": "0x59c"
+            }
+          },
+          {
+            "addr": "0x4243e6",
+            "type": "data",
+            "fn": {
+              "addr": "0x423cf3",
+              "name": "sub_423CF3",
+              "size": "0x79f"
+            }
+          },
+          {
+            "addr": "0x425fb6",
+            "type": "data",
+            "fn": {
+              "addr": "0x4258c1",
+              "name": "sub_4258C1",
+              "size": "0x7ce"
+            }
+          },
+          {
+            "addr": "0x426542",
+            "type": "data",
+            "fn": {
+              "addr": "0x42608f",
+              "name": "sub_42608F",
+              "size": "0x715"
+            }
+          },
+          {
+            "addr": "0x426667",
+            "type": "data",
+            "fn": {
+              "addr": "0x42608f",
+              "name": "sub_42608F",
+              "size": "0x715"
+            }
+          },
+          {
+            "addr": "0x426ae6",
+            "type": "data",
+            "fn": {
+              "addr": "0x4267a4",
+              "name": "sub_4267A4",
+              "size": "0x48a"
+            }
+          },
+          {
+            "addr": "0x426b75",
+            "type": "data",
+            "fn": {
+              "addr": "0x4267a4",
+              "name": "sub_4267A4",
+              "size": "0x48a"
+            }
+          },
+          {
+            "addr": "0x426f03",
+            "type": "data",
+            "fn": {
+              "addr": "0x426c2e",
+              "name": "sub_426C2E",
+              "size": "0x40d"
+            }
+          },
+          {
+            "addr": "0x426f90",
+            "type": "data",
+            "fn": {
+              "addr": "0x426c2e",
+              "name": "sub_426C2E",
+              "size": "0x40d"
+            }
+          },
+          {
+            "addr": "0x427b69",
+            "type": "data",
+            "fn": {
+              "addr": "0x42704e",
+              "name": "sub_42704E",
+              "size": "0xbd3"
+            }
+          },
+          {
+            "addr": "0x4281f6",
+            "type": "data",
+            "fn": {
+              "addr": "0x427c21",
+              "name": "sub_427C21",
+              "size": "0x854"
+            }
+          },
+          {
+            "addr": "0x428364",
+            "type": "data",
+            "fn": {
+              "addr": "0x427c21",
+              "name": "sub_427C21",
+              "size": "0x854"
+            }
+          },
+          {
+            "addr": "0x42b0cc",
+            "type": "data",
+            "fn": {
+              "addr": "0x42aaff",
+              "name": "sub_42AAFF",
+              "size": "0x7ed"
+            }
+          },
+          {
+            "addr": "0x42b1ca",
+            "type": "data",
+            "fn": {
+              "addr": "0x42aaff",
+              "name": "sub_42AAFF",
+              "size": "0x7ed"
+            }
+          },
+          {
+            "addr": "0x42b518",
+            "type": "data",
+            "fn": {
+              "addr": "0x42b3eb",
+              "name": "sub_42B3EB",
+              "size": "0x1a4"
+            }
+          },
+          {
+            "addr": "0x42d486",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42d80c",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42d877",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42dbdd",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e389",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e606",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e66e",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42e875",
+            "type": "data",
+            "fn": {
+              "addr": "0x42d37f",
+              "name": "sub_42D37F",
+              "size": "0x15b2"
+            }
+          },
+          {
+            "addr": "0x42f8ed",
+            "type": "data",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x42faef",
+            "type": "data",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x430022",
+            "type": "data",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x430056",
+            "type": "data",
+            "fn": {
+              "addr": "0x42f7fc",
+              "name": "sub_42F7FC",
+              "size": "0x8d4"
+            }
+          },
+          {
+            "addr": "0x4301a4",
+            "type": "data",
+            "fn": {
+              "addr": "0x43010c",
+              "name": "sub_43010C",
+              "size": "0x14c0"
+            }
+          },
+          {
+            "addr": "0x4326a6",
+            "type": "data",
+            "fn": {
+              "addr": "0x4325c2",
+              "name": "sub_4325C2",
+              "size": "0xac6"
+            }
+          },
+          {
+            "addr": "0x432a40",
+            "type": "data",
+            "fn": {
+              "addr": "0x4325c2",
+              "name": "sub_4325C2",
+              "size": "0xac6"
+            }
+          },
+          {
+            "addr": "0x433166",
+            "type": "data",
+            "fn": {
+              "addr": "0x433088",
+              "name": "sub_433088",
+              "size": "0x782"
+            }
+          },
+          {
+            "addr": "0x43463a",
+            "type": "data",
+            "fn": {
+              "addr": "0x434492",
+              "name": "sub_434492",
+              "size": "0xbbd"
+            }
+          },
+          {
+            "addr": "0x434865",
+            "type": "data",
+            "fn": {
+              "addr": "0x434492",
+              "name": "sub_434492",
+              "size": "0xbbd"
+            }
+          },
+          {
+            "addr": "0x435183",
+            "type": "data",
+            "fn": {
+              "addr": "0x435062",
+              "name": "sub_435062",
+              "size": "0xfd2"
+            }
+          },
+          {
+            "addr": "0x435788",
+            "type": "data",
+            "fn": {
+              "addr": "0x435062",
+              "name": "sub_435062",
+              "size": "0xfd2"
+            }
+          },
+          {
+            "addr": "0x43615b",
+            "type": "data",
+            "fn": {
+              "addr": "0x436034",
+              "name": "sub_436034",
+              "size": "0x634"
+            }
+          },
+          {
+            "addr": "0x4370ab",
+            "type": "data",
+            "fn": {
+              "addr": "0x436ef8",
+              "name": "sub_436EF8",
+              "size": "0xad1"
+            }
+          },
+          {
+            "addr": "0x437588",
+            "type": "data",
+            "fn": {
+              "addr": "0x436ef8",
+              "name": "sub_436EF8",
+              "size": "0xad1"
+            }
+          },
+          {
+            "addr": "0x437621",
+            "type": "data",
+            "fn": {
+              "addr": "0x436ef8",
+              "name": "sub_436EF8",
+              "size": "0xad1"
+            }
+          },
+          {
+            "addr": "0x437f1c",
+            "type": "data",
+            "fn": {
+              "addr": "0x437e61",
+              "name": "sub_437E61",
+              "size": "0x1d99"
+            }
+          },
+          {
+            "addr": "0x43a3d0",
+            "type": "data",
+            "fn": {
+              "addr": "0x43a2dd",
+              "name": "sub_43A2DD",
+              "size": "0x1af3"
+            }
+          },
+          {
+            "addr": "0x43b234",
+            "type": "data",
+            "fn": {
+              "addr": "0x43a2dd",
+              "name": "sub_43A2DD",
+              "size": "0x1af3"
+            }
+          },
+          {
+            "addr": "0x43bd34",
+            "type": "data",
+            "fn": {
+              "addr": "0x43a2dd",
+              "name": "sub_43A2DD",
+              "size": "0x1af3"
+            }
+          },
+          {
+            "addr": "0x43cbe2",
+            "type": "data",
+            "fn": {
+              "addr": "0x43caab",
+              "name": "sub_43CAAB",
+              "size": "0x859"
+            }
+          },
+          {
+            "addr": "0x43cf5f",
+            "type": "data",
+            "fn": {
+              "addr": "0x43caab",
+              "name": "sub_43CAAB",
+              "size": "0x859"
+            }
+          },
+          {
+            "addr": "0x43db2e",
+            "type": "data",
+            "fn": {
+              "addr": "0x43da27",
+              "name": "sub_43DA27",
+              "size": "0xf7d"
+            }
+          },
+          {
+            "addr": "0x43dbca",
+            "type": "data",
+            "fn": {
+              "addr": "0x43da27",
+              "name": "sub_43DA27",
+              "size": "0xf7d"
+            }
+          },
+          {
+            "addr": "0x445f77",
+            "type": "data",
+            "fn": {
+              "addr": "0x445e4d",
+              "name": "sub_445E4D",
+              "size": "0x927"
+            }
+          },
+          {
+            "addr": "0x452d82",
+            "type": "data",
+            "fn": {
+              "addr": "0x452c02",
+              "name": "sub_452C02",
+              "size": "0x942"
+            }
+          },
+          {
+            "addr": "0x452fc2",
+            "type": "data",
+            "fn": {
+              "addr": "0x452c02",
+              "name": "sub_452C02",
+              "size": "0x942"
+            }
+          },
+          {
+            "addr": "0x4610a2",
+            "type": "data",
+            "fn": {
+              "addr": "0x4610a2",
+              "name": "PostMessageA",
+              "size": "0x6"
+            }
+          }
+        ],
+        "more": false
+      },
+      {
+        "addr": "0x4622e0",
+        "xrefs": [
+          {
+            "addr": "0x40194e",
+            "type": "code",
+            "fn": {
+              "addr": "0x4018e7",
+              "name": "sub_4018E7",
+              "size": "0x7f"
+            }
+          },
+          {
+            "addr": "0x401d5f",
+            "type": "code",
+            "fn": {
+              "addr": "0x401b9c",
+              "name": "_WinMain@16",
+              "size": "0x2bd"
+            }
+          },
+          {
+            "addr": "0x40194e",
+            "type": "data",
+            "fn": {
+              "addr": "0x4018e7",
+              "name": "sub_4018E7",
+              "size": "0x7f"
+            }
+          },
+          {
+            "addr": "0x401d5f",
+            "type": "data",
+            "fn": {
+              "addr": "0x401b9c",
+              "name": "_WinMain@16",
+              "size": "0x2bd"
+            }
+          },
+          {
+            "addr": "0x461078",
+            "type": "data",
+            "fn": {
+              "addr": "0x461078",
+              "name": "DispatchMessageA",
+              "size": "0x6"
+            }
+          }
+        ],
+        "more": false
+      }
+    ]
+  }
+}
