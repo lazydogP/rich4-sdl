@@ -106,6 +106,12 @@ gmap0 游戏场景。对应的双回放确定性检查是 `make test-sdl-smoke`�
 
 公共 API 的 owned、borrowed、caller-storage 和 null 约定见 [`docs/api-ownership.md`](docs/api-ownership.md)。
 
+## 许可证
+
+本项目代码采用 GNU General Public License v3.0 授权，完整协议见 [LICENSE](LICENSE)。
+
+《大富翁 4》的原版游戏资源不属于本项目代码，其权利归原权利人所有，不受本项目 GPLv3 授权覆盖。
+
 ## 法律边界
 
 本仓库不包含、下载或分发《大富翁 4》的可执行文件、MKF、音乐、视频或其他商业资源。使用者必须自行准备合法来源的数据；`assets/original/`、`assets/music/`、本地工具链和构建产物均不会作为商业内容提交。
@@ -123,9 +129,54 @@ assets/
     Speaking.mkf
     Help.mkf
   music/
+    Original/
+      track02.ogg
+      track03.ogg
+      track04.ogg
+      track05.ogg
+      track06.ogg
+      track07.ogg
+      track08.ogg
+      track09.ogg
+    MultiverseJourney/
+      track02.ogg
+      track03.ogg
+      track04.ogg
+      track05.ogg
+      track06.ogg
+      track07.ogg
+      track08.ogg
+      track09.ogg
+    track10.ogg
+    track11.ogg
+    track12.ogg
+    track13.ogg
+    track14.ogg
+    track15.ogg
+    track16.ogg
+    track17.ogg
+    track18.ogg
+    track19.ogg
+    track20.ogg
+    track21.ogg
+    track22.ogg
+    track23.ogg
+    track24.ogg
+    track25.ogg
+    track26.ogg
 config/
   input.toml
 ```
+
+`Original/` 和 `MultiverseJourney/` 分别存放原版与时空之旅版的八首曲目，文件名均为
+`track02`～`track09`。在设置中切换音乐库，或通过 `RICH4-SDL.CFG` 的
+`music_bank=original` / `music_bank=multiverse_journey` 选择。
+
+两套音乐库共用的场景音乐直接放在 `music/` 根目录，文件名为 `track10`～`track26`；
+其中 `track10` 用于主菜单，`track11` 用于新局设置。上述音乐文件均支持 `.ogg` 或
+`.wav`，运行时优先尝试 OGG。MIDI 原文件需自行转换为对应音频，完整映射见
+[音乐资源说明](assets/music/README.md)。自定义目录时，`--music-dir` 应指向包含这两个
+子目录和共用场景音乐的根目录。
 
 ## 参与开发
 
