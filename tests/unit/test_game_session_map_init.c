@@ -55,6 +55,7 @@ int main(void)
     map.auxiliary = auxiliary;
     map.auxiliary_count = 2;
     session.state.stocks[1].f4 = 1;
+    session.state.stocks[1].f8 = 3500;
 
     rich4_game_session_load_map_state(&session, &map);
 
@@ -85,7 +86,9 @@ int main(void)
                   "RAW-COMPANY") == 0);
     assert(session.state.stock_company_auxiliary[1] == 0);
     assert(session.state.stock_company_value[1] == 77);
-    assert(session.state.stock_company_available[1] == 88);
+    /* 0x407DC6..0x407DFE derives auxiliary +0x30 from the stock table;
+     * the raw map value is runtime storage and must not seed a new game. */
+    assert(session.state.stock_company_available[1] == 6500);
     assert(session.state.stocks[1].f4 == 1);
 
     puts("app game-session map init: ok");

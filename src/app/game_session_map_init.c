@@ -274,8 +274,13 @@ void rich4_game_session_load_map_state(GameSession *session,
             session->state.stocks[i].f4 = (uint16_t)(link + 1);
             session->state.stock_company_value[i] =
                 map->auxiliary[link + 1].company_value;
+            /* 0x407DC6..0x407DFE overwrites auxiliary +0x30 after loading
+             * the map: the unissued company shares are 10000 minus the
+             * stock record's initial f8 amount.  Map.mkf stores zero here,
+             * so copying the raw runtime field would suppress the first
+             * company subscription and leave the company ownerless. */
             session->state.stock_company_available[i] =
-                map->auxiliary[link + 1].available_shares;
+                10000u - (unsigned int)session->state.stocks[i].f8;
         }
     }
     recompute_fixed_asset_value(session);
