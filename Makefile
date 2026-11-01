@@ -296,7 +296,7 @@ test-new-game-loading: $(BIN_DIR)/test_game_loop_frame_end $(BIN_DIR)/test_game_
 	$(BIN_DIR)/test_game_loop_scene_update
 	$(BIN_DIR)/test_new_game_setup_flow
 
-MIYOO_QEMU_MEMORY_MB ?= 256
+MIYOO_QEMU_MEMORY_MB ?= 128
 MIYOO_QEMU_ARGS ?=
 test-miyoo-qemu: miyoo-qa-build
 	$(PYTHON) scripts/setup_miyoo_toolchain.py --qemu $(MIYOO_SETUP_ARGS)

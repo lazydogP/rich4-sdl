@@ -82,7 +82,7 @@ def initramfs(files, modules, script):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--memory-mb', type=int, default=256)
+    parser.add_argument('--memory-mb', type=int, default=128)
     parser.add_argument('--timeout', type=int, default=300)
     parser.add_argument('--stalls-benchmark', action='store_true', help='run locally built before/after save and decode CPU probes')
     parser.add_argument('--text-backend', choices=('atlas', 'ttf'), default='ttf')

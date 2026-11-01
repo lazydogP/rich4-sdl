@@ -8,7 +8,7 @@ python scripts/make_minimal.py miyoo --progress
 python scripts/make_minimal.py package-miyoo --progress
 python scripts/make_minimal.py test-miyoo-input
 python scripts/make_minimal.py font-bake-miyoo
-python scripts/make_minimal.py test-miyoo-qemu MIYOO_QEMU_MEMORY_MB=256 --progress
+python scripts/make_minimal.py test-miyoo-qemu MIYOO_QEMU_MEMORY_MB=128 --progress
 ```
 
 Windows 下使用 Python 3.11 或更新版本。先按项目根 README 准备本地
