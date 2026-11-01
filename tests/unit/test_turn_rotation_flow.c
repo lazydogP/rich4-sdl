@@ -4,6 +4,7 @@
 
 #include "app/dynamic_object_flow.h"
 #include "app/turn_rotation_flow.h"
+#include "app/turn_movement_flow.h"
 #include "core/game_constants.h"
 #include "core/rng.h"
 #include "core/god.h"
@@ -251,6 +252,42 @@ static void test_confinement_exit_tick(void)
     assert(session.presentation.actors[0].visual_y == 40);
 }
 
+static void test_confinement_exit_defers_arrival_until_next_pulse(void)
+{
+    const int kinds[] = {0x11, 0x12};
+    size_t i;
+
+    for (i = 0; i < sizeof(kinds) / sizeof(kinds[0]); ++i) {
+        GameSession session;
+        int slot = kinds[i] == 0x11 ? 10 : 20;
+
+        setup_session(&session);
+        session.state.players[0].node = 1;
+        session.state.tool_placed_objects[slot].kind = (uint8_t)kinds[i];
+        session.state.tool_placed_objects[slot].node = 1;
+        session.presentation.confinement_exit.active = 1;
+        session.presentation.confinement_exit.player = 0;
+        session.presentation.confinement_exit.kind = GAME_CONFINEMENT_HOSPITAL;
+        session.presentation.actors[0].move_active = 1;
+        session.presentation.actors[0].move_to_x = 30;
+        session.presentation.actors[0].move_to_y = 40;
+        session.presentation.actors[0].move_distance = 1;
+
+        /* 0x40C05C finishes first; 0x40D7C4 -> 0x41B42D runs next pulse. */
+        assert(rich4_app_update_confinement_exit(&session, 100, 50));
+        assert(!rich4_app_update_confinement_exit(&session, 150, 50));
+        assert(session.flow.turn_flow_active);
+        assert(session.flow.turn_state == GAME_TURN_STATE_MOVE);
+        assert(session.flow.turn_wait == RICH4_MOVE_ARRIVAL);
+        assert(session.flow.steps_remaining == 0);
+        assert(session.presentation.movement_tick == 150);
+        assert(session.state.tool_placed_objects[slot].kind == kinds[i]);
+        assert(session.state.tool_placed_objects[slot].node == 1);
+        assert(session.state.players[0].attached_timed_bomb_slot == -1);
+        assert(session.state.players[0].days_in_hospital == 0);
+    }
+}
+
 static void test_monthly_bank_statement_timer(void)
 {
     GameSession session;
@@ -391,6 +428,7 @@ int main(void)
     test_special_action_is_returned_to_platform_seam();
     test_control_locked_turn_cleanup();
     test_confinement_exit_tick();
+    test_confinement_exit_defers_arrival_until_next_pulse();
     test_monthly_bank_statement_timer();
     test_day_limit_finalizes_game();
     test_monthly_dynamic_objects_are_replaced();

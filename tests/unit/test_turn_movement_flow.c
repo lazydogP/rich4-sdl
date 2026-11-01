@@ -10,6 +10,7 @@
 #include "app/route_flow.h"
 #include "app/property_flow.h"
 #include "app/tool_followup_flow.h"
+#include "app/tool_animation_flow.h"
 #include "core/route_movement.h"
 #include "core/game_constants.h"
 #include "core/game_event_payload.h"
@@ -48,6 +49,138 @@ static void setup_short_route(GameSession *session, MapData *map,
     rich4_app_init_dynamic_object_pool(&session->presentation);
     assert(rich4_route_move_begin_with_next(
         &session->flow.route_move, map, 1, 0, 2, steps) == ROUTE_MOVE_READY);
+}
+
+static void confinement_exit_arrival(void)
+{
+    static GameSession s;
+    MapData map;
+    MapRouteNode nodes[5];
+    MapSpecialRecord specials[3];
+    Rich4AppTurnMovementResult result;
+    Rich4AppRouteEventServices services = { 0 };
+    int kind, object, ai, tick;
+    services.property_end_delay_ms = 20;
+    /* Real pending-status/rotation entry, both facilities and human/AI.
+     * object: empty, roadblock, mine, ground bomb, attached bomb expiry. */
+    for (kind = GAME_CONFINEMENT_PRISON; kind <= GAME_CONFINEMENT_HOSPITAL; ++kind)
+    for (ai = 0; ai <= 1; ++ai)
+    for (object = 0; object <= 4; ++object) {
+        int slot = object == 1 ? 0 : object == 2 ? 10 : 20;
+        int days, status_count;
+        GameEvent event;
+        setup_short_route(&s, &map, nodes, 1);
+        memset(specials, 0, sizeof(specials));
+        map.specials = specials;
+        map.special_count = 3;
+        specials[1].x = specials[2].x = nodes[1].x - 8;
+        /* A non-road exit verifies that arrival is not a full STOP visit. */
+        nodes[1].flags = kind == GAME_CONFINEMENT_HOSPITAL ? 5 : 4;
+        s.flow.turn_flow_active = 0;
+        s.flow.turn_state = GAME_TURN_STATE_IDLE;
+        s.state.turn_rotation_index = 1;
+        for (tick = 0; tick < GAME_SPECIAL_PLAYER_COUNT; ++tick)
+            s.state.special_player_f10[tick] = 1;
+        s.state.players[0].play_state = ai ? 2 : 1;
+        s.state.players[0].is_ai = ai;
+        s.state.players[0].confinement_actor_type = kind;
+        if (kind == GAME_CONFINEMENT_HOSPITAL)
+            s.state.players[0].days_in_hospital = GAME_STATUS_PENDING_BIT;
+        else s.state.players[0].days_in_prison = GAME_STATUS_PENDING_BIT;
+        if (object > 0) {
+            s.state.tool_placed_objects[slot].kind =
+                (uint8_t)(object == 4 ? 18 : 15 + object);
+            s.state.tool_placed_objects[slot].node = 1;
+        }
+        if (object == 4) {
+            s.state.players[0].attached_timed_bomb_slot = slot;
+            s.state.tool_placed_objects[slot].attached_player = 1;
+            s.state.tool_placed_objects[slot].countdown = 1;
+            /* Expiry returns before dispatching the ground mine. */
+            s.state.tool_placed_objects[10].kind = 17;
+            s.state.tool_placed_objects[10].node = 1;
+        }
+        assert(rich4_app_advance_turn_rotation(&s, &map, 100, NULL));
+        assert(s.state.current_player == 0);
+        assert(s.presentation.confinement_exit.active);
+        assert(s.state.players[0].play_state & GAME_PLAYER_PLAY_STATE_STATUS_RETURN);
+        days = s.state.elapsed_days;
+        status_count = s.debug.status_event_processed_count;
+        assert(rich4_app_update_confinement_exit(&s, 100, 20));
+        assert(!rich4_app_update_confinement_exit(&s, 120, 20));
+        assert(s.state.players[0].node == 1);
+        assert(s.presentation.actors[0].visual_x == nodes[1].x);
+        assert(!s.presentation.actors[0].move_active);
+        assert(s.flow.turn_flow_active && s.flow.turn_wait == RICH4_MOVE_ARRIVAL);
+        assert(rich4_app_update_turn_movement(&s, &map, 20, 120, &result));
+        assert(result.events.count == 0);
+        if (object > 0) assert(s.state.tool_placed_objects[slot].kind != 0);
+        assert(rich4_app_update_turn_movement(&s, &map, 20, 140, &result));
+        assert(s.flow.turn_wait == 5);
+        assert(s.state.players[0].days_in_hospital == 0);
+        if (object == 3) {
+            assert(s.state.players[0].attached_timed_bomb_slot == 20);
+            assert(s.state.tool_placed_objects[20].countdown == 38);
+            assert(s.state.tool_placed_objects[20].attached_player == 1);
+        } else if (object > 0) {
+            assert(s.state.tool_placed_objects[slot].kind == 0);
+        }
+        /* Feed arrival effects through the same app seams as SDL. */
+        while (rich4_game_event_queue_pop(&result.events, &event)) {
+            if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED)
+                assert(rich4_tool_animation_enqueue(&s, &event, 1, 20,
+                    nodes[1].x, nodes[1].y, 1, 140));
+            else if (event.type == GAME_EVENT_TEXT_REQUESTED)
+                (void)rich4_tool_animation_handle_text_event(&s, &event, 140);
+            else if (event.type == GAME_EVENT_VOICE_REQUESTED)
+                (void)rich4_tool_animation_handle_voice_event(&s, &event, 140);
+        }
+        if (object == 2 || object == 4) {
+            Rich4ToolAnimationCompletion completion;
+            assert(s.presentation.tool_animation_count == 1);
+            assert(s.presentation.tool_animation[0].resource == 525);
+            assert(s.presentation.tool_animation[0].confinement_days ==
+                   (object == 2 ? 3 : 5));
+            /* Complete explosion and its reaction, before the ambulance. */
+            for (tick = 160; tick < 400 && !s.state.players[0].days_in_hospital;
+                 tick += 20) {
+                s.presentation.speech.active = 0;
+                (void)rich4_tool_animation_update(&s, 1, 20,
+                    (uint32_t)tick, NULL, &completion);
+            }
+            assert(s.state.players[0].days_in_hospital == (object == 2 ? 3 : 5));
+            assert(!(s.state.players[0].play_state & GAME_PLAYER_PLAY_STATE_STATUS_RETURN));
+            if (object == 4) assert(s.state.tool_placed_objects[10].kind == 17);
+        }
+        s.presentation.speech.active = 0;
+        (void)rich4_tool_followup_finish_trigger_turn_and_advance(&s, &map, 400, NULL);
+        assert(s.state.current_player == 0);
+        for (tick = 400; tick <= 480; tick += 20) {
+            assert(rich4_app_update_turn_movement(&s, &map, 20, (uint32_t)tick, &result));
+            assert(result.events.count == 0); /* no second arrival */
+        }
+        assert(s.flow.turn_state == GAME_TURN_STATE_ROUTE_EVENTS);
+        assert(s.flow.route_facts.count == 0);
+        assert(s.flow.turn_wait == RICH4_ROUTE_END_COUNTDOWN);
+        assert(s.flow.property_turn_end_ticks == 3);
+        for (tick = 500; tick <= 540; tick += 20)
+            assert(rich4_app_route_event_update(&s, &map, (uint32_t)tick, 1, &services));
+        if (object == 2 || object == 4) {
+            assert(s.state.current_player == 1);
+        } else {
+            assert(s.state.current_player == 0);
+            assert(s.state.players[0].play_state == (ai ? 2 : 1));
+            assert(s.presentation.engineering_attack.pending_return);
+            assert(rich4_app_route_event_update(&s, &map, 560, 1, &services));
+            assert(s.debug.status_event_processed_count == status_count);
+            assert(s.state.players[0].node == 1);
+            if (object == 3) assert(s.state.tool_placed_objects[20].countdown == 38);
+        }
+        assert(s.state.elapsed_days == days);
+        assert(!s.flow.turn_flow_active);
+        assert(s.flow.turn_state == GAME_TURN_STATE_IDLE);
+        assert(!s.presentation.confinement_visit.active);
+    }
 }
 
 static void assert_loop_state(GameSession *session, const MapData *map,
@@ -359,6 +492,8 @@ int main(void)
     GameSession session;
     Rich4AppTurnMovementResult result;
     int tick;
+
+    confinement_exit_arrival();
 
     memset(&session, 0, sizeof(session));
     session.state.active = 1;

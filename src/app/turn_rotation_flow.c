@@ -11,6 +11,7 @@
 #include "app/hotel_flow.h"
 #include "app/route_geometry_flow.h"
 #include "app/turn_status_flow.h"
+#include "app/turn_movement_flow.h"
 #include "core/confinement.h"
 #include "core/game_constants.h"
 #include "core/game_event.h"
@@ -50,6 +51,9 @@ static void begin_confinement_exit(GameSession *session, const MapData *map,
             ? rich4_hotel_anchor(&session->state, map, player_index, &from_x, &from_y)
             : rich4_confinement_anchor_xy(map, kind, &from_x, &from_y)))
         return;
+    /* 0x43D7BF/0x43EE6E share 0x40D6BE's return flag with hotels.
+     * It suppresses a full square visit and returns control to this actor. */
+    player->play_state |= GAME_PLAYER_PLAY_STATE_STATUS_RETURN;
     /* 0x40D6BE keeps +0x32 until the return move passes halfway. */
     if (kind == GAME_CONFINEMENT_HOTEL)
         player->delayed_status_block = GAME_STATUS_PENDING_BIT;
@@ -388,6 +392,18 @@ int rich4_app_update_confinement_exit(
             session->presentation.hotel_entry.wait_ticks = 9;
             return 1;
         }
+        /* 0x40C05C completes the return edge; 0x40D7C4 consumes 48BB00
+         * on the next pulse and calls 0x41B42D with n9_0 == 0. Reuse the
+         * normal arrival/effect continuation, then its five + three ticks.
+         * Keep 0x10 until 0x418EBD (or a new hospital admission) clears it. */
+        session->flow.turn_flow_active = 1;
+        session->flow.turn_state = GAME_TURN_STATE_MOVE;
+        session->flow.turn_state_frame = 0;
+        session->flow.turn_state_tick = now;
+        session->flow.turn_wait = RICH4_MOVE_ARRIVAL;
+        session->flow.steps_remaining = 0;
+        session->flow.route_move.steps_remaining = 0;
+        session->presentation.movement_tick = exit_flow->last_step_tick;
         memset(exit_flow, 0, sizeof(*exit_flow));
         return 0;
     }
