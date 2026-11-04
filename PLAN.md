@@ -25,15 +25,15 @@ IDA 锚点和原版行为依据只在 [`docs/evidence/`](docs/evidence/README.md
 - 五场景协议、内部 640×480 输入命令、音频事件和 SDL1 平台 runtime。
 - Windows WinLibs SDL1、无 SDL tests/tools、RGB565 render gate 和资源 fault injection。
 
-当前可验证链路已覆盖核心经济/路线事件及真实 gmap0 的终局回放。M3 仍缺出售挂牌交易、部分 AI/资金处理、整局磁盘存读档与最终验收；统一进度和代码/IDA 依据见 [M3 进度](docs/m3-core-gameplay-original-evidence-plan.md)。
+核心经济/路线事件、市场挂牌、AI 策略及自有格式整局存读档均已接入；真实 gmap0 终局双回放、存档回放和 SDL smoke 通过。M3 处于原版一致性与完整交互验收阶段，不能据本地回归通过标为完成。统一状态、当前 Windows 验证范围及原版依据见 [M3 进度](docs/m3-core-gameplay-original-evidence-plan.md)。
 
 ## 近期路线
 
-1. 完成 Linux SDL1 构建与 ASan/UBSan 调试矩阵。
-2. 将 SDL runtime 中剩余的应用编排继续迁入 Menu/NewGame/Intro/Game/Options 场景，使平台层只保留 I/O 与装配。
-3. 完成 `GameCommand -> GameEvent` 流水线，让输入、AI、replay 和音频/界面副作用使用同一事件边界。
-4. 按 M3 缺口清单补齐交易、AI 与存读档，并扩展现有 replay 到存读档等价验收。
-5. 完成最终状态/所有权/renderer/unknown 行为审计。
+1. 以真实地图 replay、存档 replay、SDL smoke 和架构检查为持续回归门槛。
+2. 用双端锁步复验选人后的计时器相位及菜单像素，随后覆盖新局到首回合；保持相同虚拟时间、输入与原版随机调用顺序。
+3. 扩展到长期 AI、动态对象、模态交互和终局生命周期；对没有安全 raw 映射的分支先补原版证据。
+4. 分开验收存档数据往返与运行时 LOAD 的重新播种，补齐同虚拟时钟下的后续轨迹、跨地图资源切换和完整槽位交互。
+5. 对最终版本重验 Windows、桌面 Linux SDL1、ASan/UBSan 和 Miyoo 真机完整流程，并完成状态、资源所有权及 unknown 行为审计。
 
 ## 新玩法准入
 
@@ -52,15 +52,11 @@ IDA 锚点和原版行为依据只在 [`docs/evidence/`](docs/evidence/README.md
 提交前至少运行：
 
 ```sh
-make test
-make test-render
-make tools
-make sdl
-make test-original-data
+python scripts/make_minimal.py test test-render tools sdl test-original-data test-sdl-smoke --progress
 ```
 
 平台矩阵最终要求 Windows 本地 WinLibs + SDL1、桌面 Linux SDL1、Linux ASan/UBSan，以及无 SDL 的 tools/core tests 全部通过。公共 API 约定见 [`docs/api-ownership.md`](docs/api-ownership.md)。
 
 ## 发布方向
 
-完成健康重构与核心 replay 门槛后，再推进 Miyoo/Onion OS/OpenDingux 打包、配置覆盖、音乐替换和 mod 资源覆盖。存档兼容、实时 MIDI、脚本语言和未经证据确认的玩法不在当前承诺内。
+Miyoo/Onion 已有交叉构建、打包、128 MB 无交换 QEMU 和部分真机验证，范围见 [Miyoo 文档](packaging/miyoo/README.md)；QEMU 耗时不替代真机显示、音频、SD 卡及整局验收。后续发布沿用 M3 门槛，更广泛的 mod 覆盖另行推进。原版 DAT 存档导入、实时 MIDI、脚本语言和未经证据确认的玩法不在当前承诺内。

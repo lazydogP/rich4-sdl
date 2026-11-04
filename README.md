@@ -6,7 +6,7 @@
 
 `rich4-sdl` 是一个使用 C99 与 SDL 1.2 重实现《大富翁 4》运行时的项目，面向桌面系统与 Linux 开源掌机。项目读取用户自行提供的原版资源，以可测试、可追溯、平台与领域逻辑分离为主要工程目标；它不运行原版 x86 代码，也不追求二进制级复刻。
 
-当前已有地产、设施、股票、卡片、道具和特殊事件核心链路，以及真实 gmap0 终局回放和 SDL smoke。M3 尚缺出售挂牌交易、部分 AI/资金处理、整局磁盘存读档与最终验收；以实际代码和 IDA 核对后的 [M3 进度](docs/m3-core-gameplay-original-evidence-plan.md) 为准。逆向与测试细节见 [证据目录](docs/evidence/README.md)，重构目标见 [精简重构计划](docs/llm-context-simplification-lean.md)。
+地产、设施、股票、卡片、道具、特殊事件、市场挂牌、基础 AI 和整局存读档均已接入；真实 gmap0 终局双回放、存档回放和 SDL smoke 通过。M3 仍待原版同状态下的长期时序/画面对照、跨地图读档及完整交互和平台验收；当前范围与下一步见 [M3 进度](docs/m3-core-gameplay-original-evidence-plan.md)。逆向与测试细节见 [证据目录](docs/evidence/README.md)，重构目标见 [精简重构计划](docs/llm-context-simplification-lean.md)。
 
 ## 已有能力
 

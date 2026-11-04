@@ -61,9 +61,9 @@
 | `0x448B81`, `0x448BE2`, `0x44B6DF`, `0x44BAEA`, `0x44BB4B`, `0x44DB81`, `0x431842`, `0x431CAA`, `0x43380A` | [M3.8 新闻、命运、魔法屋与特殊事件](m3-8-special-events.md) | `partial`（两阶段协议、36 新闻/49 命运 handler、魔法屋 12 动作已接入；剩余为资源/逐像素表现边界） |
 | `0x431842`, `0x431CAA`, `0x432511`, `0x4325C2`, `0x43380A` | [魔法屋完整行为、资源与交互 UI](43380a-magic-house.md) | `confirmed`（12 条件、12 动作、Panel 18/19/20、语音/音乐/音效） |
 | `0x428D01`, `0x428D2A`, `0x428E23`, `0x428EC5`, `0x42915A`, `0x4291D6`, `0x4294D5` | [M3.9 股票交易、日更与资产估值](m3-9-stock-system.md) | `confirmed`（普通买卖、成交量、公司排名、日更/历史/恢复边界） |
-| `0x418C55`, `0x40B455`, `0x41E69E`, `0x41FE4E`, `0x420E9A`, `0x42BF03`, `0x42C79F`, `0x441BAA`, `0x447D97` | [M3.10 三档基础 AI](m3-10-basic-ai.md) | `partial`（三档配置、独立/公司股买卖主体、购地/拍卖/冬眠/均贫/红卡/黑卡/查税卡/同盟卡目标、停留/梦游/陷害的特殊人物安全子集、卡/道具门槛及纯命令选择已确认；其余全局目标表 deferred） |
+| `0x418C55`, `0x40B455`, `0x41E69E`, `0x41FE4E`, `0x420E9A`, `0x42BF03`, `0x42C79F`, `0x441BAA`, `0x447D97` | [M3.10 三档基础 AI](m3-10-basic-ai.md) | `partial`（策略、候选表和共享随机流见对应专项；未映射 raw 与长期动态运行等价仍有边界） |
 | `0x41D89E` | [胜利条件](41d89e-victory.md) | `confirmed` |
-| `0x418EBD`, `0x41CF67`, `0x40CD87`, `0x41D89E` | [M3.12 无存档整局核心 replay](m3-12-replay.md) | `partial`（核心与真实 gmap0 app/AI 回放、SDL 菜单/游戏 smoke 可重复；完整 SDL 逐像素基线与 M3.11 存读档等价仍待完成） |
+| `0x418EBD`, `0x41CF67`, `0x40CD87`, `0x41D89E` | [M3.12 核心 replay、存读档与 SDL smoke](m3-12-replay.md) | `partial`（真实 gmap0 终局双回放、存档往返/市场分叉/LOAD 重播种及 SDL smoke 通过；完整原版画面、长期轨迹与跨地图交互仍待验收） |
 | `0x450CED`, `0x45144F` | [Autodesk Animator FLC](450ced-45144f-flc.md) | `confirmed` |
 
 M2 非视觉边界的跨函数收口记录见
