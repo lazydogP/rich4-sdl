@@ -59,7 +59,10 @@ static LRESULT WINAPI virtual_dispatch(const MSG*m){
 static DWORD WINAPI worker(void*arg){
  (void)arg;worker_tid=GetCurrentThreadId();
  for(;;){VirtualTimer*t;
-  if(WaitForSingleObject(work_event,30000)!=WAIT_OBJECT_0)ls_fail(32,0);
+  /* Idling before the first virtual timer is not a callback hang.  Cold scene
+     loads remain bounded by the controller's safe-point watchdog; once work
+     is dispatched, timers_due still requires the callback within 5 seconds. */
+  if(WaitForSingleObject(work_event,INFINITE)!=WAIT_OBJECT_0)ls_fail(32,0);
   t=worker_timer;ls_trace(LS_TIMER,(unsigned)((uintptr_t)t->cb-image_base),t->id,t->delay,0,1);
   t->cb(t->id,0,t->user,0,0);SetEvent(work_done);
  }return 0;

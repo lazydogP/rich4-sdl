@@ -721,6 +721,7 @@ static int complete_real_map_route_turn(
 {
     Rich4AppRouteEventServices services = {0};
     int guard;
+    services.property_end_delay_ms = 20;
     drain_real_map_finance_presentation(session, map, now);
     /* Complete 0x40D5A5's one movement segment before the EA5 rotation.
      * The fixture supplies its own presentation clock rather than SDL. */
@@ -734,14 +735,22 @@ static int complete_real_map_route_turn(
     if (!rich4_app_complete_route_event_turn(session, map, *now, rotation))
         return 0;
     drain_real_map_finance_presentation(session, map, now);
-    /* 0x418F59/0x418F78 may return the same actor through god and
-     * engineering presentations before the next idle turn. */
+    /* 0x40D932 -> 0x41B42D consumes the confinement return arrival,
+     * then five movement pulses and three EA5 pulses precede rotation.
+     * 0x418F59/0x418F78 can also return through god/engineering effects. */
     for (guard = 0; guard < 256 &&
          (session->presentation.engineering_attack.pending_return ||
           session->presentation.engineering_attack.active ||
-          session->presentation.confinement_exit.active); guard++) {
+          session->presentation.confinement_exit.active ||
+          session->flow.turn_state == GAME_TURN_STATE_MOVE ||
+          (session->flow.turn_state == GAME_TURN_STATE_ROUTE_EVENTS &&
+           session->flow.turn_wait == RICH4_ROUTE_END_COUNTDOWN)); guard++) {
         GameEvent event;
-        drain_real_map_property_presentation(session, now, NULL);
+        /* EA5 belongs to the 20 ms replay clock, not the notice drain's
+         * 2000 ms steps: the day boundary also seeds the original RNG. */
+        if (session->flow.turn_state != GAME_TURN_STATE_ROUTE_EVENTS ||
+            session->flow.turn_wait != RICH4_ROUTE_END_COUNTDOWN)
+            drain_real_map_property_presentation(session, now, NULL);
         /* Returning god construction can enqueue Data[523/526]. Supply the
          * same one-frame stand-in used for nested fortune admissions. */
         while (rich4_game_event_queue_pop(&session->deferred_events, &event)) {
@@ -759,7 +768,25 @@ static int complete_real_map_route_turn(
         drain_real_map_special_presentation(session, now);
         if (session->presentation.confinement_exit.active)
             (void)rich4_app_update_confinement_exit(session, *now, 20);
-        else if (session->presentation.engineering_attack.active)
+        else if (session->flow.turn_state == GAME_TURN_STATE_MOVE) {
+            Rich4AppTurnMovementResult movement;
+            assert(rich4_app_update_turn_movement(
+                session, map, 20, *now, &movement));
+            while (rich4_game_event_queue_pop(&movement.events, &event)) {
+                if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED)
+                    assert(rich4_tool_animation_enqueue(
+                        session, &event, 1, 1, 0, 0, 0, *now));
+                else if (event.type == GAME_EVENT_TEXT_REQUESTED)
+                    (void)rich4_tool_animation_handle_text_event(
+                        session, &event, *now);
+                else if (event.type == GAME_EVENT_VOICE_REQUESTED)
+                    (void)rich4_tool_animation_handle_voice_event(
+                        session, &event, *now);
+                else
+                    (void)rich4_app_route_event_apply(
+                        session, &event, NULL, *now, 0, NULL);
+            }
+        } else if (session->presentation.engineering_attack.active)
             (void)rich4_engineering_attack_update(
                 session, 20, 1, 20, *now, NULL);
         else

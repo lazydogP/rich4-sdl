@@ -106,6 +106,10 @@ def trace_rng(frame):
     # Initial reseed replaces an unspecified runtime default; subsequent state is checked.
     return [[t[0],t[2],0 if t[0]==1 and t[1]==0 else t[4],t[5],t[6],t[7]] for t in frame['traces'] if t[0] in (1,2)]
 
+def trace_rng_untimed(frame):
+    """RNG semantics without the virtual timestamp used during scene handoffs."""
+    return [[entry[0],*entry[2:]] for entry in trace_rng(frame)]
+
 def validate_frame(frame,epoch,ms,role):
     if (frame['epoch'],frame['ms'],frame['role'])!=(epoch,ms,role):
         return 'response epoch/time/role differs from command'
@@ -119,16 +123,21 @@ def validate_frame(frame,epoch,ms,role):
 def save_frame(folder,epoch,frame,persist_raw=True):
     result={k:v for k,v in frame.items() if k not in ('pixels','submissions')}
     result['submissions']=[]
-    if not persist_raw:
-        return result
-    (folder/f'{epoch:05d}.rgb565').write_bytes(frame['pixels'])
+    if persist_raw:
+        name=f'{epoch:05d}.rgb565'
+        (folder/name).write_bytes(frame['pixels'])
+        result['file']=name
     for sub in frame['submissions']:
-        name=f'{epoch:05d}-submit-{sub["seq"]:02d}.rgb565'
-        (folder/name).write_bytes(sub['pixels'])
-        result['submissions'].append({**{k:v for k,v in sub.items() if k!='pixels'},'file':name})
+        saved={k:v for k,v in sub.items() if k!='pixels'}
+        if persist_raw:
+            name=f'{epoch:05d}-submit-{sub["seq"]:02d}.rgb565'
+            (folder/name).write_bytes(sub['pixels'])
+            saved['file']=name
+        result['submissions'].append(saved)
     return result
 
-def compare_frame(a,b,event,epoch=None,ms=None):
+def compare_envelope(a,b,event,epoch=None,ms=None):
+    """Validate protocol facts that remain strict during an elastic handoff."""
     if a['error'] or b['error']:
         errors=[f['error'] for f in (a,b) if f['error']]
         return dict(status='INVALID_CAPTURE' if any(e>=70 or e in (1,2,5,20,21,22,30) for e in errors) else 'UNSUPPORTED',reason='adapter_error',codes=errors)
@@ -139,9 +148,95 @@ def compare_frame(a,b,event,epoch=None,ms=None):
     if (a['epoch'],a['ms'])!=(b['epoch'],b['ms']): return dict(status='DIFF_SCHEDULE')
     expected=event['id'] if event else 0
     if a['ack']!=expected or b['ack']!=expected: return dict(status='DIFF_INPUT')
+    return None
+
+def compare_frame(a,b,event,epoch=None,ms=None):
+    envelope=compare_envelope(a,b,event,epoch,ms)
+    if envelope:return envelope
     if trace_rng(a)!=trace_rng(b): return dict(status='DIFF_RNG')
     if a['scene']!=b['scene']: return dict(status='DIFF_STATE',reason='scene')
     return pixel_diff(a,b)
+
+def is_prefix(a,b):
+    return len(a)<=len(b) and a==b[:len(a)]
+
+class SceneTransitionComparator:
+    """Allow different scene-arrival times without hiding different paths."""
+    def __init__(self,max_ms):
+        self.max_ms=max_ms
+        self.last_common_scene=None
+        self.transition=None
+        self.completed=[]
+
+    @staticmethod
+    def _compatible(a,b):
+        return is_prefix(a,b) or is_prefix(b,a)
+
+    def _begin(self,a,b,epoch,ms):
+        start=self.last_common_scene
+        paths=[[start] if start is not None else [],[start] if start is not None else []]
+        arrivals=[[],[]]
+        for index,frame in enumerate((a,b)):
+            if not paths[index] or paths[index][-1]!=frame['scene']:
+                paths[index].append(frame['scene'])
+                arrivals[index].append(dict(scene=frame['scene'],epoch=epoch,ms=ms))
+        self.transition=dict(start_epoch=epoch,start_ms=ms,paths=paths,
+            arrivals=arrivals,rng=[[],[]])
+
+    def _append(self,a,b,epoch,ms):
+        for index,frame in enumerate((a,b)):
+            path=self.transition['paths'][index]
+            if not path or path[-1]!=frame['scene']:
+                path.append(frame['scene'])
+                self.transition['arrivals'][index].append(
+                    dict(scene=frame['scene'],epoch=epoch,ms=ms))
+            self.transition['rng'][index].extend(trace_rng_untimed(frame))
+
+    def _failure(self,status,reason,epoch,ms):
+        return dict(status=status,reason=reason,scene_transition=dict(
+            start_epoch=self.transition['start_epoch'],
+            start_ms=self.transition['start_ms'],end_epoch=epoch,end_ms=ms,
+            paths=self.transition['paths'],arrivals=self.transition['arrivals']))
+
+    def compare(self,a,b,event,epoch,ms,terminal=False):
+        envelope=compare_envelope(a,b,event,epoch,ms)
+        if envelope:return envelope
+        if self.transition is None and a['scene']==b['scene']:
+            self.last_common_scene=a['scene']
+            if trace_rng(a)!=trace_rng(b):return dict(status='DIFF_RNG')
+            return pixel_diff(a,b)
+        if self.transition is None:self._begin(a,b,epoch,ms)
+        self._append(a,b,epoch,ms)
+        elapsed=ms-self.transition['start_ms']
+        paths=self.transition['paths'];rng=self.transition['rng']
+        if self.max_ms==0 or elapsed>self.max_ms:
+            if a['scene']==b['scene'] and paths[0]==paths[1] and rng[0]!=rng[1]:
+                return self._failure('DIFF_RNG','scene_transition_rng_timeout',epoch,ms)
+            return self._failure('DIFF_STATE','scene_transition_timeout',epoch,ms)
+        if not self._compatible(*paths):
+            return self._failure('DIFF_STATE','scene_transition_path',epoch,ms)
+        if not self._compatible(*rng):
+            return self._failure('DIFF_RNG','scene_transition_rng',epoch,ms)
+        if a['scene']!=b['scene']:
+            if terminal:
+                return self._failure('DIFF_STATE','scene_transition_incomplete',epoch,ms)
+            return dict(status='PASS',scene_transition='pending',
+                transition_start_ms=self.transition['start_ms'])
+        if paths[0]!=paths[1]:
+            return self._failure('DIFF_STATE','scene_transition_path',epoch,ms)
+        if rng[0]!=rng[1]:
+            if terminal:
+                return self._failure('DIFF_RNG','scene_transition_rng_incomplete',epoch,ms)
+            return dict(status='PASS',scene_transition='pending',
+                transition_start_ms=self.transition['start_ms'])
+        completed=dict(start_epoch=self.transition['start_epoch'],
+            start_ms=self.transition['start_ms'],end_epoch=epoch,end_ms=ms,
+            paths=paths,arrivals=self.transition['arrivals'])
+        self.completed.append(completed);self.transition=None
+        self.last_common_scene=a['scene']
+        comparison=pixel_diff(a,b);comparison['scene_transition']='aligned'
+        comparison['transition_start_ms']=completed['start_ms']
+        return comparison
 
 def validate_events(events):
     previous=-1
@@ -183,7 +278,7 @@ def write_report(out,result):
     options=''.join(f'<option value="{r["epoch"]:05d}">{r["epoch"]} / {r["ms"]} ms / {r["comparison"]["status"]}</option>' for r in frames)
     cards=''.join(f'<section><h2>epoch {r["epoch"]} / {r["ms"]} ms / {r["comparison"]["status"]}</h2>'+
         ''.join(f'<img loading="lazy" width="640" src="{r["epoch"]:05d}-{name}.png">' for name in ('original','sdl','diff'))+'</section>' for r in frames)
-    summary={k:result[k] for k in ('status','failure','first_difference','first_structural_difference','exit_codes','scope')}
+    summary={k:result[k] for k in ('status','failure','cleanup_error','first_difference','first_structural_difference','scene_transitions','exit_codes','scope')}
     viewer='''<p><label>Frame <select id="frame">OPTIONS</select></label>
 <label>SDL opacity <input id="opacity" type="range" min="0" max="100" value="50"></label></p>
 <div id="overlay"><img id="original"><img id="sdl"></div>
@@ -194,7 +289,7 @@ f.onchange=show;o.oninput=()=>document.getElementById('sdl').style.opacity=o.val
 </script>'''.replace('OPTIONS',options)
     (out/'report.html').write_text('<!doctype html><meta charset="utf-8"><title>Rich4 lockstep comparison</title><style>body{font:15px system-ui;background:#17202b;color:#eee;padding:16px}section img{max-width:32%;height:auto}section{margin:25px 0}pre{white-space:pre-wrap}#overlay{position:relative;width:640px;height:480px}#overlay img{position:absolute;width:640px;height:480px}#sdl{opacity:.5}label{margin-right:24px}</style>'+
         f'<h1>Original / SDL lockstep — {result["status"]}</h1><pre>{html.escape(json.dumps(summary,indent=2))}</pre>'+
-        '<p>Original / SDL / changed pixels. Exact RGB565 differences; same-time submissions are retained in raw files and result.json. No automatic resynchronization.</p>'+viewer+cards,encoding='utf-8')
+        '<p>Original / SDL / changed pixels. Exact RGB565 differences. Every submission hash is retained in result.json; sampled epochs also retain raw files. Matching scene paths may arrive at different virtual times and are compared again after both endpoints align.</p>'+viewer+cards,encoding='utf-8')
 
 def scenario(name):
     events=[dict(ms=100,kind=1,x=100,y=300),dict(ms=200,kind=1,x=400,y=300)]
@@ -206,45 +301,65 @@ def scenario(name):
             dict(ms=600,kind=1,x=495,y=195),dict(ms=620,kind=2,x=495,y=195),dict(ms=640,kind=3,x=495,y=195)]
     return validate_events(events)
 
+def staging_paths(out):
+    return (out/'original'/'game',out/'dxwnd',out/'sdl'/'game')
+
+def cleanup_staging(out):
+    for path in staging_paths(out):
+        if path.is_dir():shutil.rmtree(path)
+
 def stage(args,out):
     source=Path(args.data_dir).resolve();dx=Path(args.dxwnd_dir).resolve()
     if sha(source/'Rich4.exe')!=EXE_SHA or sha(dx/'dxwnd.dll')!=DXWND_SHA: raise ValueError('unverified original/DxWnd binary')
+    disc_check=source/'V3.11'/'Over.avi'
+    if not disc_check.is_file():raise FileNotFoundError(f'missing original disc-check fixture: {disc_check}')
+    config=bytearray((ROOT/'bin/RICH4.CFG').read_bytes());config[2:4]=b'\0\0'
     if '"dxwnd.exe"' in subprocess.check_output(['tasklist','/FI','IMAGENAME eq dxwnd.exe','/FO','CSV'],text=True).lower():
         raise ValueError('an existing DxWnd instance is using the global target mapping')
     out.mkdir(parents=True,exist_ok=False)
-    game=out/'original'/'game';runtime=out/'dxwnd';sdl=out/'sdl'
-    game.mkdir(parents=True);runtime.mkdir();sdl.mkdir()
-    # Explicit shared no-video/no-audio fixture. No executable or game state patch.
-    for p in source.iterdir():
-        if p.is_file() and (p.suffix.lower() in ('.exe','.mkf','.mid','.wav','.ico','.txt') or p.name.lower()=='over.avi'): shutil.copy2(p,game/p.name)
-    config=bytearray((ROOT/'RICH4.CFG').read_bytes());config[2:4]=b'\0\0'
-    for folder in (game,sdl): (folder/'RICH4.CFG').write_bytes(config)
-    # Original 0x4502FE opens MKFs with share mode zero. Independent files are
-    # required even for two readers; hard links would still conflict.
-    for p in game.iterdir():
-        if p.suffix.lower()=='.mkf':shutil.copy2(p,sdl/p.name)
-    for p in dx.iterdir():
-        if p.is_file() and p.suffix.lower() in ('.exe','.dll','.ini'):shutil.copy2(p,runtime/p.name)
-    profile=profile_text(dx/'dxwnd.ini',game/'Rich4.exe',{'renderer0':'5'})
-    (runtime/'dxwnd.ini').write_bytes(profile.encode('mbcs'))
-    return game,runtime,sdl,dict(exe_sha256=EXE_SHA,dxwnd_sha256=DXWND_SHA,
-        profile=profile,probe_sha256=sha(ROOT/'bin/frame_diff/original_probe.dll'),
-        sdl_sha256=sha(ROOT/'.local/frame-diff-bin/rich4_sdl.exe'),
-        sdl_inputs={str(p.relative_to(ROOT)):sha(p) for p in
-            [ROOT/'assets/fonts/rich4.ttc',ROOT/'config/input.toml',*sorted((ROOT/'.local/frame-diff-bin').glob('*.dll'))]},
-        resources={p.name:sha(p) for p in game.iterdir() if p.is_file()},
-        fixture='Startup AVI omitted; OVER.AVI retained for original disc check; music/sound_effect config bytes zero',source_profile_sha256=sha(dx/'dxwnd.ini'))
+    try:
+        game,runtime,sdl=staging_paths(out)
+        game.mkdir(parents=True);runtime.mkdir();sdl.mkdir(parents=True)
+        # Explicit shared no-video/no-audio fixture. No executable or game state patch.
+        for p in source.iterdir():
+            if p.is_file() and (p.suffix.lower() in ('.exe','.mkf','.mid','.wav','.ico','.txt') or p.name.lower()=='over.avi'): shutil.copy2(p,game/p.name)
+        shutil.copy2(disc_check,game/disc_check.name)
+        for folder in (game,sdl): (folder/'RICH4.CFG').write_bytes(config)
+        # Original 0x4502FE opens MKFs with share mode zero. Independent files are
+        # required even for two readers; hard links would still conflict.
+        for p in game.iterdir():
+            if p.suffix.lower()=='.mkf':shutil.copy2(p,sdl/p.name)
+        for p in dx.iterdir():
+            if p.is_file() and p.suffix.lower() in ('.exe','.dll','.ini'):shutil.copy2(p,runtime/p.name)
+        profile=profile_text(dx/'dxwnd.ini',game/'Rich4.exe',{'renderer0':'5'})
+        (runtime/'dxwnd.ini').write_bytes(profile.encode('mbcs'))
+        return game,runtime,sdl,dict(exe_sha256=EXE_SHA,dxwnd_sha256=DXWND_SHA,
+            profile=profile,probe_sha256=sha(ROOT/'bin/frame_diff/original_probe.dll'),
+            sdl_sha256=sha(ROOT/'.local/frame-diff-bin/rich4_sdl.exe'),
+            sdl_inputs={str(p.relative_to(ROOT)):sha(p) for p in
+                [ROOT/'assets/fonts/rich4.ttc',ROOT/'config/input.toml',*sorted((ROOT/'.local/frame-diff-bin').glob('*.dll'))]},
+            resources={p.name:sha(p) for p in game.iterdir() if p.is_file()},
+            fixture='Startup AVI omitted; OVER.AVI retained for original disc check; music/sound_effect config bytes zero',source_profile_sha256=sha(dx/'dxwnd.ini'))
+    except Exception:
+        if not args.keep_staging and out.is_dir():shutil.rmtree(out)
+        raise
 
 def run(args):
     if os.name!='nt':raise SystemExit('Windows required')
     events=validate_events(json.loads(Path(args.script).read_text(encoding='utf-8'))) if args.script else scenario(args.scenario)
     out=Path(args.out).resolve();game,runtime,sdl,manifest=stage(args,out)
-    manifest.update(scenario=args.scenario,events=events,origin=args.origin,
-        date=[2000,1,1],duration_ms=args.duration_ms,delay_ms=args.delay_ms,protocol=1)
-    (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
-    endpoints=[Endpoint(role,args.origin,[2000,1,1]) for role in ('original','sdl')]
-    processes=[];logs=[];records=[];status='PASS';failure=None;server=None
+    endpoints=[];processes=[];logs=[];records=[];status='PASS';failure=None
+    cleanup_error=None;server=None
+    comparator=SceneTransitionComparator(args.scene_transition_ms)
     try:
+        manifest.update(scenario=args.scenario,events=events,origin=args.origin,
+            date=[2000,1,1],duration_ms=args.duration_ms,delay_ms=args.delay_ms,protocol=1,
+            scene_transition_ms=args.scene_transition_ms,
+            safe_point_timeout_ms=args.safe_point_timeout_ms,
+            staging='retained' if args.keep_staging else 'removed_after_run')
+        (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+        for role in ('original','sdl'):
+            endpoints.append(Endpoint(role,args.origin,[2000,1,1]))
         startup=subprocess.STARTUPINFO();startup.dwFlags=subprocess.STARTF_USESHOWWINDOW;startup.wShowWindow=0
         server=subprocess.Popen([str(runtime/'dxwnd.exe'),'/T','/Q'],cwd=runtime,startupinfo=startup)
         time.sleep(1)
@@ -258,11 +373,14 @@ def run(args):
             else:
                 command=[str(ROOT/'.local/frame-diff-bin/rich4_sdl.exe'),'--data-dir',str(sdl),
                     '--font',str(ROOT/'assets/fonts/rich4.ttc'),'--input-config',str(ROOT/'config/input.toml')]
-            processes.append(subprocess.Popen(command,cwd=folder,env=env,stdout=log,stderr=subprocess.STDOUT))
+            cwd=sdl if endpoint.role=='sdl' else folder
+            processes.append(subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT))
         epoch=0;now=0;event=None
         while True:
-            frames=[e.receive(p) for e,p in zip(endpoints,processes)]
-            comparison=compare_frame(*frames,event,epoch,now)
+            frames=[e.receive(p,args.safe_point_timeout_ms)
+                    for e,p in zip(endpoints,processes)]
+            comparison=comparator.compare(*frames,event,epoch,now,
+                terminal=now>=args.duration_ms)
             persist_raw = (epoch == 0 or event is not None or
                            now == args.duration_ms or epoch % 50 == 0)
             record=dict(epoch=epoch,ms=now,comparison=comparison,
@@ -273,8 +391,9 @@ def run(args):
             # gallery for long diagnostic runs.  Always retain input epochs,
             # the terminal frame, and ordinary 200 ms checkpoints; this keeps
             # the HTML report navigable without changing comparison coverage.
-            if (epoch == 0 or event is not None or now == args.duration_ms or
-                    epoch % 10 == 0):
+            if (comparison.get('scene_transition')!='pending' and
+                    (epoch == 0 or event is not None or
+                     now == args.duration_ms or epoch % 10 == 0)):
                 write_images(out,epoch,*frames)
             if comparison['status'] not in ('PASS','DIFF_PIXELS'):
                 if status in ('PASS','DIFF_PIXELS') or comparison['status'] in ('UNSUPPORTED','INVALID_CAPTURE'):
@@ -307,6 +426,13 @@ def run(args):
             except subprocess.TimeoutExpired:server.kill();server.wait()
         for log in logs:log.close()
         for e in endpoints:e.close()
+        if not args.keep_staging:
+            try:cleanup_staging(out)
+            except OSError as exc:cleanup_error=str(exc)
+    if cleanup_error:
+        failure=f'{failure}; staging cleanup: {cleanup_error}' if failure else f'staging cleanup: {cleanup_error}'
+        if status in ('PASS','DIFF_PIXELS','DIFF_INPUT','DIFF_RNG','DIFF_STATE','DIFF_SCHEDULE'):
+            status='INVALID_CAPTURE'
     if status in ('PASS','DIFF_PIXELS','DIFF_INPUT','DIFF_RNG','DIFF_STATE','DIFF_SCHEDULE') and any(p.returncode for p in processes):
         status='CRASH';failure=f'nonzero process exit: {[p.returncode for p in processes]}'
     if status in ('PASS','DIFF_PIXELS','DIFF_INPUT','DIFF_RNG','DIFF_STATE','DIFF_SCHEDULE'):
@@ -315,9 +441,11 @@ def run(args):
         if failure:status='INVALID_CAPTURE'
     differences=[dict(epoch=r['epoch'],ms=r['ms'],**r['comparison']) for r in records if r['comparison']['status']!='PASS']
     structural=[r for r in differences if r['status']!='DIFF_PIXELS']
-    result=dict(status=status,failure=failure,diagnostic_continue=args.continue_after_diff,
+    result=dict(status=status,failure=failure,cleanup_error=cleanup_error,
+        diagnostic_continue=args.continue_after_diff,
         first_difference=next(iter(differences),None),first_structural_difference=next(iter(structural),None),
-        frames=records,exit_codes=[p.returncode for p in processes],
+        frames=records,scene_transitions=comparator.completed,
+        exit_codes=[p.returncode for p in processes],
         scope='protocol epochs at verified message-pump safe points; no arbitrary-thread equivalence',strict_equivalence=False)
     (out/'result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     write_report(out,result)
@@ -331,10 +459,19 @@ def main():
     p.add_argument('--script',help='JSON input array: ms, kind (1..5), x/y or Windows virtual key; overrides canned scenario')
     p.add_argument('--duration-ms',type=int,default=1200);p.add_argument('--delay-ms',type=int,choices=(0,50,200),default=0)
     p.add_argument('--origin',type=lambda s:int(s,0),default=100000)
+    p.add_argument('--scene-transition-ms',type=int,default=1000,
+        help='allow matching scene paths to arrive this many virtual ms apart; 0 restores strict scene timing')
+    p.add_argument('--safe-point-timeout-ms',type=int,default=15000,
+        help='wall-clock watchdog for either endpoint to reach a protocol safe point')
+    p.add_argument('--keep-staging',action='store_true',
+        help='retain the per-run original/SDL resource copies for debugging')
     p.add_argument('--debug-original',action='store_true')
     p.add_argument('--continue-after-diff',action='store_true',help='diagnostic continuation; never restores strict pass after divergence')
     args=p.parse_args()
-    if not 0<args.duration_ms<=300000 or not 0<=args.origin<=0xffffffff:p.error('invalid duration/origin')
+    if (not 0<args.duration_ms<=300000 or not 0<=args.origin<=0xffffffff or
+            not 0<=args.scene_transition_ms<=300000 or
+            not 1000<=args.safe_point_timeout_ms<=300000):
+        p.error('invalid duration/origin/scene-transition/safe-point-timeout')
     raise SystemExit(run(args))
 
 if __name__=='__main__':main()

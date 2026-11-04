@@ -8,13 +8,20 @@ def signature(result,role):
     return [{k:r[role][k] for k in ('epoch','ms','scene','error','ack','next_ms','masks','traces','sha256','submissions')}
             for r in result['frames']]
 
+def stored_files(frame):
+    files=[]
+    if frame.get('file'):files.append((frame['file'],frame['sha256']))
+    files.extend((submission['file'],submission['sha256'])
+                 for submission in frame['submissions'] if submission.get('file'))
+    return files
+
 def compare_runs(paths):
     manifests=[json.loads((p/'manifest.json').read_text()) for p in paths]
     results=[json.loads((p/'result.json').read_text()) for p in paths]
     mismatches=[]
     for index,(manifest,result) in enumerate(zip(manifests[1:],results[1:]),1):
-        for key in ('probe_sha256','sdl_sha256','exe_sha256','dxwnd_sha256','events','origin','date','duration_ms','resources'):
-            if manifest[key]!=manifests[0][key]:mismatches.append(dict(run=index,field=key))
+        for key in ('probe_sha256','sdl_sha256','exe_sha256','dxwnd_sha256','events','origin','date','duration_ms','scene_transition_ms','safe_point_timeout_ms','resources'):
+            if manifest.get(key)!=manifests[0].get(key):mismatches.append(dict(run=index,field=key))
         if manifest.get('sdl_inputs')!=manifests[0].get('sdl_inputs'):mismatches.append(dict(run=index,field='sdl_inputs'))
         profiles=[[line for line in m['profile'].splitlines() if not line.startswith(('path0=','startfolder0='))] for m in (manifests[0],manifest)]
         if profiles[0]!=profiles[1]:mismatches.append(dict(run=index,field='dxwnd_profile'))
@@ -30,8 +37,7 @@ def compare_runs(paths):
         for frame in result['frames']:
             for role in ('original','sdl'):
                 f=frame[role]
-                files=[(f'{frame["epoch"]:05d}.rgb565',f['sha256'])]+[(s['file'],s['sha256']) for s in f['submissions']]
-                for name,digest in files:
+                for name,digest in stored_files(f):
                     path=paths[i]/role/name
                     if not path.is_file() or path.stat().st_size!=640*480*2 or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
                         mismatches.append(dict(run=i,field='corrupt_frame',file=str(path)))

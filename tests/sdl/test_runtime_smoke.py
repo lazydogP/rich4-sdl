@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -16,14 +17,16 @@ SMOKE_LINE = re.compile(
 )
 
 
+# V3.11, default configuration, bundled font and RGB565 resource conversion
+# from original 0x451801 (green bit 5 stays zero). See m3-12-replay.md.
 EXPECTED_SEQUENCE = {
-    (False, 2): "f8719841",
-    (True, 120): "021f4318",
+    (False, 2): "0caab095",
+    (True, 120): "71e2ffe7",
 }
 
 EXPECTED_FRAMEBUFFER = {
-    (False, 2): "21f26f63",
-    (True, 120): "03ce8e1f",
+    (False, 2): "d2e1daa3",
+    (True, 120): "5dd46dfc",
 }
 
 
@@ -33,23 +36,29 @@ def run_smoke(
     smoke_env = os.environ.copy()
     smoke_env["SDL_VIDEODRIVER"] = "dummy"
     smoke_env["SDL_AUDIODRIVER"] = "dummy"
-    result = subprocess.run(
-        [
-            str(executable),
-            "--data-dir",
-            "assets/original",
-            "--music-dir",
-            "assets/music",
-            "--smoke-game-frames" if game_scene else "--smoke-frames",
-            str(frame_count),
-        ],
-        cwd=root,
-        env=smoke_env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
+    for name in ("R4DIFF_LINK", "RICH4_TEXT_BACKEND", "RICH4_PROFILE",
+                 "RICH4_PROFILE_LOG", "RICH4_UI_QA_BMP"):
+        smoke_env.pop(name, None)
+    # Personal RICH4*.CFG files and saves must not define the fixture or be
+    # changed by it. Keep resources, font and input bindings explicit.
+    with tempfile.TemporaryDirectory(prefix="rich4-smoke-") as work_dir:
+        result = subprocess.run(
+            [
+                str(executable.resolve()),
+                "--data-dir", str(root / "assets/original"),
+                "--music-dir", str(root / "assets/music"),
+                "--font", str(root / "assets/fonts/rich4.ttc"),
+                "--input-config", str(root / "config/input.toml"),
+                "--smoke-game-frames" if game_scene else "--smoke-frames",
+                str(frame_count),
+            ],
+            cwd=work_dir,
+            env=smoke_env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
     if result.returncode != 0:
         sys.stderr.write(result.stdout)
         sys.stderr.write(result.stderr)
