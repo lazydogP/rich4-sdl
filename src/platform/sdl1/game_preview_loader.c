@@ -230,7 +230,7 @@ int game_load_scoped_preview_assets(ResourceStore *store,
         {
             static const int tool_effect_resource[
                 GAME_TOOL_EFFECT_ASSET_COUNT] = {
-                    524, 525, 528, 530, 553, 538, 533, 558, 532, 552
+                    524, 525, 528, 530, 553, 538, 533, 558, 532, 552, 554
             };
             int effect_index;
             for (effect_index = 0;

@@ -19,6 +19,7 @@
 #include "platform/sdl1/render/game_panel_render.h"
 #include "platform/sdl1/runtime_render_api.h"
 #include "platform/sdl1/game_asset_api.h"
+#include "platform/sdl1/game_event_presentation.h"
 #include "platform/sdl1/game_flow_api.h"
 #include "resource/spr_smp.h"
 #include "view/map_renderer.h"
@@ -109,6 +110,29 @@ void draw_special_place_notice(
         source++;
     }
     name[length] = '\0';
+    if (fields.subject == GAME_SPECIAL_NOTICE_HOLIDAY_GIFT) {
+        const char *format;
+        int global_map = (int)(fields.flags & 0xffu);
+        int card = fields.target_ref.kind == GAME_DOMAIN_CARD
+            ? fields.target_ref.id : -1;
+        const char *card_name = game_card_big5_name(card);
+        /* byte_4661C4/1DD/1F2/203, selected by 0x4526BE. */
+        if (global_map == 4)
+            format = "\xbb\xc8\xaa\x65\xa8\x74\xa9\x4d\xa5\xad\xa4\xe9\n\n"
+                     "%s\xb1\x6f\xa8\xec%s\xa1\x49";
+        else if (global_map == 5)
+            format = "\xae\xa3\xc0\x73\xb3\x4a\xb8\x60\n\n"
+                     "%s\xb1\x6f\xa8\xec%s\xa1\x49";
+        else if (global_map == 6)
+            format = "\xb0\xa3\xa4\x69\n\n"
+                     "%s\xb1\x6f\xa8\xec%s\xa1\x49";
+        else
+            format = "\xb8\x74\xbd\xcf\xb8\x60\n\n"
+                     "%s\xb1\x6f\xa8\xec%s\xa1\x49";
+        snprintf(message, sizeof(message), format, name, card_name);
+        draw_original_card_presentation(screen, assets, card, message);
+        return;
+    }
     switch (fields.subject) {
     case GAME_SPECIAL_NOTICE_PRISON_RELEASE:
     case GAME_SPECIAL_NOTICE_HOSPITAL_RELEASE:

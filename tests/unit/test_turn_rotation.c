@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "core/card.h"
+#include "core/game_event_payload.h"
 #include "core/ledger.h"
 #include "core/turn_rotation.h"
 
@@ -342,6 +344,81 @@ static void test_property_status_day_expiry(void)
     }
 }
 
+static void setup_holiday_advance(GameState *state, int player_count,
+                                  int stage, int map)
+{
+    int i;
+    memset(state, 0, sizeof(*state));
+    state->active = 1;
+    state->player_count = player_count;
+    state->turn_rotation_index = player_count - 1;
+    state->calendar_start_year = 1998;
+    state->calendar_start_month = 12;
+    state->calendar_start_day = 24;
+    state->stage = stage;
+    state->map = map;
+    for (i = 0; i < player_count; i++) state->players[i].play_state = 1;
+    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++)
+        state->special_player_f10[i] = 1;
+}
+
+static void test_calendar_holiday_effects(void)
+{
+    GameState state;
+    TurnAdvanceResult result;
+    GameEventQueue events;
+    GameEvent event;
+    int animation = 0;
+    int gifts = 0;
+    int notices = 0;
+
+    setup_holiday_advance(&state, 3, 0, 0);
+    state.players[2].play_state = 0;
+    state.card_amount[7] = 2;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_turn_advance_once_events_at_tick(
+        &state, &result, &events, 0));
+    assert(state.elapsed_days == 1);
+    assert(rich4_card_inventory_has(&state, 0, 7));
+    assert(rich4_card_inventory_has(&state, 1, 7));
+    assert(rich4_card_inventory_count(&state, 2) == 0);
+    assert(state.card_amount[7] == 0);
+    while (rich4_game_event_queue_pop(&events, &event)) {
+        if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED) {
+            assert(rich4_game_event_tool_resource(&event) == 554 &&
+                   rich4_game_event_tool_effect(&event) == 114);
+            animation++;
+        } else if (event.type == GAME_EVENT_INVENTORY_CHANGED &&
+                   rich4_game_event_inventory_subject(&event).kind ==
+                       GAME_DOMAIN_CARD) {
+            gifts++;
+        } else if (event.type == GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED) {
+            Rich4GameEventFields fields =
+                rich4_game_event_special_place_notice_requested_fields(&event);
+            assert(fields.subject == GAME_SPECIAL_NOTICE_HOLIDAY_GIFT &&
+                   fields.target_ref.kind == GAME_DOMAIN_CARD &&
+                   fields.target_ref.id == 7 && fields.value2 == 1500 &&
+                   fields.flags == 0);
+            notices++;
+        }
+    }
+    assert(animation == 1 && gifts == 2 && notices == 2);
+
+    /* sub_4412E4 replaces the first held card with the lowest +5 metadata
+     * when a holiday gift arrives at the fifteen-card limit. */
+    setup_holiday_advance(&state, 1, 1, 0);
+    for (gifts = 0; gifts < GAME_PLAYER_CARD_SLOTS; gifts++)
+        state.players[0].card_inventory[gifts] = (uint8_t)(gifts + 1);
+    state.card_amount[29] = 1;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_turn_advance_once_events_at_tick(
+        &state, &result, &events, 123));
+    assert(rich4_card_inventory_count(&state, 0) == GAME_PLAYER_CARD_SLOTS);
+    assert(rich4_card_inventory_has(&state, 0, 29));
+    assert(!rich4_card_inventory_has(&state, 0, 2));
+    assert(state.card_amount[2] == 1 && state.card_amount[29] == 0);
+}
+
 int main(void)
 {
     GameState state;
@@ -352,6 +429,7 @@ int main(void)
     check_ai_cancel();
     test_daily_shared_rng_clock();
     test_property_status_day_expiry();
+    test_calendar_holiday_effects();
     memset(&state, 0, sizeof(state));
     state.active = 1;
     state.player_count = 3;

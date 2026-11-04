@@ -318,7 +318,8 @@ void game_update_preview_frame(GamePreviewFrameContext *context)
         context->main_map_music_track, context->main_map_music_active,
         context->confinement_music_kind, context->bank_music_active,
         context->lottery_music_active,
-        context->magic_house_music_active, context->auction_music_active);
+        context->magic_house_music_active, context->auction_music_active,
+        context->holiday_music_active);
     game_restore_shop_music_if_pending(
         context->audio, context->music_dir, context->sdl_config->music_bank,
         context->config->music != 0, context->main_map_music_track,

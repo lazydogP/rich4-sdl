@@ -43,6 +43,7 @@ typedef struct GamePreviewFrameContext {
     int *lottery_music_active;
     int *magic_house_music_active;
     int *auction_music_active;
+    int *holiday_music_active;
     int *shop_music_restore_pending;
     HelpPanelState *help_panel;
     const HelpAssets *help_assets;

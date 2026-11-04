@@ -89,7 +89,9 @@ static LazyAsset *bind_asset(GamePreviewAssets *a, int archive, size_t index,
 int game_lazy_assets_init(GamePreviewAssets *a)
 {
     static const int calendar[8] = {4,28,47,67,87,108,95,118};
-    static const int tools[10] = {524,525,528,530,553,538,533,558,532,552};
+    static const int tools[GAME_TOOL_EFFECT_ASSET_COUNT] = {
+        524,525,528,530,553,538,533,558,532,552,554
+    };
     static const int consequences[5] = {531,539,527,534,535};
     static const int gods[19] = {0,540,541,542,543,544,545,546,547,548,549,0,550,0,0,551,0,0,0};
     int i, j;

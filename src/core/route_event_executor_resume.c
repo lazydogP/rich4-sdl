@@ -213,7 +213,7 @@ RouteEventExecutionResult rich4_route_event_executor_resume_special_place(
     next_queue.state.presentation_action = 0;
     rich4_game_event_queue_reset(&staged);
     if (action == 13)
-        applied = gain_weighted_random_card(
+        applied = rich4_card_inventory_add_random_from_pool(
             &next_state, executor->state.execution_actor, NULL, &staged);
     else
         applied = apply_points_reward(

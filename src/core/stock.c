@@ -151,6 +151,31 @@ static const StockCalendarEvent stock_calendar_events[8]
     }
 };
 
+typedef struct StockCalendarSpecial {
+    uint8_t map;
+    uint8_t event;
+    uint8_t action_flags;
+    uint16_t data_resource;
+    uint16_t effect_resource;
+    int8_t music_index;
+} StockCalendarSpecial;
+
+/* byte_47FF4F/word_47FF50/word_47FF52/word_47FF54: the non-zero tail of
+ * each relevant twelve-byte record.  Lunar day two/three deliberately keep
+ * action_flags zero while retaining MIDI14-2 at +10. */
+static const StockCalendarSpecial stock_calendar_specials[] = {
+    {0, 0, 3, 523, 90, -1}, {0,10, 3, 523, 90, -1},
+    {0,15,15, 554,114, 13}, {0,17, 4,   0,  0, 14},
+    {0,18, 0,   0,  0, 14}, {0,19, 0,   0,  0, 14},
+    {1, 0, 3, 523, 90, -1}, {1, 9, 3, 523, 90, -1},
+    {1,10,15, 554,114, 13}, {1,12, 4,   0,  0, 14},
+    {1,13, 0,   0,  0, 14}, {1,14, 0,   0,  0, 14},
+    {2, 0, 3, 523, 90, -1}, {2,18,15, 554,114, 13},
+    {3, 1, 3, 523, 90, -1}, {3,19,15, 554,114, 13},
+    {4, 7, 8,   0,  0, -1}, {5, 9, 8,   0,  0, -1},
+    {6,12, 8,   0,  0, -1}, {7, 9, 8,   0,  0, -1}
+};
+
 /* Sparse projections of dword_47639C.  The game table covers 1998..2020;
  * two entries preserve leap-month dates whose low lunar month/day repeats. */
 static const uint16_t stock_lunar_new_year[23] = {
@@ -302,6 +327,58 @@ int rich4_stock_calendar_event_index(const GameState *state)
             return i;
     }
     return -1;
+}
+
+static const StockCalendarSpecial *stock_calendar_special_find(int map,
+                                                               int event)
+{
+    size_t i;
+    for (i = 0; i < sizeof(stock_calendar_specials) /
+                        sizeof(stock_calendar_specials[0]); i++)
+        if (stock_calendar_specials[i].map == map &&
+            stock_calendar_specials[i].event == event)
+            return &stock_calendar_specials[i];
+    return NULL;
+}
+
+int rich4_stock_calendar_special_effect(
+    const GameState *state, Rich4CalendarSpecialEffect *out_effect)
+{
+    const StockCalendarSpecial *special;
+    const StockCalendarSpecial *next;
+    int map;
+    int event;
+    if (out_effect != NULL) {
+        memset(out_effect, 0, sizeof(*out_effect));
+        out_effect->event_index = -1;
+        out_effect->music_index = -1;
+    }
+    if (state == NULL || out_effect == NULL) return 0;
+    event = rich4_stock_calendar_event_index(state);
+    if (event < 0) return 0;
+    map = state->stage * 4 + state->map;
+    special = stock_calendar_special_find(map, event);
+    if (special == NULL) return 0;
+    out_effect->event_index = event;
+    out_effect->action_flags = special->action_flags;
+    out_effect->data_resource = special->data_resource;
+    out_effect->effect_resource = special->effect_resource;
+    out_effect->music_index = special->music_index;
+    out_effect->music_days = special->music_index >= 0 ? 1 : 0;
+    next = stock_calendar_special_find(map, event + 1);
+    /* 0x4525D3 checks only the following record's +10 word.  A non-zero
+     * value selects packed counter 0x33 (three dates), otherwise 0x11. */
+    if ((special->action_flags & RICH4_CALENDAR_ACTION_MUSIC) != 0 &&
+        next != NULL && next->music_index >= 0)
+        out_effect->music_days = 3;
+    return 1;
+}
+
+int rich4_stock_calendar_music_index(const GameState *state)
+{
+    Rich4CalendarSpecialEffect effect;
+    return rich4_stock_calendar_special_effect(state, &effect)
+        ? effect.music_index : -1;
 }
 
 static int stock_calendar_sunday(const GameState *state)

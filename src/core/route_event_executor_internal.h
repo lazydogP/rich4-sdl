@@ -58,8 +58,6 @@ int apply_automatic_point_minigame(GameState *state, int player, int action,
                                    GameEventQueue *events);
 int run_ai_lottery_purchase(GameState *state, int player,
                             GameEventQueue *events);
-int gain_weighted_random_card(GameState *state, int player,
-                              int *out_card, GameEventQueue *events);
 int grant_shop_owner_gift(GameState *state, int player,
                           GameDomainRef *out_gift,
                           GameEventQueue *events);

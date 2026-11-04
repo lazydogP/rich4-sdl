@@ -32,7 +32,9 @@ int rich4_tool_animation_enqueue(
     GameToolAnimationRequest *request;
     int slot;
     int was_empty;
-    if (session == NULL || event == NULL || frame_count <= 0 || frame_delay_ms <= 0 ||
+    int timing_pending = frame_count == 0 && frame_delay_ms == 0;
+    if (session == NULL || event == NULL ||
+        ((!timing_pending) && (frame_count <= 0 || frame_delay_ms <= 0)) ||
         rich4_game_event_tool_resource(event) <= 0 ||
         session->presentation.tool_animation_count >= GAME_EVENT_QUEUE_CAPACITY)
         return 0;
@@ -54,8 +56,10 @@ int rich4_tool_animation_enqueue(
     request->active = 1;
     if (was_empty) {
         rich4_animation_clock_reset(&session->presentation.animation_clock[RICH4_ANIMATION_TOOL]);
-        request->started = now;
-        request->until = now + (uint32_t)(frame_count * frame_delay_ms);
+        if (!timing_pending) {
+            request->started = now;
+            request->until = now + (uint32_t)(frame_count * frame_delay_ms);
+        }
         if (has_world_position && request->resource != 525) {
             session->presentation.view_world_x = world_x;
             session->presentation.view_world_y = world_y;

@@ -23,10 +23,52 @@ static int push_typed_turn_event(GameEventQueue *events,
 #include <string.h>
 
 #include "core/bank.h"
+#include "core/card.h"
 #include "core/ledger.h"
 #include "core/rng.h"
 #include "core/victory.h"
 #include "core/stock.h"
+
+static int apply_calendar_special_effects(GameState *state,
+                                          GameEventQueue *events)
+{
+    Rich4CalendarSpecialEffect effect;
+    int global_map;
+    int player;
+    if (state == NULL || events == NULL) return 0;
+    if (!rich4_stock_calendar_special_effect(state, &effect) ||
+        effect.action_flags == 0)
+        return 1;
+    global_map = state->stage * 4 + state->map;
+    if ((effect.action_flags & RICH4_CALENDAR_ACTION_ANIMATION) != 0) {
+        if (effect.data_resource <= 0 ||
+            !rich4_game_event_emit_typed_domain(
+                events,
+                rich4_game_event_tool_presentation_requested_from_fields,
+                -1, rich4_game_domain_ref(GAME_DOMAIN_NONE, -1),
+                rich4_game_domain_ref(GAME_DOMAIN_NONE, -1),
+                effect.data_resource, effect.effect_resource, 0))
+            return 0;
+    }
+    if ((effect.action_flags & RICH4_CALENDAR_ACTION_CARD_GIFT) == 0)
+        return 1;
+    for (player = 0; player < state->player_count; player++) {
+        const GameCardInfo *info;
+        GameEvent notice;
+        int card = -1;
+        if ((state->players[player].play_state & 0xff) == 0) continue;
+        if (!rich4_card_inventory_add_random_from_pool(
+                state, player, &card, events))
+            return 0;
+        if (card < 0) continue;
+        info = rich4_card_info(card);
+        if (info == NULL) return 0;
+        notice = rich4_game_event_holiday_gift_notice(
+            player, global_map, card, info->metadata_f6, 1500);
+        if (!rich4_game_event_queue_push(events, &notice)) return 0;
+    }
+    return 1;
+}
 
 static int resolve_ordinary_loan_due(GameState *state, int player,
                                      GameEventQueue *events)
@@ -323,6 +365,10 @@ static int turn_advance_events_impl(GameState *state,
             stock_result = rich4_stock_day_update(&next, &staged);
             if (stock_result == GAME_STOCK_DAY_INVALID ||
                 stock_result == GAME_STOCK_DAY_EVENT_CAPACITY) return 0;
+            /* 0x41D07B calls 0x452444 immediately after 0x4291D6.  Closed
+             * holidays therefore give cards from the freshly seeded stream,
+             * while an open day first consumes the stock-update draws. */
+            if (!apply_calendar_special_effects(&next, &staged)) return 0;
             {
                 int day;
                 if (rich4_stock_calendar_date(&next, NULL, NULL, &day, NULL) &&

@@ -55,6 +55,23 @@ typedef struct GameStockSnapshot {
     uint32_t rng_state;
 } GameStockSnapshot;
 
+enum {
+    RICH4_CALENDAR_ACTION_ANIMATION = 1u << 0,
+    /* Bit 1 is present in the original records but 0x452444 never tests it. */
+    RICH4_CALENDAR_ACTION_RESERVED = 1u << 1,
+    RICH4_CALENDAR_ACTION_MUSIC = 1u << 2,
+    RICH4_CALENDAR_ACTION_CARD_GIFT = 1u << 3
+};
+
+typedef struct Rich4CalendarSpecialEffect {
+    int event_index;
+    unsigned int action_flags;
+    int data_resource;
+    int effect_resource;
+    int music_index;
+    int music_days;
+} Rich4CalendarSpecialEffect;
+
 #define GAME_STOCK_SNAPSHOT_VERSION 1u
 
 void rich4_stock_state_init(GameState *state, Rich4Rng *rng);
@@ -72,6 +89,13 @@ int rich4_stock_calendar_date(const GameState *state,
 /* sub_4521F0: first visible map-calendar record matching the current date,
  * or -1 when the bank calendar uses the seasonal Panel.MKF fallback. */
 int rich4_stock_calendar_event_index(const GameState *state);
+/* Original record bytes +5..+11 consumed by 0x452444.  A successful query
+ * can have action_flags==0: lunar-new-year day two/three retain only +10's
+ * music index so the fixed track remains active for all three dates. */
+int rich4_stock_calendar_special_effect(
+    const GameState *state, Rich4CalendarSpecialEffect *out_effect);
+/* Zero-based fixed_music index for the current holiday date, or -1. */
+int rich4_stock_calendar_music_index(const GameState *state);
 int rich4_stock_apply_forced_quote(GameState *state, int stock);
 GameStockTradeResult rich4_stock_apply_command(GameState *state,
                                                 const GameCommand *command,

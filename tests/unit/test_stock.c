@@ -270,6 +270,7 @@ static void test_status_tick(void)
 static void test_calendar_closure(void)
 {
     GameState state;
+    Rich4CalendarSpecialEffect effect;
     setup(&state);
     /* 2026-08-09 was Sunday; crossing into September increments the
      * original monthly-profit divisor once. */
@@ -296,6 +297,30 @@ static void test_calendar_closure(void)
     state.calendar_start_day = 28;
     assert(rich4_stock_market_is_closed(&state)); /* lunar 1/1 */
     assert(rich4_stock_calendar_event_index(&state) == 17);
+    assert(rich4_stock_calendar_special_effect(&state, &effect));
+    assert(effect.action_flags == RICH4_CALENDAR_ACTION_MUSIC &&
+           effect.music_index == 14 && effect.music_days == 3);
+    state.calendar_start_day = 29;
+    assert(rich4_stock_calendar_special_effect(&state, &effect));
+    assert(effect.action_flags == 0 && effect.music_index == 14 &&
+           rich4_stock_calendar_music_index(&state) == 14);
+    state.calendar_start_day = 31;
+    assert(rich4_stock_calendar_music_index(&state) == -1);
+
+    state.calendar_start_month = 12;
+    state.calendar_start_day = 25;
+    assert(rich4_stock_calendar_special_effect(&state, &effect));
+    assert(effect.action_flags == 15 && effect.data_resource == 554 &&
+           effect.effect_resource == 114 && effect.music_index == 13 &&
+           effect.music_days == 1);
+
+    state.stage = 1;
+    state.map = 0;
+    assert(rich4_stock_calendar_special_effect(&state, &effect));
+    assert(effect.action_flags == RICH4_CALENDAR_ACTION_CARD_GIFT &&
+           effect.data_resource == 0 && effect.music_index == -1);
+    state.stage = 0;
+    state.map = 0;
 
     /* sub_4521F0 returns visible calendar artwork even when the matching
      * record does not close the market. */

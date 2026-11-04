@@ -16,8 +16,8 @@
 #define GAME_NEWS_CONSEQUENCE_COUNT 5
 #endif
 #ifndef GAME_TOOL_EFFECT_ASSET_COUNT
-/* Eight tool FLCs plus the two type-11 dog encounter FLCs. */
-#define GAME_TOOL_EFFECT_ASSET_COUNT 10
+/* Eight tool FLCs, two type-11 dog FLCs, and holiday Data[554]. */
+#define GAME_TOOL_EFFECT_ASSET_COUNT 11
 #endif
 #ifndef GAME_PANEL_RESOURCE_COUNT
 #define GAME_PANEL_RESOURCE_COUNT 113

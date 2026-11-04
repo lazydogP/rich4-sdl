@@ -2,6 +2,8 @@
 #include "app/turn_rotation_flow.h"
 #include "core/god.h"
 #include "app/monthly_finance_flow.h"
+#include "app/special_place_notice_flow.h"
+#include "app/tool_animation_flow.h"
 
 #include <string.h>
 
@@ -94,6 +96,16 @@ static void consume_turn_events(GameSession *session, const MapData *map,
     GameEvent event;
 
     while (rich4_game_event_queue_pop(events, &event)) {
+        int holiday_notice =
+            event.type == GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED &&
+            rich4_game_event_special_place_notice_requested_fields(&event).subject ==
+                GAME_SPECIAL_NOTICE_HOLIDAY_GIFT;
+        if (holiday_notice &&
+            session->presentation.tool_animation_count > 0) {
+            (void)rich4_game_event_queue_push(
+                &session->pending_turn_events, &event);
+            continue;
+        }
         if ((session->presentation.periodic_finance.active ||
              session->presentation.bank_settlement.active) &&
             (event.type == GAME_EVENT_STATUS_TICK_REQUESTED ||
@@ -191,6 +203,14 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                 session->presentation.bank_settlement.active
                     ? session->presentation.bank_settlement.until + 1500
                     : now + 1500;
+        } else if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED) {
+            /* Calendar FLCs are produced below the platform boundary.  A
+             * zero timing pair leaves the request pending until SDL has
+             * resolved the Data.MKF frame count and authored delay. */
+            (void)rich4_tool_animation_enqueue(
+                session, &event, 0, 0, 0, 0, 0, now);
+        } else if (holiday_notice) {
+            (void)rich4_special_place_notice_enqueue(session, &event, now);
         }
     }
     if (session->presentation.bank_settlement.active &&

@@ -124,6 +124,7 @@ int rich4_sdl1_main(int argc, char **argv)
     int lottery_music_active = 0;
     int magic_house_music_active = 0;
     int auction_music_active = 0;
+    int holiday_music_active = 0;
     int confinement_music_kind = GAME_CONFINEMENT_NONE;
     Uint32 ending_wait_started = 0;
     int ending_wait_active = 0;
@@ -321,6 +322,7 @@ int rich4_sdl1_main(int argc, char **argv)
                 &bank_music_active,
                 &lottery_music_active, &magic_house_music_active,
                 &auction_music_active,
+                &holiday_music_active,
                 &shop_music_restore_pending, &help_panel, &help_assets,
                 &small_map_panel, &game_session.presentation.options,
                 &scene_machine, scene_state, &ending_map_mask, &running,

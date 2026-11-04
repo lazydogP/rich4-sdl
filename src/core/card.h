@@ -91,6 +91,10 @@ int rich4_card_inventory_count(const GameState *state, int player);
 int rich4_card_inventory_has(const GameState *state, int player, int card);
 int rich4_card_inventory_add_from_pool(GameState *state, int player, int card,
                                        GameEventQueue *events);
+/* sub_441E12 + sub_4412E4: draw one public-pool copy with stock weighting;
+ * a full hand first returns the earliest lowest +5 metadata card. */
+int rich4_card_inventory_add_random_from_pool(
+    GameState *state, int player, int *out_card, GameEventQueue *events);
 /* Moves one existing card without touching the public card stock. */
 int rich4_card_inventory_transfer(GameState *state, int from, int to, int card);
 GameCardUseResult rich4_card_inspect(const GameState *state,

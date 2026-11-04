@@ -116,6 +116,63 @@ int rich4_card_inventory_add_from_pool(GameState *state, int player, int card,
     return 1;
 }
 
+int rich4_card_inventory_add_random_from_pool(
+    GameState *state, int player, int *out_card, GameEventQueue *events)
+{
+    Rich4Rng rng;
+    int total = 0;
+    int pick;
+    int card;
+    int slot;
+    int inventory_count;
+    if (!valid_player(state, player) || events == NULL) return 0;
+    if (out_card != NULL) *out_card = -1;
+    for (card = 0; card < GAME_CARD_COUNT; card++)
+        total += state->card_amount[card];
+    if (total == 0) return 1;
+
+    /* sub_441E12 expands every remaining copy into its temporary draw array. */
+    rng.state = state->ai_rng_state;
+    pick = rich4_rng_original_state_range(&rng, total);
+    state->ai_rng_state = rng.state;
+    for (card = 0; card < GAME_CARD_COUNT; card++) {
+        if (pick < state->card_amount[card]) break;
+        pick -= state->card_amount[card];
+    }
+    if (card >= GAME_CARD_COUNT) return 0;
+    if (out_card != NULL) *out_card = card;
+
+    inventory_count = rich4_card_inventory_count(state, player);
+    if (inventory_count < 0) return 0;
+    if (inventory_count == GAME_PLAYER_CARD_SLOTS) {
+        int lowest_card = -1;
+        int lowest_value = INT_MAX;
+        int i;
+        /* sub_44128F uses a strict comparison, retaining the first card on
+         * equal +5 metadata values. */
+        for (i = 0; i < GAME_PLAYER_CARD_SLOTS; i++) {
+            int held = state->players[player].card_inventory[i] - 1;
+            const GameCardInfo *info = rich4_card_info(held);
+            if (info != NULL && info->metadata_f6 < lowest_value) {
+                lowest_value = info->metadata_f6;
+                lowest_card = held;
+            }
+        }
+        if (lowest_card < 0) return 0;
+        for (slot = 0; slot < GAME_PLAYER_CARD_SLOTS; slot++)
+            if (state->players[player].card_inventory[slot] == lowest_card + 1)
+                break;
+        if (slot == GAME_PLAYER_CARD_SLOTS) return 0;
+        for (; slot + 1 < GAME_PLAYER_CARD_SLOTS; slot++)
+            state->players[player].card_inventory[slot] =
+                state->players[player].card_inventory[slot + 1];
+        state->players[player].card_inventory[GAME_PLAYER_CARD_SLOTS - 1] = 0;
+        if (state->card_amount[lowest_card] < UINT8_MAX)
+            state->card_amount[lowest_card]++;
+    }
+    return rich4_card_inventory_add_from_pool(state, player, card, events);
+}
+
 static int target_is_active_character(const GameState *state,
                                       const GameCommand *command)
 {

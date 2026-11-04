@@ -24,6 +24,17 @@ GameEvent rich4_game_event_special_place_notice(
     return rich4_game_event_special_place_notice_requested_from_fields(fields);
 }
 
+GameEvent rich4_game_event_holiday_gift_notice(
+    int player, int global_map, int card, int voice_value, int hold_ms)
+{
+    Rich4GameEventFields fields = {
+        player, GAME_SPECIAL_NOTICE_HOLIDAY_GIFT, voice_value, hold_ms,
+        (unsigned int)global_map,
+        { GAME_DOMAIN_NONE, -1 }, { GAME_DOMAIN_CARD, card }
+    };
+    return rich4_game_event_special_place_notice_requested_from_fields(fields);
+}
+
 int rich4_game_event_emit_typed(
     GameEventQueue *queue, Rich4GameEventConstructor constructor,
     Rich4GameEventFields fields)

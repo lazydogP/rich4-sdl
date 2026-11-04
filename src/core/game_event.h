@@ -168,7 +168,9 @@ typedef enum GameSpecialPlaceNoticeKind {
     GAME_SPECIAL_NOTICE_SHOP_GIFT,
     GAME_SPECIAL_NOTICE_BANK_BORROW,
     GAME_SPECIAL_NOTICE_BANK_REPAY,
-    GAME_SPECIAL_NOTICE_BANK_OWNER_SHORTFALL
+    GAME_SPECIAL_NOTICE_BANK_OWNER_SHORTFALL,
+    /* 0x452444 Christmas/peace/dinosaur/new-year card presentation. */
+    GAME_SPECIAL_NOTICE_HOLIDAY_GIFT
 } GameSpecialPlaceNoticeKind;
 
 /* A single tagged payload boundary for event data that historically occupied

@@ -6,6 +6,7 @@
 #include "app/turn_rotation_flow.h"
 #include "app/turn_movement_flow.h"
 #include "core/game_constants.h"
+#include "core/game_event_payload.h"
 #include "core/rng.h"
 #include "core/god.h"
 #include "view/game_view_model.h"
@@ -420,8 +421,51 @@ static void test_calendar_defers_turn_status(void)
     }
 }
 
+static void test_holiday_animation_precedes_card_notice(void)
+{
+    GameSession s;
+    Rich4AppTurnRotationResult result;
+    const GameToolAnimationRequest *animation;
+    const GameEvent *notice;
+
+    setup_session(&s);
+    s.state.calendar_start_year = 1998;
+    s.state.calendar_start_month = 12;
+    s.state.calendar_start_day = 24;
+    s.state.stage = 0;
+    s.state.map = 0;
+    s.state.players[0].node = 1;
+    s.state.tool_route_node_count = 2;
+    s.state.tool_route_x[1] = 321;
+    s.state.tool_route_y[1] = 654;
+    s.state.card_amount[4] = 1;
+    assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, &result));
+    assert(s.presentation.tool_animation_count == 1);
+    animation = &s.presentation.tool_animation[
+        s.presentation.tool_animation_head];
+    assert(animation->resource == 554 && animation->effect == 114 &&
+           animation->started == 0);
+    assert(s.pending_turn_events.count == 1);
+    assert(s.presentation.special_place_notice.queue.count == 0);
+
+    /* The platform fills the pending FLC timing, then resumes the deferred
+     * 1500 ms card presentation after the queue drains. */
+    s.presentation.tool_animation_count = 0;
+    assert(rich4_app_resume_turn_events(&s, NULL, 2000));
+    assert(s.pending_turn_events.count == 0);
+    assert(s.presentation.special_place_notice.queue.count == 1);
+    assert(s.presentation.has_view_override &&
+           s.presentation.view_world_x == 321 &&
+           s.presentation.view_world_y == 654);
+    notice = &s.presentation.special_place_notice.queue.events[
+        s.presentation.special_place_notice.queue.head];
+    assert(rich4_game_event_special_place_notice_requested_fields(notice).subject ==
+           GAME_SPECIAL_NOTICE_HOLIDAY_GIFT);
+}
+
 int main(void)
 {
+    test_holiday_animation_precedes_card_notice();
     test_calendar_defers_turn_status();
     test_god_expiry();
     test_normal_status_consumption();

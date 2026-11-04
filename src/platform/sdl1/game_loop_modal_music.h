@@ -21,6 +21,7 @@ typedef struct GameModalMusicContext {
     int *lottery_music_active;
     int *magic_house_music_active;
     int *auction_music_active;
+    int *holiday_music_active;
     int shop_was_active;
     int shop_music_was_started;
     int point_minigame_was_active;
@@ -40,7 +41,7 @@ void game_capture_modal_music_context(
     int *main_map_music_active, int *confinement_music_kind,
     int *bank_music_active, int *lottery_music_active,
     int *magic_house_music_active,
-    int *auction_music_active);
+    int *auction_music_active, int *holiday_music_active);
 
 void game_update_modal_music(GameModalMusicContext *context);
 

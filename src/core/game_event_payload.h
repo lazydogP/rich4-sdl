@@ -85,6 +85,8 @@ int rich4_game_event_emit_typed_domain(
 GameEvent rich4_game_event_special_place_notice(
     int player, GameSpecialPlaceNoticeKind kind, GameDomainRef target,
     int amount, int hold_ms);
+GameEvent rich4_game_event_holiday_gift_notice(
+    int player, int global_map, int card, int voice_value, int hold_ms);
 
 /* Company issue only: changed chairman and this actor gained control. */
 int rich4_game_event_company_control_company(const GameEvent *event);

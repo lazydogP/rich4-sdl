@@ -6,6 +6,22 @@
 #include "core/route_event_executor.h"
 #include "data/character_speech.h"
 
+static void focus_holiday_gift_player(GameSession *session,
+                                      const GameEvent *event)
+{
+    Rich4GameEventFields fields;
+    int node;
+    if (session == NULL || event == NULL || event->player < 0 ||
+        event->player >= session->state.player_count) return;
+    fields = rich4_game_event_special_place_notice_requested_fields(event);
+    if (fields.subject != GAME_SPECIAL_NOTICE_HOLIDAY_GIFT) return;
+    node = session->state.players[event->player].node;
+    if (node <= 0 || node >= session->state.tool_route_node_count) return;
+    session->presentation.view_world_x = session->state.tool_route_x[node];
+    session->presentation.view_world_y = session->state.tool_route_y[node];
+    session->presentation.has_view_override = 1;
+}
+
 const GameEvent *rich4_special_place_notice_current(
     const GamePresentationState *presentation)
 {
@@ -26,7 +42,7 @@ int rich4_special_place_notice_enqueue(
     fields = rich4_game_event_special_place_notice_requested_fields(event);
     if (event->player < 0 || event->player >= session->state.player_count ||
         fields.subject < GAME_SPECIAL_NOTICE_PRISON_RELEASE ||
-        fields.subject > GAME_SPECIAL_NOTICE_BANK_OWNER_SHORTFALL ||
+        fields.subject > GAME_SPECIAL_NOTICE_HOLIDAY_GIFT ||
         fields.value2 <= 0) return 0;
     notice = &session->presentation.special_place_notice;
     empty = notice->queue.count == 0;
@@ -34,6 +50,7 @@ int rich4_special_place_notice_enqueue(
     if (empty) {
         notice->until = now + (uint32_t)fields.value2;
         notice->speech_pending = 0;
+        focus_holiday_gift_player(session, event);
     }
     return 1;
 }
@@ -50,7 +67,9 @@ int rich4_special_place_notice_update(GameSession *session, uint32_t now)
     notice = &session->presentation.special_place_notice;
     if ((int32_t)(now - notice->until) < 0) return 1;
     fields = rich4_game_event_special_place_notice_requested_fields(event);
-    if (!notice->speech_pending && fields.subject == GAME_SPECIAL_NOTICE_SHOP_GIFT) {
+    if (!notice->speech_pending &&
+        (fields.subject == GAME_SPECIAL_NOTICE_SHOP_GIFT ||
+         fields.subject == GAME_SPECIAL_NOTICE_HOLIDAY_GIFT)) {
         /* 0x42EA23 -> 0x44F230 runs only after the 1500 ms gift text. */
         int variant = fields.value > 50 && fields.value <= 100
             ? (int)(rich4_rng_next_at(&session->state.ai_rng_state) & 1u) : 0;
@@ -74,9 +93,11 @@ int rich4_special_place_notice_update(GameSession *session, uint32_t now)
     rich4_game_event_queue_pop(&notice->queue, &completed);
     notice->speech_pending = 0;
     event = rich4_special_place_notice_current(&session->presentation);
-    if (event != NULL)
+    if (event != NULL) {
         notice->until = now + (uint32_t)
             rich4_game_event_special_place_notice_requested_fields(event).value2;
+        focus_holiday_gift_player(session, event);
+    }
     /* Own the completion frame, so the next route/turn cannot erase the notice. */
     return 1;
 }

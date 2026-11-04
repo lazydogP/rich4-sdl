@@ -6,6 +6,7 @@
 #include "app/point_minigame_flow.h"
 #include "app/shop_flow.h"
 #include "app/monthly_finance_flow.h"
+#include "core/stock.h"
 #include "platform/sdl1/game_loop_modal_music.h"
 #include "platform/sdl1/runtime_bootstrap.h"
 
@@ -16,7 +17,7 @@ void game_capture_modal_music_context(
     int *main_map_music_active, int *confinement_music_kind,
     int *bank_music_active, int *lottery_music_active,
     int *magic_house_music_active,
-    int *auction_music_active)
+    int *auction_music_active, int *holiday_music_active)
 {
     if (context == NULL || session == NULL)
         return;
@@ -32,6 +33,7 @@ void game_capture_modal_music_context(
     context->lottery_music_active = lottery_music_active;
     context->magic_house_music_active = magic_house_music_active;
     context->auction_music_active = auction_music_active;
+    context->holiday_music_active = holiday_music_active;
     context->shop_was_active = session->presentation.shop_visit.active;
     context->shop_music_was_started =
         session->presentation.shop_visit.music_started;
@@ -325,6 +327,48 @@ void game_update_modal_music(GameModalMusicContext *context)
         else {
             *context->main_map_music_active = 0;
             rich4_audio_stop_music(audio);
+        }
+    }
+    {
+        int holiday_index = rich4_stock_calendar_music_index(&session->state);
+        int modal_music_active =
+            session->presentation.bank_settlement.active ||
+            (session->presentation.periodic_finance.active &&
+             session->presentation.periodic_finance.phase > 0) ||
+            session->presentation.confinement_visit.active || bank_active ||
+            (session->presentation.point_minigame.active &&
+             !session->presentation.point_minigame.automatic) ||
+            (session->presentation.shop_visit.active &&
+             session->presentation.shop_visit.phase != RICH4_SHOP_OWNER_GIFT &&
+             session->presentation.shop_visit.phase != RICH4_SHOP_OWNER_SPEECH) ||
+            session->presentation.lottery.active ||
+            (session->presentation.magic_house.active &&
+             !session->presentation.magic_house.modal_music_finished) ||
+            (session->presentation.auction.active &&
+             session->presentation.auction.request.manage_music);
+        if (modal_music_active) {
+            /* A modal replaced the holiday track.  Its close branch restores
+             * the map playlist; this tail then restarts a current holiday. */
+            *context->holiday_music_active = 0;
+        } else if (context->music_enabled && holiday_index >= 0) {
+            int desired = holiday_index + 1;
+            if (*context->holiday_music_active != desired &&
+                start_fixed_music(audio, context->music_dir,
+                                  (size_t)holiday_index,
+                                  "calendar holiday")) {
+                *context->holiday_music_active = desired;
+                *context->main_map_music_active = 0;
+            }
+        } else if (*context->holiday_music_active != 0) {
+            *context->holiday_music_active = 0;
+            if (context->music_enabled)
+                *context->main_map_music_active = start_music_bank_track(
+                    audio, context->music_dir, context->music_bank,
+                    (size_t)*context->main_map_music_track, "main map");
+            else {
+                *context->main_map_music_active = 0;
+                rich4_audio_stop_music(audio);
+            }
         }
     }
 }

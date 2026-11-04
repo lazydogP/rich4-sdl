@@ -82,73 +82,6 @@ int run_ai_lottery_purchase(
                number, state->lottery_pool, 0);
 }
 
-int gain_weighted_random_card(GameState *state, int player,
-                              int *out_card,
-                              GameEventQueue *events)
-{
-    Rich4Rng rng;
-    int total = 0;
-    int pick;
-    int card;
-    int slot;
-    int inventory_count;
-    if (state == NULL || events == NULL || player < 0 ||
-        player >= state->player_count)
-        return 0;
-    if (out_card != NULL) *out_card = -1;
-    for (card = 0; card < GAME_CARD_COUNT; card++)
-        total += state->card_amount[card];
-    if (total == 0) return 1;
-
-    /*
-     * sub_441E12 puts one entry in its temporary array for every remaining
-     * public-pool copy, so the draw is weighted by stock rather than card ID.
-     */
-    rng.state = state->ai_rng_state;
-
-    pick = rich4_rng_original_state_range(&rng, total);
-    state->ai_rng_state = rng.state;
-    for (card = 0; card < GAME_CARD_COUNT; card++) {
-        if (pick < state->card_amount[card]) break;
-        pick -= state->card_amount[card];
-    }
-    if (card >= GAME_CARD_COUNT) return 0;
-    if (out_card != NULL) *out_card = card;
-
-    inventory_count = rich4_card_inventory_count(state, player);
-    if (inventory_count < 0) return 0;
-    if (inventory_count == GAME_PLAYER_CARD_SLOTS) {
-        int lowest_card = -1;
-        int lowest_value = 10000;
-        int i;
-        /*
-         * sub_4412E4 does not reject a full hand: sub_44128F selects the
-         * first held card with the lowest card-table +5 value, returns it to
-         * the public pool, then inserts the gift.
-         */
-        for (i = 0; i < GAME_PLAYER_CARD_SLOTS; i++) {
-            int held = state->players[player].card_inventory[i] - 1;
-            const GameCardInfo *info = rich4_card_info(held);
-            if (info != NULL && info->metadata_f6 < lowest_value) {
-                lowest_value = info->metadata_f6;
-                lowest_card = held;
-            }
-        }
-        if (lowest_card < 0) return 0;
-        for (slot = 0; slot < GAME_PLAYER_CARD_SLOTS; slot++)
-            if (state->players[player].card_inventory[slot] ==
-                    lowest_card + 1)
-                break;
-        if (slot == GAME_PLAYER_CARD_SLOTS) return 0;
-        for (; slot + 1 < GAME_PLAYER_CARD_SLOTS; slot++)
-            state->players[player].card_inventory[slot] =
-                state->players[player].card_inventory[slot + 1];
-        state->players[player].card_inventory[GAME_PLAYER_CARD_SLOTS - 1] = 0;
-        state->card_amount[lowest_card]++;
-    }
-    return rich4_card_inventory_add_from_pool(state, player, card, events);
-}
-
 static int gain_weighted_random_tool(GameState *state, int player,
                                      int *out_tool,
                                      GameEventQueue *events)
@@ -210,7 +143,7 @@ int grant_shop_owner_gift(GameState *state, int player,
             *out_gift = rich4_game_domain_ref(GAME_DOMAIN_TOOL, tool);
         return 1;
     }
-    if (!gain_weighted_random_card(
+    if (!rich4_card_inventory_add_random_from_pool(
             state, player, &card, events)) return 0;
     if (card >= 0)
         *out_gift = rich4_game_domain_ref(GAME_DOMAIN_CARD, card);
