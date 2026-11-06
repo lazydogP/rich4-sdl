@@ -3,6 +3,7 @@
  * own session state or the SDL event loop. */
 
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -58,7 +59,7 @@ static int parse_size_arg(const char *text, size_t *out_value)
 void rich4_sdl_print_usage(FILE *out)
 {
     fprintf(out,
-            "usage: rich4_sdl [--data-dir DIR] [--music-dir DIR] [--input-config PATH] [--font PATH] [--mkf NAME] [--resource N] [--chunk N] [--smoke-frames N | --smoke-game-frames N]\n");
+            "usage: rich4_sdl [--data-dir DIR] [--music-dir DIR] [--input-config PATH] [--font PATH] [--font-face-index N] [--mkf NAME] [--resource N] [--chunk N] [--smoke-frames N | --smoke-game-frames N]\n");
 }
 
 int rich4_sdl_parse_options(int argc, char **argv, SdlOptions *out_options)
@@ -93,6 +94,14 @@ int rich4_sdl_parse_options(int argc, char **argv, SdlOptions *out_options)
             }
             out_options->input_config = argv[++i];
             out_options->custom_input_config = 1;
+        } else if (strcmp(argv[i], "--font-face-index") == 0) {
+            size_t face;
+            if (i + 1 >= argc || !parse_size_arg(argv[i + 1], &face) || face > LONG_MAX) {
+                fprintf(stderr, "error: --font-face-index requires a non-negative integer\n");
+                return 0;
+            }
+            out_options->font_face_index = (long)face;
+            i++;
         } else if (strcmp(argv[i], "--font") == 0) {
             if (i + 1 >= argc) {
                 fprintf(stderr, "error: --font requires a file path\n");

@@ -23,6 +23,15 @@ void rich4_text_backend_set_font_path(const char *font_path)
 #endif
 }
 
+void rich4_text_backend_set_font_face_index(long face_index)
+{
+#if RICH4_TEXT_BACKEND == RICH4_TEXT_BACKEND_FREETYPE || (defined(RICH4_PLATFORM_MIYOO) && defined(HAVE_SDL_TTF))
+    rich4_text_backend_freetype_set_font_face_index(face_index);
+#else
+    (void)face_index;
+#endif
+}
+
 int rich4_text_backend_init_for_profile(Rich4TextBackend *backend,
                                         const Rich4FontAtlas *atlas)
 {

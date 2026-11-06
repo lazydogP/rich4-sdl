@@ -140,6 +140,7 @@ int rich4_sdl1_main(int argc, char **argv)
         return 2;
     if (!r4diff_init()) return 3;
     rich4_sdl_text_set_font_path(options.font_path);
+    rich4_sdl_text_set_font_face_index(options.font_face_index);
     game_load_runtime_configs(&rich4_config, &rich4_sdl_config);
     game_init_runtime_panel_states(
         &game_session.presentation.options,

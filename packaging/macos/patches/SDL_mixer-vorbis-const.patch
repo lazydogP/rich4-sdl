@@ -1,0 +1,5 @@
+--- a/dynamic_ogg.h
++++ b/dynamic_ogg.h
+@@ -34,1 +34,1 @@
+-	int (*ov_open_callbacks)(void *datasource, OggVorbis_File *vf, char *initial, long ibytes, ov_callbacks callbacks);
++	int (*ov_open_callbacks)(void *datasource, OggVorbis_File *vf, const char *initial, long ibytes, ov_callbacks callbacks);

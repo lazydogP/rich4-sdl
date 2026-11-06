@@ -24,7 +24,13 @@ typedef struct Rich4RuntimeText {
 } Rich4RuntimeText;
 
 static Rich4RuntimeText g_runtime_text;
-static char g_runtime_font_path[512];
+static char g_runtime_font_path[4096];
+static long g_runtime_font_face_index;
+
+void rich4_sdl_text_set_font_face_index(long face_index)
+{
+    g_runtime_font_face_index = face_index;
+}
 
 void rich4_sdl_text_set_font_path(const char *font_path)
 {
@@ -44,6 +50,7 @@ static int rich4_runtime_text_init(void)
     memset(&g_runtime_text, 0, sizeof(g_runtime_text));
     g_runtime_text.initialized = 1;
     rich4_text_backend_set_font_path(g_runtime_font_path);
+    rich4_text_backend_set_font_face_index(g_runtime_font_face_index);
 #if RICH4_TEXT_BACKEND == RICH4_TEXT_BACKEND_ATLAS
     if (rich4_text_backend_uses_atlas() && !rich4_font_atlas_load_file(&g_runtime_text.atlas,
                                     RICH4_FONT_ATLAS_PATH)) {

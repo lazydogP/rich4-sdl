@@ -11,5 +11,6 @@ int rich4_text_backend_uses_atlas(void);
 int rich4_text_backend_init_for_profile(Rich4TextBackend *backend,
                                         const Rich4FontAtlas *atlas);
 void rich4_text_backend_set_font_path(const char *font_path);
+void rich4_text_backend_set_font_face_index(long face_index);
 
 #endif

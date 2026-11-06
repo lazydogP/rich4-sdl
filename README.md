@@ -181,3 +181,8 @@ config/
 ## 参与开发
 
 行为改动必须先有 IDA Pro 地址/调用链或 `rich4` 文件依据，并记录输入、输出、副作用、资源来源和测试。未知行为保持 `unknown`/`unimplemented`，不得用猜测玩法填空。具体准入规则和下一阶段任务见 [`PLAN.md`](PLAN.md) 与健康重构目标。
+## macOS 开发构建
+
+Apple Silicon 上执行 `python3 scripts/make_minimal.py package-macos --progress` 可生成自包含的开发版 `Rich4.app`。
+启动器从包含 MKF 和 MIDI 文件的游戏目录导入合法持有的资源，并使用 Apple 系统合成器转换 MIDI。
+依赖、用户数据位置与待完成的发布验收见 [macOS 构建与验收](docs/macos.md)。

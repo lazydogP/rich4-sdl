@@ -1826,3 +1826,23 @@ test-flc-regression: stage-sdl-runtime $(FLC_REGRESSION_BINS)
 test-text-backends: $(BIN_DIR)/test_text_backend_selector $(BIN_DIR)/test_text_backend_selector_handheld
 	$(BIN_DIR)/test_text_backend_selector
 	$(BIN_DIR)/test_text_backend_selector_handheld
+
+# Native Apple launcher/importer and import-time DLS renderer.
+.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-original
+MACOS_SETUP_ARGS ?=
+setup-macos:
+	$(PYTHON) scripts/macos.py setup $(MACOS_SETUP_ARGS)
+macos-native:
+	$(PYTHON) scripts/macos.py native
+macos:
+	$(PYTHON) scripts/macos.py build
+package-macos: macos
+	$(PYTHON) scripts/macos.py package
+check-macos-package:
+	$(PYTHON) scripts/macos.py verify
+test-macos-original: macos-native
+	$(PYTHON) scripts/macos.py test-original
+
+.PHONY: release-macos
+release-macos:
+	$(PYTHON) scripts/sign_macos.py --acceptance-file "$(MACOS_ACCEPTANCE_FILE)"

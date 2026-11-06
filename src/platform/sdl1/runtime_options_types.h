@@ -10,6 +10,7 @@ typedef struct SdlOptions {
     const char *music_dir;
     const char *input_config;
     const char *font_path;
+    long font_face_index;
     const char *mkf_name;
     const char *program_path;
     char resolved_font_path[512];
