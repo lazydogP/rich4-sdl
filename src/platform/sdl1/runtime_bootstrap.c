@@ -3,6 +3,7 @@
  * own session state or the SDL event loop. */
 
 #include <stdio.h>
+#include <ctype.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -533,6 +534,41 @@ void rich4_sdl_resolve_default_paths(SdlOptions *options)
     }
 }
 
+/* Original names come from 0x47E793/0x47E773. Format preference is
+ * shared by numbered tracks and their original-name aliases. */
+static int try_music_files(Rich4Audio *audio, const char *directory,
+                            const char *stem, const char *original_name,
+                            int play_once, char *path, size_t path_size)
+{
+    static const char *extensions[] = { "ogg", "OGG", "wav", "WAV", "mid", "MID" };
+    char stems[4][64], name[80];
+    size_t count = 0, i, j, k;
+    if (stem != NULL) snprintf(stems[count++], sizeof(stems[0]), "%s", stem);
+    if (original_name != NULL && strlen(original_name) > 4) {
+        snprintf(stems[count], sizeof(stems[0]), "%.*s",
+                 (int)strlen(original_name) - 4, original_name);
+        count++;
+        snprintf(stems[count], sizeof(stems[0]), "%s", stems[count - 1]);
+        for (k = 0; stems[count][k] != '\0'; k++)
+            stems[count][k] = (char)tolower((unsigned char)stems[count][k]);
+        count++;
+        snprintf(stems[count], sizeof(stems[0]), "%s", stems[count - 1]);
+        stems[count][0] = (char)toupper((unsigned char)stems[count][0]);
+        count++;
+    }
+    for (i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
+        if (i >= 4 && !rich4_audio_supports_midi(audio)) break;
+        for (j = 0; j < count; j++) {
+            snprintf(name, sizeof(name), "%s.%s", stems[j], extensions[i]);
+            join_path(path, path_size, directory, name);
+            if (!rich4_sdl_file_exists(path)) continue;
+            if (play_once ? rich4_audio_play_music_once(audio, path)
+                          : rich4_audio_play_music(audio, path)) return 1;
+        }
+    }
+    return 0;
+}
+
 static int start_fixed_music_mode(Rich4Audio *audio,
                                   const char *music_dir,
                                   size_t music_index,
@@ -540,37 +576,16 @@ static int start_fixed_music_mode(Rich4Audio *audio,
                                   int play_once)
 {
     char path[512];
-    char name[64];
     const char *stem = rich4_music_fixed_track_stem(music_index);
     const char *midi_name = rich4_music_fixed_midi_name(music_index);
-    static const char *extensions[] = { "ogg", "OGG", "wav", "WAV" };
-    size_t i;
-
-    if (audio == NULL || stem == NULL || midi_name == NULL) {
-        return 0;
+    if (audio == NULL || stem == NULL || midi_name == NULL) return 0;
+    if (try_music_files(audio, music_dir, stem, midi_name, play_once, path, sizeof(path))) {
+        printf("playing %s music: %s (%s)\n", label, path, midi_name);
+        return 1;
     }
-    for (i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
-        snprintf(name, sizeof(name), "%s.%s", stem, extensions[i]);
-        join_path(path, sizeof(path), music_dir, name);
-        if ((play_once ? rich4_audio_play_music_once(audio, path)
-                      : rich4_audio_play_music(audio, path))) {
-            printf("playing %s music: %s (%s)\n", label, path, midi_name);
-            return 1;
-        }
-    }
-    snprintf(name, sizeof(name), "%s.ogg", stem);
-    join_path(path, sizeof(path), music_dir, name);
-    if (rich4_sdl_file_exists(path)) {
-        printf("%s music exists but SDL_mixer could not load it: %s\n", label, path);
-        printf("check that SDL_mixer's OGG/Vorbis runtime DLLs are next to rich4_sdl\n");
-        return 0;
-    }
-    printf("%s music not found; %s maps to %s.ogg/%s.wav in %s\n",
-           label,
-           midi_name,
-           stem,
-           stem,
-           music_dir);
+    printf("%s music unavailable; %s maps to %s.ogg/%s.wav/%s.mid in %s; MIDI backend %s\n",
+           label, midi_name, stem, stem, stem, music_dir,
+           rich4_audio_supports_midi(audio) ? "available" : "unavailable");
     return 0;
 }
 
@@ -593,51 +608,30 @@ int start_fixed_music_once(Rich4Audio *audio,
 }
 
 int start_music_bank_track(Rich4Audio *audio,
-                                  const char *music_dir,
-                                  Rich4MusicBank bank,
-                                  size_t track_index,
-                                  const char *label)
+                            const char *music_dir,
+                            Rich4MusicBank bank,
+                            size_t track_index,
+                            const char *label)
 {
-    char path[512];
-    char bank_path[512];
-    char name[64];
+    char path[512], bank_path[512];
     size_t cd_track = track_index + 2;
     const char *stem = rich4_music_cd_track_stem(cd_track);
     const char *bank_dir = rich4_music_bank_directory(bank);
-    static const char *extensions[] = { "ogg", "OGG", "wav", "WAV" };
-    size_t i;
-
+    const char *midi_name = rich4_music_bank_midi_name(bank, track_index);
     if (audio == NULL || stem == NULL || bank_dir == NULL ||
-        track_index >= rich4_music_bank_track_count()) {
-        return 0;
-    }
+        track_index >= rich4_music_bank_track_count()) return 0;
     join_path(bank_path, sizeof(bank_path), music_dir, bank_dir);
-    for (i = 0; i < sizeof(extensions) / sizeof(extensions[0]); i++) {
-        snprintf(name, sizeof(name), "%s.%s", stem, extensions[i]);
-        join_path(path, sizeof(path), bank_path, name);
-        if (rich4_audio_play_music_once(audio, path)) {
-            printf("playing %s music: %s (%s, CD track %u)\n",
-                   label,
-                   path,
-                   rich4_music_bank_config_name(bank),
-                   (unsigned int)cd_track);
-            return 1;
-        }
+    if (try_music_files(audio, bank_path, stem, midi_name, 1, path, sizeof(path)) ||
+        (midi_name != NULL && try_music_files(audio, music_dir, NULL, midi_name,
+                                              1, path, sizeof(path)))) {
+        printf("playing %s music: %s (%s, CD track %u)\n", label, path,
+               rich4_music_bank_config_name(bank), (unsigned int)cd_track);
+        return 1;
     }
-    snprintf(name, sizeof(name), "%s.ogg", stem);
-    join_path(path, sizeof(path), bank_path, name);
-    if (rich4_sdl_file_exists(path)) {
-        printf("%s music exists but SDL_mixer could not load it: %s\n", label, path);
-        printf("check that SDL_mixer's OGG/Vorbis runtime DLLs are next to rich4_sdl\n");
-        return 0;
-    }
-    printf("%s music not found; %s CD track %u maps to %s.ogg/%s.wav in %s\n",
-           label,
-           rich4_music_bank_config_name(bank),
-           (unsigned int)cd_track,
-           stem,
-           stem,
-           bank_path);
+    printf("%s music unavailable; %s CD track %u maps to %s.ogg/%s.wav/%s.mid in %s; MIDI backend %s\n",
+           label, rich4_music_bank_config_name(bank), (unsigned int)cd_track,
+           stem, stem, stem, bank_path,
+           rich4_audio_supports_midi(audio) ? "available" : "unavailable");
     return 0;
 }
 

@@ -96,10 +96,10 @@
     [self setWorking:YES]; atomic_store(&cancelled,false);
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{ @autoreleasepool {
         @try {
-            R4Import(candidate,self.home,[NSBundle.mainBundle.executablePath.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"rich4-midi"],^BOOL{ return atomic_load(&self->cancelled); },^(NSString *message,double value){
+            R4Import(candidate,self.home,nil,^BOOL{ return atomic_load(&self->cancelled); },^(NSString *message,double value){
                 dispatch_async(dispatch_get_main_queue(),^{ self.status.stringValue=message; self.progress.doubleValue=value; });
             });
-            dispatch_async(dispatch_get_main_queue(),^{ [self setWorking:NO]; self.status.stringValue=@"导入完成：已生成 MultiverseJourney 音乐库。"; [self startGame:nil]; });
+            dispatch_async(dispatch_get_main_queue(),^{ [self setWorking:NO]; self.status.stringValue=@"导入完成：MultiverseJourney 音乐库已就绪。"; [self startGame:nil]; });
         } @catch(NSException *e) { dispatch_async(dispatch_get_main_queue(),^{ [self setWorking:NO]; if(atomic_load(&self->cancelled)) self.status.stringValue=@"已取消，现有安装保持可用。"; else [self failure:e.reason]; }); }
     } });
 }

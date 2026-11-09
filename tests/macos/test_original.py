@@ -125,6 +125,8 @@ def main():
     assert p.returncode == 130 and digest(first) == old, (p.returncode, stdout, stderr)
     assert not list(output.glob('*.tmp'))
     report['checks'].append('cancelled rendering preserves previous WAV and removes temporary file')
+    from test_music import validate_music
+    report['midi_playback'] = validate_music(ROOT, SOURCE, output)
     with tempfile.TemporaryDirectory(prefix='真实资源 test ', dir=output) as scratch:
         scratch = Path(scratch); source = scratch / '原版 目录'; source.mkdir()
         for name, path in candidate['files'].items():
@@ -148,10 +150,12 @@ def main():
         else:
             report['checks'].append('case-only collision: NOT EXECUTED (case-insensitive filesystem)')
         home = scratch / '用户 数据'
-        probe('import', source, home, NATIVE / 'rich4-midi')
+        probe('import', source, home, '-')
         first_install = probe('current', home)
         assert first_install and first_install['manifest']['music_banks'] == ['MultiverseJourney']
         assert 'version' not in first_install['manifest']
+        assert len(list((Path(first_install['path']) / 'music').rglob('*.mid'))) == 25
+        assert not list((Path(first_install['path']) / 'music').rglob('*.wav'))
         assert len(first_install['manifest']['files']) == 57
         assert not list(Path(first_install['path']).rglob('*.exe'))
         # Preserve real pre-existing config/save bytes (no invented game fixtures).
@@ -171,10 +175,15 @@ def main():
         # Launch with an unavailable helper: a real import failure must preserve the active installation.
         probe('import', source, home, scratch / 'missing-helper', success=False)
         assert (home / 'current.json').read_bytes() == pointer_before
-        probe('import-cancel', source, home, NATIVE / 'rich4-midi', success=False)
+        probe('import-cancel', source, home, '-', success=False)
         assert (home / 'current.json').read_bytes() == pointer_before
         assert not list(home.glob('.import-*'))
+        # Explicit offline conversion remains available and readable, while
+        # the launcher/default import uses the native MIDI files.
         probe('import', source, home, NATIVE / 'rich4-midi')
+        legacy = probe('current', home)
+        assert len(list((Path(legacy['path']) / 'music').rglob('*.wav'))) == 25
+        probe('import', source, home, '-')
         current = probe('current', home)
         assert current['path'] != first_install['path']
         for name, hash_value in preserved.items():

@@ -1,31 +1,24 @@
 # assets/music
 
-Place user-provided or converted OGG/WAV music files here.
+Place user-provided OGG, WAV or MID music files here. For each track the
+runtime tries OGG first, then WAV, then MID. Uppercase extensions are also
+accepted. MID is attempted only when SDL_mixer reports an available MIDI
+backend; platforms without one continue to use OGG/WAV.
 
-The settings panel keeps the original eight-entry CD-track model, with two
-separate banks:
+The settings panel retains the original eight-entry CD-track model:
 
 ```text
 Original/track02.ogg          through Original/track09.ogg
 MultiverseJourney/track02.ogg through MultiverseJourney/track09.ogg
 ```
 
-`Original` contains the base-game songs. `MultiverseJourney` contains the
-eight replacement songs from the Multiverse Journey version. The bank switch
-does not change maps or other game resources.
+The same paths accept `.wav` and `.mid`. `Original` contains the base-game
+songs, while `MultiverseJourney` contains the eight replacement songs.
+Changing the bank does not change maps or other resources.
 
-The M1 SDL_mixer audio preview currently uses a provisional interpretation of
-the original `playmid_4549cf(0)` main menu call: `MIDI01.MID` maps to
-`track10.ogg`, with `track10.wav` as a fallback.
-
-The new game setup screen follows `init_new_game()` in the decompiled code:
-`playmid_4549cf(0x8001)` clears the high bit and uses MIDI table index 1, so
-it maps to `MIDI02.MID`, currently `track11.ogg` or `track11.wav`.
-
-This mapping still needs end-to-end validation after the menu-to-game flow,
-map preview, and later scene music paths are working.
-
-Shared converted scene-music mapping:
+Original `sub_4549CF` reads the fixed MIDI table at `0x47E793`; its high
+`0x8000` flag is cleared before lookup. Shared scene music maps as follows;
+each numbered stem accepts OGG/WAV/MID in that order:
 
 ```text
 MIDI01.MID   -> track10.ogg
@@ -47,4 +40,16 @@ MIDI15.MID   -> track25.ogg
 MIDI16.MID   -> track26.ogg
 ```
 
-Real-time MIDI playback is not part of the project target.
+The original filenames (`MIDI01.MID`, `Midi01.mid`, `midi01.mid`, etc.) are
+also accepted beside numbered tracks. The same format preference applies
+to those names: `MIDI01.ogg` takes priority over `MIDI01.mid`.
+
+The V3.11 map playlist at `0x47E773`, used by `0x454D91` and `0x454BCC`, is
+`RICH08`, `RICH16` through `RICH22`. Their original names are accepted in
+`MultiverseJourney/`, or as a fallback in the music root directory. This
+playlist does not fill a missing `Original` bank.
+
+macOS builds enable SDL_mixer's native MIDI backend and use Apple's system
+synthesizer. Windows and other platforms use the MIDI backends available in
+their SDL_mixer build; software synthesizers may require locally configured
+instrument banks. The project does not bundle those banks.

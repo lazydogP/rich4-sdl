@@ -208,7 +208,7 @@ def build():
     link = f'-L{shlex.quote(str(prefix / "lib"))} -Wl,-rpath,{shlex.quote(str(prefix / "lib"))}'
     build_key = hashlib.sha256((fingerprint + flags + warnings + link + 'SDL_mixer=1|SDL_ttf=1|desktop').encode()).hexdigest()[:16]
     build_dir = f'build/macos/universal/{build_key}'
-    run([sys.executable, 'scripts/make_minimal.py', 'sdl', '--progress', '-j8', 'CC=xcrun clang',
+    run([sys.executable, 'scripts/make_minimal.py', 'sdl', 'bin/macos/universal/music_probe', '--progress', '-j8', 'CC=xcrun clang',
          f'BUILD_DIR={build_dir}', 'BIN_DIR=bin/macos/universal', f'CFLAGS={flags}', f'WARNFLAGS={warnings}',
          f'SDL_CFLAGS=-I{shlex.quote(str(prefix / "include"))}',
          f'MIXER_CFLAGS=-I{shlex.quote(str(prefix / "include"))}',

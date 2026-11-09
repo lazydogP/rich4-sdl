@@ -13,6 +13,19 @@
 
 #include "platform/sdl1/audio/audio_sdl_mixer_internal.h"
 
+int rich4_audio_supports_midi(const Rich4Audio *audio)
+{
+    int i;
+    if (audio == NULL || !audio->ready) return 0;
+    for (i = 0; i < Mix_GetNumMusicDecoders(); i++) {
+        const char *name = Mix_GetMusicDecoder(i);
+        if (name != NULL && (strcmp(name, "NATIVEMIDI") == 0 ||
+                             strcmp(name, "TIMIDITY") == 0 ||
+                             strcmp(name, "FLUIDSYNTH") == 0)) return 1;
+    }
+    return 0;
+}
+
 static Mix_Chunk *load_effect_resource(Rich4Mkf *effect_mkf,
                                        size_t resource_index);
 

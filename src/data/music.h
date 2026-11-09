@@ -15,6 +15,7 @@ size_t rich4_music_fixed_count(void);
 const char *rich4_music_cd_track_stem(size_t cd_track);
 const char *rich4_music_bank_directory(Rich4MusicBank bank);
 const char *rich4_music_bank_config_name(Rich4MusicBank bank);
+const char *rich4_music_bank_midi_name(Rich4MusicBank bank, size_t track_index);
 const char *rich4_music_bank_track_title_big5(Rich4MusicBank bank, size_t track_index);
 size_t rich4_music_bank_track_count(void);
 /* Returns the zero-based fixed_music/playmid index for actions 6..8. */

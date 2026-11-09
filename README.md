@@ -173,8 +173,8 @@ config/
 `music_bank=original` / `music_bank=multiverse_journey` 选择。
 
 两套音乐库共用的场景音乐直接放在 `music/` 根目录，文件名为 `track10`～`track26`；
-其中 `track10` 用于主菜单，`track11` 用于新局设置。上述音乐文件均支持 `.ogg` 或
-`.wav`，运行时优先尝试 OGG。MIDI 原文件需自行转换为对应音频，完整映射见
+其中 `track10` 用于主菜单，`track11` 用于新局设置。上述音乐文件均支持 `.ogg`、
+`.wav` 或 `.mid`，运行时依次尝试 OGG、WAV、MID。MIDI 可在 SDL_mixer 后端支持时直接播放，完整映射见
 [音乐资源说明](assets/music/README.md)。自定义目录时，`--music-dir` 应指向包含这两个
 子目录和共用场景音乐的根目录。
 
@@ -184,5 +184,5 @@ config/
 ## macOS 开发构建
 
 macOS 上执行 `python3 scripts/make_minimal.py package-macos --progress` 可生成自包含的 Universal 2（arm64 + x86_64）开发版 `Rich4.app`；Intel 的最低部署目标为 OS X 10.10，Apple Silicon 为 macOS 11。最低系统的真机验收仍待完成。
-启动器从包含 MKF 和 MIDI 文件的游戏目录导入合法持有的资源，并使用 Apple 系统合成器转换 MIDI。
+启动器从包含 MKF 和 MIDI 文件的游戏目录导入合法持有的资源，并通过 SDL_mixer 的 Apple 原生后端直接播放 MIDI。
 依赖、用户数据位置与待完成的发布验收见 [macOS 构建与验收](docs/macos.md)。

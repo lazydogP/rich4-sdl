@@ -13,7 +13,7 @@ python3 scripts/make_minimal.py package-macos check-macos-package --progress
 python3 scripts/make_minimal.py test-macos-package
 ```
 
-全部工具、下载与源码构建在 `.local/macos/`，不安装 Homebrew 或修改系统依赖。锁定清单 `scripts/macos-dependencies.lock.json` 包含下载校验值、源码版本、补丁和选项。CMake 为固定版本的构建工具；其他项目均从源码构建。SDL_mixer 的唯一源码补丁补齐 Vorbis API 的 `const char *`，不改变音频行为。SDL_ttf 的旧配置接口由构建脚本生成的 `freetype-config` 提供固定前缀；它只链接锁定的 FreeType。SDL_mixer 只启用 WAV 与静态链接接口的 OGG 解码（Vorbis/OGG 库仍为随包动态库）。
+全部工具、下载与源码构建在 `.local/macos/`，不安装 Homebrew 或修改系统依赖。锁定清单 `scripts/macos-dependencies.lock.json` 包含下载校验值、源码版本、补丁和选项。CMake 为固定版本的构建工具；其他项目均从源码构建。SDL_mixer 的唯一源码补丁补齐 Vorbis API 的 `const char *`，不改变音频行为。SDL_ttf 的旧配置接口由构建脚本生成的 `freetype-config` 提供固定前缀；它只链接锁定的 FreeType。SDL_mixer 启用 WAV、OGG 与 macOS 原生 MIDI 后端；原生 MIDI 使用系统 MusicSequence/MusicPlayer，不需要第三方音色库。Vorbis/OGG 库仍为随包动态库。
 
 程序、原生 helper 和全部随包动态库统一编译为 `arm64` + `x86_64`。部署参数使用 `10.10`，Apple Clang 将 arm64 的实际下限设为 `11.0`；依赖锁逐架构记录这两个目标。CMake 依赖使用双架构配置，Autoconf 依赖和应用使用两组 `-arch` 参数，由 Apple 工具链生成 Universal 2 文件。编译器、SDK、依赖锁、构建配方和参数参与构建目录指纹，Universal 缓存位于 `.local/macos/universal/`。原生 helper 可以先独立编译：`python3 scripts/make_minimal.py macos-native`。下载缓存完整后，`setup-macos MACOS_SETUP_ARGS=--offline` 支持离线构建。
 
@@ -27,15 +27,15 @@ python3 scripts/make_minimal.py test-macos-package
 
 ## 首次启动
 
-从 Finder 打开 `.app`，选择完整、已解压的游戏目录。扫描按 7 个 MKF 和 25 个 MIDI 的必需文件集合识别候选，支持大小写无关文件名、中文和空格路径。Steam 安装布局尚未核实，不加入识别。只复制这些 MKF 和原始 MIDI，不复制 EXE、AVI、IDA 数据库。
+从 Finder 打开 `.app`，选择完整、已解压的游戏目录。扫描按 7 个 MKF 和 25 个 MIDI 的必需文件集合识别候选，支持大小写无关文件名、中文和空格路径。Steam 安装布局尚未核实，不加入识别。只复制这些 MKF 和原始 MIDI，不复制 EXE、AVI、IDA 数据库。音乐文件复制为 `music/track10..26.mid` 与 `music/MultiverseJourney/track02..09.mid`，可直接播放。
 
 资源位于 `~/Library/Application Support/Rich4/install-<UUID>/`。导入先在同文件系统的 `.import-<UUID>` 暂存，成功后原子更新 `current.json`。失败、取消或转换错误不替换现有安装。导入锁避免并发提交。重新导入保留用户目录根部的存档、配置、输入映射和字体。成功提交后移除上一个有效资源集。中途进程崩溃留下的暂存目录不会被启动器识别为有效安装。
 
-WAV 缓存位于 `midi-cache/`，键包含源 MIDI、转换器源码版本与输出参数；复用前检查缓存文件完整性。系统更新不自动重建。每曲新建 DLS 合成器；MusicSequence 负责 MIDI 解析和速度图，按事件的采样帧离线渲染，严格在序列长度结束，不追加尾音或淡出。Apple 音色文件不进入应用或缓存。
+游戏按 OGG → WAV → MID 查找同名曲目，只有可用 MIDI 后端才尝试 MID。启动器直接导入 MIDI，不执行离线转换；原有 WAV 安装仍可使用。独立的 `rich4-midi INPUT.mid OUTPUT.wav --cache-dir DIR` 工具保留为显式离线转换入口，其缓存只在调用时使用，系统更新不自动重建。Apple 系统音色文件不进入应用或导入目录。
 
 字体优先使用用户选择并保存到 `fonts/` 的字体，否则用 CoreText 定位系统繁体字体。字体集合 face 索引传给新增的 `--font-face-index N`；SDL_ttf 使用 `TTF_OpenFontIndex`。字体文件不随包分发。游戏工作目录固定到用户数据目录，资源、音乐、字体、输入配置使用绝对路径。`RICH4.CFG`、`RICH4-SDL.CFG`、`saves/`、trace/perf 日志位于用户数据目录；启动器和游戏 stdout/stderr 位于 `~/Library/Logs/Rich4/`。更新只替换 `.app`。
 
-开场沿用 `0x415872` 的 AVI 失败分支和 JUMP 资源回退；首版无 macOS AVI 后端，结局 AVI 不播放。音乐库只生成 `MultiverseJourney`，固定曲目在 `music/track10..26.wav`；没有从其他版本拼接 `Original`。
+开场沿用 `0x415872` 的 AVI 失败分支和 JUMP 资源回退；首版无 macOS AVI 后端，结局 AVI 不播放。音乐库只生成 `MultiverseJourney`，固定曲目在 `music/track10..26.mid`；没有从其他版本拼接 `Original`。
 
 应用的 `NSHighResolutionCapable=true` 让原生 AppKit 启动器使用 Retina。启动游戏时，启动器单独向子进程设置 `SDL12COMPAT_HIGHDPI=0`，使 SDL 游戏窗口不请求高 DPI drawable；游戏继续使用原有逻辑分辨率与坐标。
 
@@ -47,7 +47,7 @@ python3 scripts/make_minimal.py test-macos-original --progress
 
 默认只读取 `assets/original/V3.11`，可用环境变量 `RICH4_ORIGINAL_DIR` 指定真实资源目录。检查只使用原件和真实资源的临时副本，不创建合成 MIDI/MKF，不修改原件。无资源时明确报告 `NOT EXECUTED`。报告在 `build/macos/universal/original-validation.json`；转换结果供本地试听，不能上传公开 CI。运行检查使用构建主机的原生架构，Intel 真机运行验收须单独完成。
 
-覆盖全部 25 曲的实际音频、PCM 参数和逐帧时长、缓存、取消、中文/空格路径、多候选、缺文件、失败回退、导入中途取消、重新导入和源目录移走后的资源可用性。已有用户配置和存档只复制到测试目录，验证重新导入后字节保留。大小写冲突需要大小写敏感文件系统，默认 APFS 上记录未执行。移动后的应用在禁用 Homebrew 搜索路径和 DYLD 覆盖的环境执行菜单/地图 smoke，各运行两次并检查已有 framebuffer/sequence 基线；字体引起的差异必须审查，不自动更新。
+覆盖全部 25 曲的原生 MIDI 播放、OGG/WAV/MID 优先级、原始 MIDI 名称、自然结束/循环/停止、离线 PCM 参数和逐帧时长、缓存、取消、中文/空格路径、多候选、缺文件、失败回退、导入中途取消、重新导入和源目录移走后的资源可用性。已有用户配置和存档只复制到测试目录，验证重新导入后字节保留。大小写冲突需要大小写敏感文件系统，默认 APFS 上记录未执行。移动后的应用在禁用 Homebrew 搜索路径和 DYLD 覆盖的环境执行菜单/地图 smoke，各运行两次并检查已有 framebuffer/sequence 基线；字体引起的差异必须审查，不自动更新。
 
 ## 发布门槛
 

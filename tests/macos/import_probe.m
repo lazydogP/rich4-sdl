@@ -12,7 +12,8 @@ int main(int argc,const char **argv) { @autoreleasepool {
             NSArray *candidates=R4Scan(@(argv[2]),^BOOL{return NO;});
             if(candidates.count!=1) @throw [NSException exceptionWithName:@"Probe" reason:@"Expected one candidate" userInfo:nil];
             __block BOOL cancelled=NO; BOOL cancelRequested=!strcmp(argv[1],"import-cancel");
-            result=R4Import(candidates[0],@(argv[3]),@(argv[4]),^BOOL{return cancelled;},^(NSString *message,double progress){(void)message; if(cancelRequested && progress>=0.1) cancelled=YES;});
+            NSString *helper=strcmp(argv[4],"-")?@(argv[4]):nil;
+            result=R4Import(candidates[0],@(argv[3]),helper,^BOOL{return cancelled;},^(NSString *message,double progress){(void)message; if(cancelRequested && progress>=0.1) cancelled=YES;});
         } else return 2;
         if(result==NSNull.null) { puts("null"); return 0; }
         NSData *data=[NSJSONSerialization dataWithJSONObject:result options:0 error:NULL];

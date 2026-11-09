@@ -1842,8 +1842,11 @@ check-macos-package:
 	$(PYTHON) scripts/macos.py verify
 test-macos-package: check-macos-package
 	$(PYTHON) tests/macos/test_package.py
-test-macos-original: macos-native
+test-macos-original: macos
 	$(PYTHON) scripts/macos.py test-original
+
+$(BIN_DIR)/music_probe: tests/sdl/music_probe.c $(MKF_OBJS) $(SPR_SMP_OBJS) $(FLC_OBJS) $(filter-out $(BUILD_DIR)/main_sdl.o,$(SDL_OBJS)) | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^ $(MIXER_LIBS) $(TTF_LIBS) $(SDL_LIBS)
 
 .PHONY: release-macos
 release-macos:

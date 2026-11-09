@@ -76,7 +76,14 @@ NSDictionary *R4Current(NSString *home) {
     if(![manifest isKindOfClass:NSDictionary.class] || ![manifest[@"schema"] isEqual:@1] || ![manifest[@"files"] isKindOfClass:NSDictionary.class]) return nil;
     NSMutableSet *expected=[NSMutableSet set];
     for(NSString *name in R4RequiredFiles()) [expected addObject:[@"original" stringByAppendingPathComponent:name]];
-    for(int i=2;i<=26;i++) [expected addObject:i<10?[NSString stringWithFormat:@"music/MultiverseJourney/track%02d.wav",i]:[NSString stringWithFormat:@"music/track%02d.wav",i]];
+    for(int i=2;i<=26;i++) {
+        NSString *stem=i<10?[NSString stringWithFormat:@"music/MultiverseJourney/track%02d",i]:[NSString stringWithFormat:@"music/track%02d",i];
+        for(NSString *extension in @[@"ogg",@"wav",@"mid"]) {
+            NSString *name=[stem stringByAppendingPathExtension:extension];
+            if(manifest[@"files"][name]) { [expected addObject:name]; break; }
+        }
+    }
+    if(expected.count!=57) return nil;
     if(![expected isEqualToSet:[NSSet setWithArray:[manifest[@"files"] allKeys]]]) return nil;
     for(NSString *name in manifest[@"files"]) {
         if(![manifest[@"files"][name] isKindOfClass:NSString.class] || [manifest[@"files"][name] length]!=64) return nil;
@@ -89,14 +96,15 @@ NSDictionary *R4Import(NSDictionary *candidate, NSString *home, NSString *helper
     need([candidate[@"files"] count]==R4RequiredFiles().count && [candidate[@"problems"] count]==0,@"目录不完整或存在文件名冲突");
     NSFileManager *fm=NSFileManager.defaultManager; NSError *error=nil;
     need([fm createDirectoryAtPath:home withIntermediateDirectories:YES attributes:nil error:&error],error.localizedDescription);
-    // Include the copied MKFs, WAVs, cache, and a reserve for filesystem overhead.
-    uint64_t required=400ULL*1024*1024*2;
+    // Offline conversion reserves WAV/cache space; direct MID import only
+    // needs the source files plus a small duplicate-MIDI/filesystem reserve.
+    uint64_t required=(helper.length?800ULL:16ULL)*1024*1024;
     for(NSString *path in [candidate[@"files"] allValues]) {
         NSDictionary *a=[fm attributesOfItemAtPath:path error:&error]; need(a!=nil,error.localizedDescription);
         required += [a[NSFileSize] unsignedLongLongValue];
     }
     struct statvfs space; need(statvfs(home.fileSystemRepresentation,&space)==0,@"无法检查磁盘空间");
-    need((uint64_t)space.f_bavail*space.f_frsize >= required,@"磁盘空间不足，导入需约 1 GB 可用空间");
+    need((uint64_t)space.f_bavail*space.f_frsize >= required,[NSString stringWithFormat:@"磁盘空间不足，导入需要约 %llu MB 可用空间",(unsigned long long)((required+1024*1024-1)/(1024*1024))]);
     NSString *identifier=NSUUID.UUID.UUIDString;
     NSString *stage=[home stringByAppendingPathComponent:[@".import-" stringByAppendingString:identifier]];
     NSString *generation=[@"install-" stringByAppendingString:identifier];
@@ -120,9 +128,19 @@ NSDictionary *R4Import(NSDictionary *candidate, NSString *home, NSString *helper
         NSArray *midis=[R4RequiredFiles() subarrayWithRange:NSMakeRange(7,25)];
         for(NSUInteger i=0;i<midis.count;i++) {
             need(!cancel(),@"已取消"); NSString *name=midis[i];
-            progress([@"转换 " stringByAppendingString:name],0.1+0.9*i/25);
+            progress([(helper.length?@"转换 ":@"导入 ") stringByAppendingString:name],0.1+0.9*i/25);
             need(!cancel(),@"已取消");
-            NSString *relative=i<8?[NSString stringWithFormat:@"music/MultiverseJourney/track%02lu.wav",i+2]:[NSString stringWithFormat:@"music/track%02lu.wav",i+2];
+            NSString *stem=i<8?[NSString stringWithFormat:@"music/MultiverseJourney/track%02lu",i+2]:[NSString stringWithFormat:@"music/track%02lu",i+2];
+            NSString *relative=[stem stringByAppendingPathExtension:helper.length?@"wav":@"mid"];
+            if(!helper.length) {
+                NSString *source=[stage stringByAppendingPathComponent:[@"original" stringByAppendingPathComponent:name]];
+                NSString *target=[stage stringByAppendingPathComponent:relative];
+                need([fm copyItemAtPath:source toPath:target error:&error],error.localizedDescription);
+                NSString *hash=R4Hash(target);
+                need([hash isEqual:hashes[[@"original" stringByAppendingPathComponent:name]]],[@"复制失败：" stringByAppendingString:name]);
+                hashes[relative]=hash;
+                continue;
+            }
             NSTask *task=[NSTask new]; NSPipe *pipe=[NSPipe pipe], *errors=[NSPipe pipe];
             task.launchPath=helper;
             task.arguments=@[[stage stringByAppendingPathComponent:[@"original" stringByAppendingPathComponent:name]],[stage stringByAppendingPathComponent:relative],@"--cache-dir",[home stringByAppendingPathComponent:@"midi-cache"]];
@@ -163,7 +181,7 @@ NSDictionary *R4Import(NSDictionary *candidate, NSString *home, NSString *helper
         need([fm moveItemAtPath:stage toPath:committed error:&error],error.localizedDescription);
         NSData *pointer=[NSJSONSerialization dataWithJSONObject:@{@"generation":generation} options:0 error:&error];
         need([pointer writeToFile:[home stringByAppendingPathComponent:@"current.json"] options:NSDataWritingAtomic error:&error],error.localizedDescription);
-        published=YES; progress(@"已生成 MultiverseJourney 音乐库",1);
+        published=YES; progress(@"MultiverseJourney 音乐库已就绪",1);
         // Old generations remain valid until the pointer commit. Saves/config live outside them.
         if(previous) [fm removeItemAtPath:previous error:NULL];
         return manifest;

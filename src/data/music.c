@@ -120,6 +120,19 @@ const char *rich4_music_bank_config_name(Rich4MusicBank bank)
     return music_banks[bank].config_name;
 }
 
+const char *rich4_music_bank_midi_name(Rich4MusicBank bank, size_t track_index)
+{
+    /* V3.11 0x47E773, used by 0x454D91 and 0x454BCC. This replacement
+     * playlist belongs to MultiverseJourney; it is not the Original bank. */
+    static const char *midi_names[] = {
+        "RICH08.MID", "RICH16.MID", "RICH17.MID", "RICH18.MID",
+        "RICH19.MID", "RICH20.MID", "RICH21.MID", "RICH22.MID"
+    };
+    if (bank != RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY ||
+        track_index >= sizeof(midi_names) / sizeof(midi_names[0])) return NULL;
+    return midi_names[track_index];
+}
+
 const char *rich4_music_bank_track_title_big5(Rich4MusicBank bank, size_t track_index)
 {
     if (bank < 0 || bank >= RICH4_MUSIC_BANK_COUNT ||
