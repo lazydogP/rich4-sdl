@@ -17,7 +17,9 @@
 @end
 @implementation Launcher
 - (NSButton *)button:(NSString *)title action:(SEL)action x:(CGFloat)x {
-    NSButton *button=[NSButton buttonWithTitle:title target:self action:action];
+    NSButton *button=[[NSButton alloc] initWithFrame:NSMakeRect(x,24,145,32)];
+    button.title=title; button.target=self; button.action=action;
+    button.bezelStyle=NSBezelStyleRounded; [button setButtonType:NSButtonTypeMomentaryPushIn];
     button.frame=NSMakeRect(x,24,145,32); [self.window.contentView addSubview:button]; return button;
 }
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
@@ -30,7 +32,12 @@
     NSLog(@"Rich4 launcher started");
     self.window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,660,225) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
     self.window.title=@"大富翁 4 · Rich4"; [self.window center];
-    self.status=[NSTextField wrappingLabelWithString:@"首次运行请选择合法持有、已解压的游戏目录。"];
+    self.status=[[NSTextField alloc] initWithFrame:NSMakeRect(24,125,612,72)];
+    self.status.stringValue=@"首次运行请选择合法持有、已解压的游戏目录。";
+    self.status.editable=NO; self.status.selectable=NO; self.status.bezeled=NO; self.status.drawsBackground=NO;
+    self.status.font=[NSFont systemFontOfSize:NSFont.systemFontSize];
+    NSTextFieldCell *statusCell=self.status.cell;
+    statusCell.wraps=YES; statusCell.scrollable=NO; statusCell.lineBreakMode=NSLineBreakByWordWrapping;
     self.status.frame=NSMakeRect(24,125,612,72); [self.window.contentView addSubview:self.status];
     self.progress=[[NSProgressIndicator alloc] initWithFrame:NSMakeRect(24,87,612,20)];
     self.progress.indeterminate=NO; self.progress.maxValue=1; [self.window.contentView addSubview:self.progress];
@@ -120,8 +127,8 @@
     NSFileManager *fm=NSFileManager.defaultManager; NSError *error=nil;
     if(![fm fileExistsAtPath:input] && ![fm copyItemAtPath:[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"input.toml"] toPath:input error:&error]) { self.status.stringValue=error.localizedDescription; return; }
     NSTask *task=[NSTask new]; self.game=task;
-    task.executableURL=[NSURL fileURLWithPath:[NSBundle.mainBundle.executablePath.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"rich4-game"]];
-    task.currentDirectoryURL=[NSURL fileURLWithPath:self.home];
+    task.launchPath=[NSBundle.mainBundle.executablePath.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"rich4-game"];
+    task.currentDirectoryPath=self.home;
     task.arguments=@[@"--data-dir",[current[@"path"] stringByAppendingPathComponent:@"original"],@"--music-dir",[current[@"path"] stringByAppendingPathComponent:@"music"],@"--font",font[@"path"],@"--font-face-index",[font[@"index"] stringValue],@"--input-config",input];
     // AppKit launcher uses Retina; the child SDL window keeps its logical pixel size.
     NSMutableDictionary *env=[NSProcessInfo.processInfo.environment mutableCopy]; env[@"SDL12COMPAT_HIGHDPI"]=@"0";
@@ -135,7 +142,7 @@
         self.choose.enabled=YES; self.font.enabled=YES; self.start.enabled=YES;
         self.status.stringValue=finished.terminationStatus==0?@"游戏已退出。可再次启动或重新导入。":[@"游戏退出异常，请查看日志：" stringByAppendingString:log];
     }); };
-    if(![task launchAndReturnError:&error]) { [handle closeFile]; self.status.stringValue=error.localizedDescription; return; }
+    if(!R4LaunchTask(task,&error)) { [handle closeFile]; self.status.stringValue=error.localizedDescription; return; }
     self.choose.enabled=NO; self.font.enabled=NO; self.start.enabled=NO; [self.window orderOut:nil];
 }
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {

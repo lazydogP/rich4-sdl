@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+BOOL R4LaunchTask(NSTask *task, NSError **error);
 
 NSArray<NSString *> *R4RequiredFiles(void);
 NSString *R4Hash(NSString *path);

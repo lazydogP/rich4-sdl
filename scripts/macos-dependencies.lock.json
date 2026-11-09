@@ -1,6 +1,6 @@
 {
-  "architecture": "arm64",
-  "deployment_target": "14.0",
+  "architectures": ["arm64", "x86_64"],
+  "deployment_targets": {"arm64": "11.0", "x86_64": "10.10"},
   "packages": [
     {
       "name": "cmake",

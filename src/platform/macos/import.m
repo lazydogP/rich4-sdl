@@ -6,6 +6,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+BOOL R4LaunchTask(NSTask *task, NSError **error) {
+    @try { [task launch]; return YES; }
+    @catch(NSException *exception) {
+        if(error) *error=[NSError errorWithDomain:NSCocoaErrorDomain code:NSExecutableLoadError
+            userInfo:@{NSLocalizedDescriptionKey:exception.reason ?: @"无法启动程序"}];
+        return NO;
+    }
+}
 static void need(BOOL ok, NSString *message) {
     if (!ok) @throw [NSException exceptionWithName:@"Rich4Import" reason:message ?: @"文件操作失败" userInfo:nil];
 }
@@ -116,10 +124,10 @@ NSDictionary *R4Import(NSDictionary *candidate, NSString *home, NSString *helper
             need(!cancel(),@"已取消");
             NSString *relative=i<8?[NSString stringWithFormat:@"music/MultiverseJourney/track%02lu.wav",i+2]:[NSString stringWithFormat:@"music/track%02lu.wav",i+2];
             NSTask *task=[NSTask new]; NSPipe *pipe=[NSPipe pipe], *errors=[NSPipe pipe];
-            task.executableURL=[NSURL fileURLWithPath:helper];
+            task.launchPath=helper;
             task.arguments=@[[stage stringByAppendingPathComponent:[@"original" stringByAppendingPathComponent:name]],[stage stringByAppendingPathComponent:relative],@"--cache-dir",[home stringByAppendingPathComponent:@"midi-cache"]];
             task.standardOutput=pipe; task.standardError=errors;
-            need([task launchAndReturnError:&error],error.localizedDescription);
+            need(R4LaunchTask(task,&error),error.localizedDescription);
             // Drain output while running; never wait for a full pipe at process exit.
             NSMutableData *lines=[NSMutableData data];
             pipe.fileHandleForReading.readabilityHandler=^(NSFileHandle *handle) {

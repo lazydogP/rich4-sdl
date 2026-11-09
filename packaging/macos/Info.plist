@@ -9,7 +9,11 @@
 <key>CFBundleIconFile</key><string>Rich4.icns</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>0.1.0-dev</string>
-<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>LSMinimumSystemVersion</key><string>10.10</string>
+<key>LSMinimumSystemVersionByArchitecture</key><dict>
+<key>x86_64</key><string>10.10</string>
+<key>arm64</key><string>11.0</string>
+</dict>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSHumanReadableCopyright</key><string>See Resources/LICENSE and ThirdPartyLicenses</string>
 </dict></plist>

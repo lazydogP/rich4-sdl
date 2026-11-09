@@ -14,7 +14,8 @@ int main(int argc,const char **argv) { @autoreleasepool {
             __block BOOL cancelled=NO; BOOL cancelRequested=!strcmp(argv[1],"import-cancel");
             result=R4Import(candidates[0],@(argv[3]),@(argv[4]),^BOOL{return cancelled;},^(NSString *message,double progress){(void)message; if(cancelRequested && progress>=0.1) cancelled=YES;});
         } else return 2;
-        NSData *data=[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingFragmentsAllowed error:NULL];
+        if(result==NSNull.null) { puts("null"); return 0; }
+        NSData *data=[NSJSONSerialization dataWithJSONObject:result options:0 error:NULL];
         fwrite(data.bytes,1,data.length,stdout); puts(""); return 0;
     } @catch(NSException *e) { fprintf(stderr,"%s\n",e.reason.UTF8String); return 1; }
 } }

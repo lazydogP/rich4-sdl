@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 from macos import ROOT, BUILD, run, verify
 
-GATES = ('midi_listening', 'import_failure_cases', 'macos14_clean_finder',
+GATES = ('midi_listening', 'import_failure_cases', 'macos10_10_intel_clean_finder', 'macos11_arm64_clean_finder',
          'current_macos_clean_finder', 'text_audio_gameplay_saves', 'retina_external_pointer')
 
 
@@ -26,16 +26,16 @@ def main():
             raise ValueError('MACOS_SIGN_IDENTITY and MACOS_NOTARY_PROFILE are required; development bundle remains available')
         app = BUILD / 'Rich4.app'; verify(app)
         contents = app / 'Contents'
-        for binary in list((contents / 'Frameworks').iterdir()) + list((contents / 'MacOS').iterdir()):
-            run(['codesign', '--force', '--timestamp', '--options', 'runtime', '--sign', identity, binary])
-        run(['codesign', '--force', '--timestamp', '--options', 'runtime', '--sign', identity, app])
-        archive = ROOT / 'build/release/Rich4-macOS-arm64-notarization.zip'
+        for binary in list((contents / 'Frameworks').iterdir()) + [p for p in (contents / 'MacOS').iterdir() if p.name != 'Rich4']:
+            run(['codesign', '--force', '--digest-algorithm=sha1,sha256', '--timestamp', '--options', 'runtime', '--sign', identity, binary])
+        run(['codesign', '--force', '--digest-algorithm=sha1,sha256', '--timestamp', '--options', 'runtime', '--sign', identity, app])
+        archive = ROOT / 'build/release/Rich4-macOS-universal-notarization.zip'
         run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', app, archive])
         run(['xcrun', 'notarytool', 'submit', archive, '--keychain-profile', profile, '--wait'])
         run(['xcrun', 'stapler', 'staple', app])
         run(['xcrun', 'stapler', 'validate', app]); verify(app)
         run(['spctl', '--assess', '--type', 'execute', '--verbose', app])
-        release = archive.with_name('Rich4-macOS-arm64.zip')
+        release = archive.with_name('Rich4-macOS-universal.zip')
         run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', app, release])
         print(f'Notarized release: {release}')
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:

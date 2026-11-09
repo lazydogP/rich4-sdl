@@ -13,7 +13,7 @@ import re
 import runpy
 
 ROOT = Path(__file__).resolve().parents[2]
-BUILD = ROOT / 'build/macos/arm64'
+BUILD = ROOT / 'build/macos/universal'
 NATIVE = BUILD / 'native'
 SOURCE = Path(os.environ.get('RICH4_ORIGINAL_DIR', ROOT / 'assets/original/V3.11')).resolve()
 
@@ -208,10 +208,10 @@ def main():
         font = report['font']
         subprocess.run([str(font_probe), font['path'], str(font['index']), font['postscript'], str(corpus)], check=True)
         report['checks'].append(f'CoreText/FreeType face identity, TTF_OpenFontIndex and {len(chars)} real text glyphs')
-    report['not_executed'] = ['human listening and bank identity', 'disk full/unreadable source', 'clean macOS 14 and current system Finder acceptance', 'Retina/external display pointer positioning', 'audio devices and gameplay/save desktop acceptance', 'Developer ID signing/notarization/stapling']
+    report['not_executed'] = ['human listening and bank identity', 'disk full/unreadable source', 'clean OS X 10.10 Intel, macOS 11 arm64 and current system Finder acceptance', 'Retina/external display pointer positioning', 'audio devices and gameplay/save desktop acceptance', 'Developer ID signing/notarization/stapling']
     (BUILD / 'original-validation.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
     print('macOS original-resource checks: PASS (25 tracks, cancellation, cache, import/reimport/rollback)')
-    print('Desktop/listening/release acceptance: NOT EXECUTED; see build/macos/arm64/original-validation.json')
+    print('Desktop/listening/release acceptance: NOT EXECUTED; see build/macos/universal/original-validation.json')
 
 
 if __name__ == '__main__':

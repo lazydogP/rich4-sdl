@@ -1,13 +1,14 @@
 # GitHub Actions 自动发布
 
 工作流位于 `.github/workflows/release.yml`，使用现有 Windows 本地工具链脚本和
-`scripts/make_minimal.py` 构建，两个平台均运行在 `windows-2022`。
+`scripts/make_minimal.py` 构建，Windows 与 Miyoo 构建运行在 `windows-2022`；macOS Universal 2 开发包在 `macos-26` 构建。
 
 - 推送 `v` 开头、后接数字的标签（例如 `v0.1.0`）自动构建并发布 GitHub Release。
 - Actions → Release → Run workflow 手动运行只构建并上传 artifacts，不创建 Release。
 - Windows x64 运行 unit/resource 测试，然后构建程序并收集 SDL 运行库。
 - Miyoo Mini / Mini Plus 使用项目固定版本的 ARM 工具链构建程序更新包。
-- 两个平台均成功后，发布任务下载 ZIP 并发布 Release。
+- macOS 构建自包含的 Universal 2（arm64 + x86_64）应用，检查每个 slice 的依赖和部署版本，并运行包校验回归测试。
+- 全部构建成功后，发布任务下载 Windows 与 Miyoo ZIP 并发布 Release。
 - 含 `-` 的标签（例如 `v0.1.0-rc.1`）创建为 prerelease。
 - 同标签任务串行执行；重新运行会更新同名附件。首次发布先创建 draft，附件上传完成后公开。
 
@@ -61,6 +62,7 @@ python scripts/package_release.py --platform miyoo-mini --version v0.1.0
 
 产物在 `build/release/`，只生成程序 ZIP，不生成 SHA256 文件。
 Actions artifacts 保留 14 天，公开 Release 附件独立保存。
+macOS 开发产物 `Rich4-macOS-universal-development.zip` 单独保存在 `macOS-universal-development` artifact；真实设备、试听、Developer ID 签名及公证验收完成前不发布到 Release。
 CI 不提供原版资源，因此不执行真实资源 SDL smoke、QEMU 游戏回放或真机验证。
 
 参考：[GitHub Actions 权限](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)、

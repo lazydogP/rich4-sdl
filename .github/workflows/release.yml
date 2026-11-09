@@ -26,7 +26,7 @@ jobs:
             os: windows-2022
           - platform: miyoo-mini
             os: windows-2022
-          - platform: macos-arm64-development
+          - platform: macos-universal-development
             os: macos-26
     defaults:
       run:
@@ -77,22 +77,22 @@ jobs:
 
       - name: Build and inspect macOS development bundle
         shell: bash
-        if: matrix.platform == 'macos-arm64-development'
-        run: python3 scripts/make_minimal.py package-macos check-macos-package --progress
+        if: matrix.platform == 'macos-universal-development'
+        run: python3 scripts/make_minimal.py package-macos test-macos-package --progress
 
       - name: Record original-resource acceptance availability
         shell: bash
-        if: matrix.platform == 'macos-arm64-development'
+        if: matrix.platform == 'macos-universal-development'
         run: python3 scripts/make_minimal.py test-macos-original --progress
 
       # Deliberately excluded from the public Rich4-*.zip release artifact pattern.
       # Desktop/listening acceptance and Developer ID notarization are still pending.
       - name: Upload macOS development bundle
-        if: matrix.platform == 'macos-arm64-development'
+        if: matrix.platform == 'macos-universal-development'
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: macOS-arm64-development
-          path: build/release/Rich4-macOS-arm64-development.zip
+          name: macOS-universal-development
+          path: build/release/Rich4-macOS-universal-development.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -133,7 +133,7 @@ jobs:
           Packages exclude original game data, music, fonts, saves and personal settings.
           Supply legally obtained MKF files and a CJK font as described in each package's README.txt.
           The Miyoo update requires an existing installation with its runtime libraries and font.
-          macOS arm64 is available only as a development CI artifact until real-resource desktop,
+          macOS Universal 2 (arm64 + x86_64) is available only as a development CI artifact until real-resource desktop,
           listening, clean-system, Developer ID and notarization acceptance is complete.
           EOF
           flags=()

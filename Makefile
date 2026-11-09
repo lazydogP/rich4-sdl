@@ -1828,7 +1828,7 @@ test-text-backends: $(BIN_DIR)/test_text_backend_selector $(BIN_DIR)/test_text_b
 	$(BIN_DIR)/test_text_backend_selector_handheld
 
 # Native Apple launcher/importer and import-time DLS renderer.
-.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-original
+.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-package test-macos-original
 MACOS_SETUP_ARGS ?=
 setup-macos:
 	$(PYTHON) scripts/macos.py setup $(MACOS_SETUP_ARGS)
@@ -1840,6 +1840,8 @@ package-macos: macos
 	$(PYTHON) scripts/macos.py package
 check-macos-package:
 	$(PYTHON) scripts/macos.py verify
+test-macos-package: check-macos-package
+	$(PYTHON) tests/macos/test_package.py
 test-macos-original: macos-native
 	$(PYTHON) scripts/macos.py test-original
 
