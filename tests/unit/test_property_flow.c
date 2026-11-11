@@ -436,6 +436,40 @@ int main(void)
                !session.presentation.speech.active);
     }
 
+    /* 0x40D008 classifies a hosted human by the raw play-state low bit,
+     * not the cached AI-control flag.  An AI opponent going bankrupt must
+     * therefore keep the current all-AI-hosted match alive. */
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 4;
+    session.state.current_player = 1;
+    session.state.players[0].play_state = 5;
+    session.state.players[0].is_ai = 1;
+    session.state.players[1].character = 11;
+    session.state.players[2].play_state = 2;
+    session.state.players[2].is_ai = 1;
+    session.state.players[3].play_state = 2;
+    session.state.players[3].is_ai = 1;
+    {
+        GameEventQueue events;
+        GameEvent eliminated =
+            rich4_game_event_player_eliminated_from_fields(
+                (Rich4GameEventFields){1, 2, 0, 0, 0,
+                    rich4_game_domain_ref(GAME_DOMAIN_NONE, -1),
+                    rich4_game_domain_ref(GAME_DOMAIN_NONE, -1)});
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_game_event_queue_push(&events, &eliminated));
+        rich4_bankruptcy_capture_events(&session, &events, 0);
+        assert(rich4_bankruptcy_update(&session, 0, 100, 0));
+        assert(rich4_bankruptcy_update(&session, 0, 100, 2000));
+        assert(session.lifecycle.code == RICH4_APP_LIFECYCLE_NONE);
+        assert(!session.state.game_over);
+        assert(session.presentation.bankruptcy.active &&
+               session.presentation.bankruptcy.phase ==
+                   RICH4_BANKRUPTCY_PHASE_SPEECH &&
+               session.presentation.speech.active);
+    }
+
     /* 0x419FF0 -> 0x44F354 -> 0x44EFBD: receiver speech focuses
      * the owner while the payer remains the current actor. */
     memset(&session, 0, sizeof(session));

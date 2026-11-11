@@ -187,8 +187,11 @@ static int active_human_count(const GameSession *session)
     if (session == NULL) return 0;
     for (player = 0; player < session->state.player_count; player++) {
         const GamePlayerState *state = &session->state.players[player];
+        /* 0x40D008 tests the live player byte's low bit.  A temporarily
+         * AI-hosted human is play-state 5 with is_ai still set, but remains
+         * a human slot for the bankruptcy lifecycle decision. */
         if ((state->play_state & GAME_PLAYER_PLAY_STATE_MASK) != 0 &&
-            !state->is_ai)
+            (state->play_state & 1) != 0)
             count++;
     }
     return count;
