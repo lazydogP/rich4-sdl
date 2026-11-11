@@ -17,6 +17,11 @@ void rich4_game_save_set_debug_observer(Rich4SaveDebugObserver observer);
 int rich4_game_save_slot_path(char *out, size_t capacity,
                               const char *directory, int slot);
 int rich4_game_save_ensure_directory(const char *directory);
+/* 0x418EBD reaches 0x402FD1(0) only after 0x41CF67's blocking calendar
+ * presentations and 0x41C84F's selected-player status work have returned.
+ * Keep the SDL autosave request queued until the equivalent session state is
+ * writable. */
+int rich4_game_save_auto_ready(const GameSession *session);
 int rich4_game_save_write(const char *path, int slot,
                           const GameSession *session);
 int rich4_game_save_read(const char *path, int slot,

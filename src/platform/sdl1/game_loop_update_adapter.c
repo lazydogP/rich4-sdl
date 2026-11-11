@@ -241,10 +241,16 @@ void rich4_sdl_update_game_session_adapter(
     (void)rich4_app_game_update(session, now, &services);
     runtime_profile_span("update", "app.total", started, -1, 0);
     started = runtime_profile_now();
-    if (rich4_presentation_take_auto_save_pending(
-            &session->presentation)) {
+    if (session->presentation.auto_save_pending) {
         char path[RICH4_GAME_SAVE_PATH_CAPACITY];
-        if (config != NULL && config->auto_save) {
+        if (config == NULL || !config->auto_save) {
+            (void)rich4_presentation_take_auto_save_pending(
+                &session->presentation);
+        } else if (rich4_game_save_auto_ready(session)) {
+            /* 0x418EBD calls 0x402FD1(0) once at this boundary; the SDL
+             * request has now served the same purpose. */
+            (void)rich4_presentation_take_auto_save_pending(
+                &session->presentation);
             if (rich4_game_save_ensure_directory("saves") &&
                 rich4_game_save_slot_path(
                     path, sizeof(path), "saves", GAME_SAVE_AUTO_SLOT) &&

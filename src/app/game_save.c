@@ -511,6 +511,12 @@ static int save_session_valid(const GameSession *session)
     return 1;
 }
 
+int rich4_game_save_auto_ready(const GameSession *session)
+{
+    return session != NULL && session->presentation.auto_save_pending &&
+        save_session_valid(session);
+}
+
 static int save_replace_file(const char *temporary, const char *destination)
 {
 #if defined(_WIN32)

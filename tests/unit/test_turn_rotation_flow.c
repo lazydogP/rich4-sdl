@@ -430,6 +430,7 @@ static void test_calendar_defers_turn_status(void)
         s.presentation.dynamic_objects[4].countdown = 1;
         s.presentation.dynamic_objects[4].node = 1;
         assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, &result));
+        assert(s.presentation.auto_save_pending == 1);
         assert(s.pending_turn_events.count > 0);
         assert(s.state.players[0].god_info == 5);
         assert(!s.presentation.god_detachment.active);
@@ -438,6 +439,7 @@ static void test_calendar_defers_turn_status(void)
         s.presentation.periodic_finance.active = 0;
         s.presentation.bank_settlement.active = 0;
         assert(rich4_app_resume_turn_events(&s, NULL, 9000));
+        assert(s.presentation.auto_save_pending == 1);
         assert(s.pending_turn_events.count == 0);
         assert(s.state.players[0].god_info == 0);
         assert(s.presentation.god_detachment.active);

@@ -469,6 +469,36 @@ static void test_failed_write_preserves_slot(const char *directory, GameSession 
     remove(destination); remove(baseline);
 }
 
+static void test_auto_save_waits_for_original_turn_boundary(void)
+{
+    GameSession *session = &sessions[4];
+
+    initialize_session(session);
+    session->presentation.auto_save_pending = 1;
+    assert(rich4_game_save_auto_ready(session));
+
+    /* 0x41CF67's dividend/lottery and monthly-bank windows return before
+     * 0x41C84F, and only then does 0x418EBD call 0x402FD1(0). */
+    session->presentation.periodic_finance.active = 1;
+    assert(!rich4_game_save_auto_ready(session));
+    assert(session->presentation.auto_save_pending == 1);
+    session->presentation.periodic_finance.active = 0;
+
+    session->presentation.bank_settlement.active = 1;
+    assert(!rich4_game_save_auto_ready(session));
+    assert(session->presentation.auto_save_pending == 1);
+    session->presentation.bank_settlement.active = 0;
+
+    session->pending_turn_events.count = 1;
+    assert(!rich4_game_save_auto_ready(session));
+    assert(session->presentation.auto_save_pending == 1);
+    rich4_game_event_queue_reset(&session->pending_turn_events);
+    assert(rich4_game_save_auto_ready(session));
+    assert(rich4_presentation_take_auto_save_pending(
+        &session->presentation));
+    assert(!rich4_game_save_auto_ready(session));
+}
+
 static void runtime_load_reseeds_special_targets(const char *directory)
 {
     GameSession *saved=&sessions[0], *decoded=&sessions[1], *runtime=&sessions[2];
@@ -553,6 +583,7 @@ int main(void)
     runtime_load_reseeds_special_targets(directory);
     initialize_map(&map);
     initialize_session(source);
+    test_auto_save_waits_for_original_turn_boundary();
     test_failed_write_preserves_slot(directory, source);
 
     source->presentation.route_interaction.active = 1;
