@@ -118,15 +118,19 @@ static void draw_news_event_portraits(
             int show = game_special_event_player_visible(state, player);
             int amount = session->presentation->special_event.player_amount[player];
             char text[128];
+            char player_name[64];
             if (logical_id == 23)
                 show = show && state->players[player].loan == 0;
             else
                 show = show && amount != 0;
             if (!show) continue;
+            /* Original news rows call 0x452946 before substituting the name. */
+            game_compact_display_name(
+                player_name, sizeof(player_name),
+                new_game_character_name(state->players[player].character));
             if (rich4_special_event_format_big5(
                     text, sizeof(text), format,
-                    new_game_character_name(state->players[player].character),
-                    amount))
+                    player_name, amount))
                 draw_big5_text(
                     screen, 24, y, text, 24,
                     rich4_character_rgb565_color(0x00f0f0f0u),
@@ -183,6 +187,7 @@ static void draw_fortune_card_target_presentation(
 {
     int player;
     char text[128];
+    char player_name[64];
     const GameState *state;
     if (screen == NULL || session == NULL || session->state == NULL ||
         session->presentation == NULL)
@@ -190,9 +195,13 @@ static void draw_fortune_card_target_presentation(
     player = session->presentation->special_event.fortune_card_target_player;
     state = session->state;
     if (!game_special_event_player_visible(state, player)) return;
+    /* 0x44C3B7 filters the target name through 0x452946. */
+    game_compact_display_name(
+        player_name, sizeof(player_name),
+        new_game_character_name(state->players[player].character));
     if (!rich4_special_event_format_big5(
             text, sizeof(text), fortune_card_target_format,
-            new_game_character_name(state->players[player].character), 0))
+            player_name, 0))
         return;
     /* 0x44C3B7 calls 0x44FABC(0, text, 24, 10, 0) immediately before
      * the per-player card-transfer display.  The map is already underneath
@@ -235,6 +244,8 @@ void draw_special_event_presentation(
     int value;
     char body[512];
     char property_name[21];
+    char compact_subject[64];
+    char compact_second_subject[64];
     const char *subject;
     const char *second_subject = NULL;
     const char *marked_text = "";
@@ -322,6 +333,11 @@ void draw_special_event_presentation(
                 session->presentation->special_event.reaction_player]
                 .character;
         subject = new_game_character_name(character);
+        if ((logical_id >= 8 && logical_id <= 13) || logical_id == 23) {
+            game_compact_display_name(
+                compact_subject, sizeof(compact_subject), subject);
+            subject = compact_subject;
+        }
         second_subject = subject;
         if (logical_id >= 29 && logical_id <= 35) {
             unsigned int mask = session->presentation->special_event.target_mask;
@@ -331,8 +347,14 @@ void draw_special_event_presentation(
                 subject = session->presentation->map_company_names[company];
             if (logical_id == 29) {
                 int owner = (int)((mask >> 24) & 0x0fu) - 1;
-                if (owner >= 0 && owner < session->state->player_count)
-                    second_subject = new_game_character_name(session->state->players[owner].character);
+                if (owner >= 0 && owner < session->state->player_count) {
+                    game_compact_display_name(
+                        compact_second_subject,
+                        sizeof(compact_second_subject),
+                        new_game_character_name(
+                            session->state->players[owner].character));
+                    second_subject = compact_second_subject;
+                }
             }
         } else if (logical_id == 27 || logical_id == 28) {
             int stock = (int)(session->presentation->special_event.target_mask & 0xffffu) - 1;

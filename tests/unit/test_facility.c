@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "core/facility.h"
+#include "core/game_event_payload.h"
 
 static void setup(GameState *state)
 {
@@ -257,6 +258,26 @@ int main(void)
         assert(company_landing.amount == (value ? 0 : 400));
         assert(company_landing.payer == (value ? 0 : 1));
         assert(state.players[value ? 0 : 1].days_disappearing == 2);
+    }
+    setup(&state);
+    state.company_count = 1;
+    state.company_stock_index[0] = 2;
+    state.company_type[0] = 1;
+    state.company_base_fee[0] = 100;
+    state.stock_company_owner[2] = 0;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_company_resolve_landing(&state, 1, 0, 0, 7,
+        0, -1, &company_landing, &events) == GAME_PAYMENT_COMMITTED);
+    assert(company_landing.kind == GAME_LANDING_APPLIED);
+    assert(events.count == 1);
+    {
+        GameEvent notice;
+        Rich4GameEventFields fields;
+        assert(rich4_game_event_queue_pop(&events, &notice));
+        assert(notice.type == GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED);
+        fields = rich4_game_event_special_place_notice_requested_fields(&notice);
+        assert(fields.subject == GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL);
+        assert(fields.value2 == 1500);
     }
     puts("facility rules: ok");
     return 0;

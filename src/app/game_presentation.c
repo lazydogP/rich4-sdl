@@ -367,9 +367,8 @@ Rich4PresentationActivity rich4_presentation_activity_from_state(
     activity.bank_rejection_active = presentation->bank_rejection.active;
     activity.special_place_notice_active =
         presentation->special_place_notice.queue.count > 0;
-    activity.insurance_notice_active = presentation->insurance.count > 0 &&
-        presentation->insurance.queue[presentation->insurance.head].kind !=
-            GAME_INSURANCE_NOTICE_WAIT_SPECIAL;
+    activity.insurance_notice_active =
+        rich4_presentation_insurance_notice_visible(presentation);
     activity.special_event_active = presentation->special_event.active;
     activity.lottery_active = presentation->lottery.active;
     activity.confinement_visit_active = presentation->confinement_visit.active;
@@ -387,6 +386,18 @@ Rich4PresentationActivity rich4_presentation_activity_from_state(
         presentation->confinement_status.active;
     activity.dice_popup_active = presentation->dice.popup_active;
     return activity;
+}
+
+int rich4_presentation_insurance_notice_visible(
+    const GamePresentationState *presentation)
+{
+    if (presentation == NULL || presentation->insurance.count <= 0)
+        return 0;
+    /* 0x44CEC2 calls the player's loss reaction at 0x44F42D before
+     * 0x44BA63 opens the two-second claim notice.  A deferred fortune
+     * claim may already be queued while that reaction is still active. */
+    return presentation->insurance.queue[presentation->insurance.head].kind !=
+        GAME_INSURANCE_NOTICE_WAIT_SPECIAL;
 }
 
 Rich4PresentationUpdateStep rich4_presentation_update_step(
@@ -407,9 +418,7 @@ Rich4PresentationUpdateStep rich4_presentation_update_step(
         return RICH4_PRESENTATION_UPDATE_BANK;
     if (presentation->tool_placement_animation.active)
         return RICH4_PRESENTATION_UPDATE_TOOL_PLACEMENT;
-    if (presentation->insurance.count > 0 &&
-        presentation->insurance.queue[presentation->insurance.head].kind !=
-            GAME_INSURANCE_NOTICE_WAIT_SPECIAL)
+    if (rich4_presentation_insurance_notice_visible(presentation))
         return RICH4_PRESENTATION_UPDATE_FEATURES;
     if (presentation->speech.active &&
         (presentation->tool_animation_count > 0 ||

@@ -42,7 +42,7 @@ int rich4_special_place_notice_enqueue(
     fields = rich4_game_event_special_place_notice_requested_fields(event);
     if (event->player < 0 || event->player >= session->state.player_count ||
         fields.subject < GAME_SPECIAL_NOTICE_PRISON_RELEASE ||
-        fields.subject > GAME_SPECIAL_NOTICE_HOLIDAY_GIFT ||
+        fields.subject > GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL ||
         fields.value2 <= 0) return 0;
     notice = &session->presentation.special_place_notice;
     empty = notice->queue.count == 0;

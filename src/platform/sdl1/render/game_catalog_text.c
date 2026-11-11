@@ -63,3 +63,17 @@ const char *new_game_character_name(int character)
     }
     return names[character];
 }
+
+void game_compact_display_name(char *out, size_t capacity,
+                               const char *source)
+{
+    size_t length = 0;
+
+    if (out == NULL || capacity == 0) return;
+    while (source != NULL && *source != '\0' && length + 1 < capacity) {
+        if (*source != ' ')
+            out[length++] = *source;
+        source++;
+    }
+    out[length] = '\0';
+}

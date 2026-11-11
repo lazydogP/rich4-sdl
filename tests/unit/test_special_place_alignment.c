@@ -272,6 +272,25 @@ static void original_text_waits_accept_release(void)
     assert(session.presentation.special_reward.until == 1400);
 }
 
+static void airline_zero_result_uses_timed_notice(void)
+{
+    GameSession session;
+    GameEvent notice;
+    memset(&session, 0, sizeof(session));
+    session.state.player_count = 1;
+    session.state.players[0].play_state = 1;
+    notice = rich4_game_event_special_place_notice(
+        0, GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL,
+        rich4_game_domain_ref(GAME_DOMAIN_COMPANY, 2), 0, 1500);
+    assert(rich4_special_place_notice_enqueue(&session, &notice, 1000));
+    assert(session.presentation.special_place_notice.until == 2500);
+    assert(rich4_game_event_special_place_notice_requested_fields(
+        rich4_special_place_notice_current(&session.presentation)).subject ==
+        GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL);
+    assert(rich4_special_place_notice_update(&session, 2500));
+    assert(rich4_special_place_notice_current(&session.presentation) == NULL);
+}
+
 static void stopped_bank_waits_before_loan_and_does_not_replay_entry(void)
 {
     GameSession session;
@@ -311,6 +330,7 @@ int main(void)
     gift_notice_and_speech_own_the_turn();
     owner_shortfall_and_serial_notices();
     original_text_waits_accept_release();
+    airline_zero_result_uses_timed_notice();
     stopped_bank_waits_before_loan_and_does_not_replay_entry();
     puts("special-place original AI presentation: ok");
     return 0;

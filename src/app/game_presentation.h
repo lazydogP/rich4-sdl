@@ -527,6 +527,9 @@ typedef struct GamePresentationState {
     int dragging_minimap;
     int minimap_rotate_pressed; /* 0x48BE28: 1 left, 2 right until button-up. */
     int map_direction;
+    /* 0x40C78C plays Effect[56] once for every completed turn-around.
+     * This transient counter is collected by the shared audio bridge. */
+    int turn_around_sound_pending;
     int active_info_tab;
     int player_info_tabs[GAME_MAX_PLAYERS]; /* 0x48BE24: one page per player. */
     int top_button_hover;
@@ -574,6 +577,8 @@ Rich4PresentationMode rich4_presentation_mode_resolve(
     const Rich4PresentationActivity *activity);
 Rich4PresentationActivity rich4_presentation_activity_from_state(
     const GamePresentationState *presentation, const GameState *state);
+int rich4_presentation_insurance_notice_visible(
+    const GamePresentationState *presentation);
 Rich4PresentationUpdateStep rich4_presentation_update_step(
     const GamePresentationState *presentation, const GameState *state);
 Rich4PresentationHandler rich4_presentation_handler_for_mode(

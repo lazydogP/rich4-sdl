@@ -81,6 +81,18 @@ int main(void)
     game_state.tool_robot.active = 0;
     assert(rich4_presentation_update_step(&state, &game_state) ==
            RICH4_PRESENTATION_UPDATE_FEATURES);
+    state.insurance.count = 1;
+    state.insurance.queue[0].kind = GAME_INSURANCE_NOTICE_WAIT_SPECIAL;
+    assert(!rich4_presentation_insurance_notice_visible(&state));
+    from_state = rich4_presentation_activity_from_state(&state, &game_state);
+    assert(!from_state.insurance_notice_active);
+    state.insurance.queue[0].kind = GAME_INSURANCE_NOTICE_PENDING_CLAIM;
+    assert(rich4_presentation_insurance_notice_visible(&state));
+    from_state = rich4_presentation_activity_from_state(&state, &game_state);
+    assert(from_state.insurance_notice_active);
+    assert(rich4_presentation_mode_resolve(&from_state) ==
+           RICH4_PRESENTATION_INSURANCE);
+    state.insurance.count = 0;
     value.speech_active = 1;
     assert(rich4_presentation_mode_resolve(&value) ==
            RICH4_PRESENTATION_SPEECH);

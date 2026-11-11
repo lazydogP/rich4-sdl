@@ -455,6 +455,8 @@ test-unit: $(BIN_DIR)/test_game_loop_scene_update
 test-unit: $(BIN_DIR)/test_turn_around_flow
 test-unit: $(BIN_DIR)/test_app_map_input_flow
 test-unit: $(BIN_DIR)/test_app_dynamic_object_flow
+test-unit: test-player-info-name-spacing
+test-unit: test-game-catalog-text
 test-unit: $(BIN_DIR)/test_first_turn_flow
 test-unit: $(BIN_DIR)/test_game_update_flow
 test-unit: $(BIN_DIR)/test_turn_rotation_flow $(BIN_DIR)/test_route_facts $(BIN_DIR)/test_route_geometry_flow $(BIN_DIR)/test_turn_movement_flow $(BIN_DIR)/test_bank_interaction_flow $(BIN_DIR)/test_stock_interaction_flow $(BIN_DIR)/test_card_panel_flow
@@ -1474,6 +1476,20 @@ $(BIN_DIR)/test_app_map_input_flow: tests/unit/test_app_map_input_flow.c $(APP_O
 
 $(BIN_DIR)/test_app_dynamic_object_flow: tests/unit/test_app_dynamic_object_flow.c $(BUILD_DIR)/dynamic_object_flow.o $(CORE_OBJS) $(BUILD_DIR)/game_view_model.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_app_dynamic_object_flow.c $(BUILD_DIR)/dynamic_object_flow.o $(CORE_OBJS) $(BUILD_DIR)/game_view_model.o
+
+.PHONY: test-player-info-name-spacing
+test-player-info-name-spacing: $(BIN_DIR)/test_player_info_name_spacing
+	$(BIN_DIR)/test_player_info_name_spacing
+
+$(BIN_DIR)/test_player_info_name_spacing: tests/unit/test_player_info_name_spacing.c $(BUILD_DIR)/sdl1_game_loop_player_info_panel.o | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_player_info_name_spacing.c $(BUILD_DIR)/sdl1_game_loop_player_info_panel.o
+
+.PHONY: test-game-catalog-text
+test-game-catalog-text: $(BIN_DIR)/test_game_catalog_text
+	$(BIN_DIR)/test_game_catalog_text
+
+$(BIN_DIR)/test_game_catalog_text: tests/unit/test_game_catalog_text.c $(BUILD_DIR)/sdl1_game_catalog_text.o | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^
 
 $(BIN_DIR)/test_game_presentation: tests/unit/test_game_presentation.c $(BUILD_DIR)/game_presentation.o $(BUILD_DIR)/game_event_presentation_snapshot.o $(BUILD_DIR)/character_speech.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_game_presentation.c $(BUILD_DIR)/game_presentation.o $(BUILD_DIR)/game_event_presentation_snapshot.o $(BUILD_DIR)/character_speech.o

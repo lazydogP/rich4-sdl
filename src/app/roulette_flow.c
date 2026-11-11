@@ -15,6 +15,36 @@ enum {
     RICH4_ROULETTE_LANDED_TICKS = 0x28
 };
 
+const char *rich4_roulette_prompt_format_big5(int mode)
+{
+    static const char *const formats[4] = {
+        /* 0x475CF8 points mode 0..3 at 0x465210/224/23C/25C. */
+        "%s\n\n\xb0\x65\xb1\x7a\xa5\x58\xb0\xea\xae\xc8\xb9\x43...",
+        "%s\xaa\xba\xae\xc8\xc0\x5d\n\n"
+        "\xbd\xd0\xb6\x69\xa8\xd3\xa5\xf0\xae\xa7...",
+        "%s\xaa\xba\xc1\xca\xaa\xab\xa4\xa4\xa4\xdf\n\n"
+        "\xb1\x7a\xaa\xba\xae\xf8\xb6\x4f\xad\xbf\xbc\xc6\xac\xb0...",
+        "%s\n\n\xb1\x7a\xaa\xba\xa7\xeb\xab\x4f"
+        "\xa4\xd1\xbc\xc6\xac\xb0..."
+    };
+    return mode >= 0 && mode < 4 ? formats[mode] : NULL;
+}
+
+const char *rich4_roulette_result_format_big5(int mode)
+{
+    static const char *const formats[4] = {
+        /* 0x463A5F: mode-0 result 0 only. */
+        "\xa4\xa3\xa5\xce\xa5\x58\xb0\xea\xa1\x49",
+        /* 0x4639FF. */
+        "\xa5\xf0\xae\xa7%d\xa4\xd1\n\n\xb6\x4f\xa5\xce%d\xa4\xb8\xa1\x49",
+        /* 0x463A14. */
+        "\xb1\x7a\xaa\xba\xae\xf8\xb6\x4f\xaa\xf7\xc3\x42\xac\xb0\n\n"
+        "%d\xa4\xb8x%d\xad\xbf=%d\xa4\xb8",
+        NULL
+    };
+    return mode >= 0 && mode < 4 ? formats[mode] : NULL;
+}
+
 static int rich4_roulette_outcome(int mode, int slot)
 {
     static const int outcome[4][12] = {

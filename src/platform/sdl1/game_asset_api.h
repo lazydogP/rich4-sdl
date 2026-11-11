@@ -52,6 +52,10 @@ int game_sync_runtime_asset_scope(GamePreviewAssets *assets, Rich4SceneId scene,
 void game_free_preview_assets(GamePreviewAssets *assets);
 
 const char *new_game_character_name(int character);
+/* Original 0x452946: copy a display name while removing its fixed-width
+ * ASCII space padding before embedding it in a sentence or prompt. */
+void game_compact_display_name(char *out, size_t capacity,
+                               const char *source);
 int game_confirm_dialog_bounds(const GamePreviewAssets *assets,
                               GameCommandType type,
                               int *out_left, int *out_top,

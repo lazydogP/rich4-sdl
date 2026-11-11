@@ -339,11 +339,11 @@ void draw_insurance_notice(
     const GameInsuranceNoticeEntry *notice;
     Rich4SprSmpChunk background;
     const char *company_name = "";
-    const char *chairman_name = "";
+    char chairman_name[64] = "";
     char message[192];
     int stock = -1;
     if (screen == NULL || assets == NULL || session == NULL ||
-        session->presentation->insurance.count <= 0)
+        !rich4_presentation_insurance_notice_visible(session->presentation))
         return;
     notice = &session->presentation->insurance.queue[
         session->presentation->insurance.head];
@@ -357,8 +357,10 @@ void draw_insurance_notice(
     }
     if (notice->chairman >= 0 &&
         notice->chairman < session->state->player_count)
-        chairman_name = new_game_character_name(
-            session->state->players[notice->chairman].character);
+        game_compact_display_name(
+            chairman_name, sizeof(chairman_name),
+            new_game_character_name(
+                session->state->players[notice->chairman].character));
     if (game_asset_ready(assets, &assets->ui.has_worker_choice_ui) &&
         rich4_spr_smp_get_chunk(
             assets->ui.worker_choice_data, assets->ui.worker_choice_size,

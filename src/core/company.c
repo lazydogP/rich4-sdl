@@ -84,6 +84,13 @@ static GamePaymentResult company_landing_stage(
                 rich4_game_domain_ref(GAME_DOMAIN_STOCK, stock), days, 0, 0))
             return GAME_PAYMENT_REJECTED;
     }
+    if (type == 1 && outcome == 0 && !payment_only) {
+        GameEvent notice = rich4_game_event_special_place_notice(
+            actor, GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL,
+            rich4_game_domain_ref(GAME_DOMAIN_COMPANY, company), 0, 1500);
+        if (!rich4_game_event_queue_push(&staged, &notice))
+            return GAME_PAYMENT_REJECTED;
+    }
     if (chairman < 0 || chairman == actor || (type == 1 && outcome == 0) ||
         type == 0 || type == 2 || (type >= 7 && type <= 10) ||
         ((type == 5 || type == 6) &&

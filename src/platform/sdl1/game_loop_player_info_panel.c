@@ -26,8 +26,7 @@ enum {
     PLAYER_INFO_STOCK_TAB = 2,
     PLAYER_INFO_TAB_COUNT = 3,
     PLAYER_INFO_PROPERTY_FILTER_COUNT = 5,
-    PLAYER_INFO_PROPERTY_ROWS_PER_PAGE = 10,
-    PLAYER_INFO_CHARACTER_NAME_BUFFER_SIZE = 32
+    PLAYER_INFO_PROPERTY_ROWS_PER_PAGE = 10
 };
 
 typedef enum PlayerInfoPropertyKind {
@@ -86,22 +85,6 @@ static const char *const player_info_property_headers[5] = {
     "\xa6\xac\x20\x20\xb6\x4f",         /* 收  費 */
     "\xaf\xb2\x20\x20\xb4\xc1"          /* 租  期 */
 };
-
-static void player_info_compact_character_name(char *out_name,
-                                                size_t capacity,
-                                                int character)
-{
-    const char *source = new_game_character_name(character);
-    size_t length = 0;
-
-    if (out_name == NULL || capacity == 0) return;
-    while (source != NULL && *source != '\0' && length + 1 < capacity) {
-        if (*source != ' ')
-            out_name[length++] = *source;
-        source++;
-    }
-    out_name[length] = '\0';
-}
 
 /* ref_00475138 / ref_00475150: the status text in 0x4225A3. */
 static const char *const player_info_land_development[6] = {
@@ -207,15 +190,17 @@ static void player_info_draw_header(SDL_Surface *screen,
     int god_chunk = player_info_god_panel_chunk(player);
 
     for (i = 0; i < session->state.player_count && i < GAME_MAX_PLAYERS; i++) {
-        char name[PLAYER_INFO_CHARACTER_NAME_BUFFER_SIZE];
         if (!rich4_app_player_info_player_is_visible(session, i)) continue;
         draw_game_panel_chunk(screen, assets, 9,
                               (size_t)(i == selected ? 3 : 4),
                               16 + slot * 88, 14, 1);
-        player_info_compact_character_name(
-            name, sizeof(name), session->state.players[i].character);
+        /* 0x423293 passes the stored fixed-width name straight to
+         * 0x44FABC; unlike sentence-formatting paths, it does not call
+         * 0x452946 to remove the ASCII padding spaces. */
         draw_big5_text(screen, 60 + slot * 88, 30,
-                       name, 20, 0x1082, 0, 2, 2);
+                       new_game_character_name(
+                           session->state.players[i].character),
+                       20, 0x1082, 0, 2, 2);
         slot++;
     }
     if (character >= 0 && character < 12 &&

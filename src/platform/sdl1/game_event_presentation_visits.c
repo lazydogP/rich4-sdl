@@ -4,6 +4,7 @@
 #include <string.h>
 #include <SDL/SDL.h>
 #include "app/magic_house_flow.h"
+#include "app/roulette_flow.h"
 #include "core/card.h"
 #include "core/character_speech_rules.h"
 #include "core/confinement.h"
@@ -106,16 +107,8 @@ static void draw_lottery_pool(
 static void roulette_compact_character_name(
     char *out_name, size_t capacity, int character)
 {
-    const char *source = new_game_character_name(character);
-    size_t length = 0;
-
-    if (out_name == NULL || capacity == 0) return;
-    while (source != NULL && *source != '\0' && length + 1 < capacity) {
-        if (*source != ' ')
-            out_name[length++] = *source;
-        source++;
-    }
-    out_name[length] = '\0';
+    game_compact_display_name(
+        out_name, capacity, new_game_character_name(character));
 }
 
 void draw_lottery_visit_panel(
@@ -211,18 +204,7 @@ void draw_facility_roulette(
 {
     const GameFacilityRoulettePresentationState *roulette;
     Rich4SprSmpChunk chunk;
-    static const char *const owner_formats[3] = {
-        NULL,
-        "%s\n\n\xb0\x65\xb1\x7a\xa5\x58\xb0\xea\xae\xc8\xb9\x43...",
-        "%s\xaa\xba\xae\xc8\xc0\x5d\n\n\xbd\xd0\xb6\x69\xa8\xd3\xa5\xf0\xae\xa7..."
-    };
-    static const char *const company_formats[4] = {
-        "%s\n\n\xbd\xd0\xb6\x69\xa8\xd3\xa5\xf0\xae\xa7...",
-        NULL,
-        NULL,
-        "%s\n\n\xb1\x7a\xaa\xba\xa7\xeb\xab\x4f"
-        "\xa4\xd1\xbc\xc6\xac\xb0..."
-    };
+    const char *format;
     char message[160];
     char owner_name[32];
     const char *owner_source = NULL;
@@ -232,6 +214,7 @@ void draw_facility_roulette(
         !session->presentation->facility_roulette.active)
         return;
     roulette = &session->presentation->facility_roulette;
+    format = rich4_roulette_prompt_format_big5(roulette->mode);
     resource = 68 + roulette->mode;
     if (game_asset_ready(assets, &assets->ui.has_worker_choice_ui) &&
         rich4_spr_smp_get_chunk(
@@ -261,9 +244,8 @@ void draw_facility_roulette(
         owner_source = owner_name;
     }
     if (roulette->mode >= 1 && roulette->mode <= 2 &&
-        owner_source != NULL) {
-        snprintf(message, sizeof(message), owner_formats[roulette->mode],
-                 owner_source);
+        owner_source != NULL && format != NULL) {
+        snprintf(message, sizeof(message), format, owner_source);
         draw_big5_text(
             screen, 220, 140, message, 16,
             rich4_character_rgb565_color(0x00f0f0f0u),
@@ -277,9 +259,7 @@ void draw_facility_roulette(
             session->presentation->map_company_names[roulette->subject.id];
         if (company_name[0] == '\0')
             company_name = game_stock_name_for_state(session->state, stock);
-        snprintf(message, sizeof(message),
-                 company_formats[roulette->mode],
-                 company_name);
+        snprintf(message, sizeof(message), format, company_name);
         draw_big5_text(
             screen, 220, 140, message, 16,
             rich4_character_rgb565_color(0x00f0f0f0u),

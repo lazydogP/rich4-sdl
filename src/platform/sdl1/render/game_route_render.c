@@ -9,6 +9,7 @@
 #include "core/property.h"
 #include "data/character_speech.h"
 #include "app/new_game_setup_flow.h"
+#include "app/roulette_flow.h"
 #include "platform/sdl1/app_asset_types.h"
 #include "platform/sdl1/input_adapter.h"
 #include "platform/sdl1/render/blit.h"
@@ -456,20 +457,22 @@ void draw_game_property_presentation(SDL_Surface *screen,
         if (scene->property_facility_type == 1 && scene->property_outcome > 0) {
             /* 0x4639FF, formatted at 0x41A478 before payment/entry. */
             snprintf(message, sizeof(message),
-                "\xa5\xf0\xae\xa7%d\xa4\xd1\n\n\xb6\x4f\xa5\xce%d\xa4\xb8\xa1\x49",
+                rich4_roulette_result_format_big5(1),
+                scene->property_outcome, scene->property_presentation_amount);
+        } else if (scene->property_facility_type == 2 &&
+                   scene->property_outcome > 0) {
+            /* 0x463A14, formatted at 0x41A4CE before payment. */
+            snprintf(message, sizeof(message),
+                rich4_roulette_result_format_big5(2),
+                scene->property_presentation_amount / scene->property_outcome,
                 scene->property_outcome, scene->property_presentation_amount);
         } else if (scene->property_company_type >= 0 || scene->property_facility_type == 3) {
             /* 0x463A31 / 0x463A6A, selected by 0x41AE79. */
             char owner_name[64];
             const char *name = scene->property_owner_character >= 0 ?
                 new_game_character_name(scene->property_owner_character) : "";
-            size_t length = 0;
             /* 0x41AE57 calls 0x452946 before formatting the chairman. */
-            while (*name && length + 1 < sizeof(owner_name)) {
-                if (*name != ' ') owner_name[length++] = *name;
-                name++;
-            }
-            owner_name[length] = '\0';
+            game_compact_display_name(owner_name, sizeof(owner_name), name);
             const char *format = scene->property_company_type == 12 ?
                 "%s\n\n\xc0\xb0\xa5\x44%s\n\n\xbd\xd0\xa5\x49%d\xa4\xb8%s" :
                 "%s\n\n\xb8\xb3\xa8\xc6\xaa\xf8%s\n\n\xbd\xd0\xa5\x49%d\xa4\xb8%s";
@@ -479,26 +482,36 @@ void draw_game_property_presentation(SDL_Surface *screen,
                 scene->property_presentation_amount, god_fee_label(scene->property_fee_label));
         } else if (scene->property_related_owner_character >= 0 &&
             scene->property_related_amount > 0) {
+            char owner_name[64];
+            char related_owner_name[64];
+            game_compact_display_name(
+                owner_name, sizeof(owner_name),
+                scene->property_owner_character >= 0
+                    ? new_game_character_name(
+                          scene->property_owner_character) : "");
+            game_compact_display_name(
+                related_owner_name, sizeof(related_owner_name),
+                new_game_character_name(
+                    scene->property_related_owner_character));
             snprintf(message, sizeof(message),
                      /* 0x419D1A formats with 0x46399A and fee table 0x47517C. */
                      "%s\n\n\xc4\xdd%s\xbb\x50%s\n\n"
                      "\xbd\xd0\xa5\x49%d\xa4\xb8%s",
                      scene->property_name,
-                     scene->property_owner_character >= 0
-                         ? new_game_character_name(
-                               scene->property_owner_character) : "",
-                     new_game_character_name(
-                         scene->property_related_owner_character),
+                     owner_name, related_owner_name,
                      scene->property_presentation_amount,
                      god_fee_label(scene->property_fee_label));
         } else {
+            char owner_name[64];
+            game_compact_display_name(
+                owner_name, sizeof(owner_name),
+                scene->property_owner_character >= 0
+                    ? new_game_character_name(
+                          scene->property_owner_character) : "");
             snprintf(message, sizeof(message),
                      "%s\n\n\xa6\xb9\xa6\x61\xc4\xdd%s\n\n"
                      "\xbd\xd0\xa5\x49%d\xa4\xb8",
-                     scene->property_name,
-                     scene->property_owner_character >= 0
-                         ? new_game_character_name(scene->property_owner_character)
-                         : "",
+                     scene->property_name, owner_name,
                      scene->property_presentation_amount);
         }
         /* 0x419D50 -> 0x440CAC creates a 16px 0xF0F0F0 font with a
@@ -523,9 +536,13 @@ void draw_game_property_presentation(SDL_Surface *screen,
         };
         static const char toll[] = "\xb9\x4c\xb8\xf4\xb6\x4f";
         char message[160];
+        char owner_name[64];
         int reason = scene->property_collection_block_reason;
-        const char *owner = scene->property_owner_character >= 0
-            ? new_game_character_name(scene->property_owner_character) : "";
+        game_compact_display_name(
+            owner_name, sizeof(owner_name),
+            scene->property_owner_character >= 0
+                ? new_game_character_name(
+                      scene->property_owner_character) : "");
         if (game_asset_ready(assets, &assets->ui.has_common_dialog) &&
             rich4_spr_smp_get_chunk(assets->ui.common_dialog_data,
                                     assets->ui.common_dialog_size,
@@ -541,7 +558,7 @@ void draw_game_property_presentation(SDL_Surface *screen,
                 snprintf(message, sizeof(message), formats[reason], toll);
             else
                 snprintf(message, sizeof(message), formats[reason],
-                         owner, toll);
+                         owner_name, toll);
             draw_big5_text(
                 screen, 220, 140, message, 16,
                 rich4_character_rgb565_color(0x00f0f0f0u),

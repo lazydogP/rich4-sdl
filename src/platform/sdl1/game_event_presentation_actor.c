@@ -44,8 +44,8 @@ void draw_special_actor_action_presentation(
         "\xa8\xfa\xa8\xab\xac\xd5\xbe\x6c\n\n%d\xa4\xb8\xa1\x49";
     const GameSpecialActorAction *action;
     Rich4SprSmpChunk background;
-    const char *target_name = "";
-    const char *owner_name = "";
+    char target_name[64] = "";
+    char owner_name[64] = "";
     char message[192];
     int index;
     if (screen == NULL || assets == NULL || session == NULL ||
@@ -57,12 +57,16 @@ void draw_special_actor_action_presentation(
     action = &session->presentation->special_actor.action_batch.action[index];
     if (action->target_player >= 0 &&
         action->target_player < session->state->player_count)
-        target_name = new_game_character_name(
-            session->state->players[action->target_player].character);
+        game_compact_display_name(
+            target_name, sizeof(target_name),
+            new_game_character_name(
+                session->state->players[action->target_player].character));
     if (action->owner_player >= 0 &&
         action->owner_player < session->state->player_count)
-        owner_name = new_game_character_name(
-            session->state->players[action->owner_player].character);
+        game_compact_display_name(
+            owner_name, sizeof(owner_name),
+            new_game_character_name(
+                session->state->players[action->owner_player].character));
     switch (action->kind) {
     case GAME_SPECIAL_ACTOR_ACTION_THIEF_POINTS:
         snprintf(message, sizeof(message), thief_format,

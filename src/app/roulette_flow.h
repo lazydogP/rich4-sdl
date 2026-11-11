@@ -17,4 +17,9 @@ void rich4_roulette_stop(
 int rich4_roulette_update(
     GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events);
 
+/* Original 0x475CF8 mode-indexed prompt table and the result formats used by
+ * the mode-specific callers after 0x44090E returns. */
+const char *rich4_roulette_prompt_format_big5(int mode);
+const char *rich4_roulette_result_format_big5(int mode);
+
 #endif

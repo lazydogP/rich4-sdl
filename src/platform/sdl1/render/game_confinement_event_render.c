@@ -7,6 +7,7 @@
 #include "core/character_speech_rules.h"
 #include "core/confinement.h"
 #include "app/confinement_flow.h"
+#include "app/roulette_flow.h"
 #include "app/special_place_notice_flow.h"
 #include "core/game_event_payload.h"
 #include "core/game_command.h"
@@ -37,8 +38,13 @@ void draw_confinement_status_presentation(
     /* 0x4631E0 / 0x40C9D2: hotel countdown, with no random reaction voice. */
     static const char hotel_format[] =
         "%s\xa6\xed\xb1\x4a\xa4\xa4\n\n\xc1\xd9\xb3\xd1%d\xa4\xd1\xa1\x49";
+    /* 0x4631F5 / 0x40CA08: "%s消失中\n\n還剩%d天！". */
+    static const char disappearing_format[] =
+        "%s\xae\xf8\xa5\xa2\xa4\xa4\n\n\xc1\xd9\xb3\xd1%d\xa4\xd1\xa1\x49";
     Rich4SprSmpChunk background;
     char message[128];
+    char player_name[64];
+    const char *format;
     int player;
     if (screen == NULL || assets == NULL || view == NULL ||
         !view->confinement_status_active ||
@@ -55,12 +61,16 @@ void draw_confinement_status_presentation(
             &background) == RICH4_SPR_SMP_OK)
         draw_chunk_at(screen, assets->ui.common_dialog_data,
                       &background, 220, 140, 1);
+    format = view->confinement_status_slot == 50 ? hotel_format
+        : view->confinement_status_slot == 51 ? disappearing_format
+        : view->confinement_status_slot == 52 ? prison_format
+        : hospital_format;
+    /* 0x40C97C calls 0x452946 once before formatting every status case. */
+    game_compact_display_name(
+        player_name, sizeof(player_name),
+        new_game_character_name(view->player_character[player]));
     snprintf(
-        message, sizeof(message),
-        view->confinement_status_slot == 50 ? hotel_format : view->confinement_status_slot == 52
-            ? prison_format : hospital_format,
-        new_game_character_name(
-            view->player_character[player]),
+        message, sizeof(message), format, player_name,
         view->confinement_status_days);
     draw_big5_text(
         screen, 220, 140, message, 16,
@@ -88,7 +98,6 @@ void draw_special_place_notice(
     char message[256];
     char name[64];
     const char *source;
-    size_t length = 0;
     if (screen == NULL || assets == NULL || snapshot == NULL ||
         snapshot->presentation->special_place_notice.speech_pending) return;
     event = rich4_special_place_notice_current(snapshot->presentation);
@@ -105,11 +114,7 @@ void draw_special_place_notice(
             source = game_confinement_special_name(GAME_MAX_PLAYERS + fields.target_ref.id);
     }
     /* 0x452946 compacts the fixed-width name for release/owner messages. */
-    while (source != NULL && *source != '\0' && length + 1 < sizeof(name)) {
-        if (*source != ' ') name[length++] = *source;
-        source++;
-    }
-    name[length] = '\0';
+    game_compact_display_name(name, sizeof(name), source);
     if (fields.subject == GAME_SPECIAL_NOTICE_HOLIDAY_GIFT) {
         const char *format;
         int global_map = (int)(fields.flags & 0xffu);
@@ -162,6 +167,10 @@ void draw_special_place_notice(
             "\xa4\xa3\xa8\xac%d\xa4\xb8\n\n"
             "\xa5\xd1\xb8\x67\xc0\xe7\xaa\xcc%s\xb9\xd4\xa5\x49\xa1\x49",
             fields.value, name);
+        break;
+    case GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL:
+        snprintf(message, sizeof(message), "%s",
+                 rich4_roulette_result_format_big5(0));
         break;
     default: return;
     }
@@ -329,7 +338,8 @@ void draw_confinement_visit_panel(
         ? view->confinement_visit_hover : -1;
     if (hover >= 0 && hover < 8) {
         char cost_text[16];
-        const char *name = hover < GAME_MAX_PLAYERS
+        char compact_name[64];
+        const char *source_name = hover < GAME_MAX_PLAYERS
             ? new_game_character_name(
                   view->player_character[hover])
             : game_confinement_special_name(hover);
@@ -341,7 +351,10 @@ void draw_confinement_visit_panel(
         draw_confinement_panel_chunk(
             screen, assets, resource, resource == 63 ? 2 : 3,
             left, top);
-        draw_big5_text(screen, text_x, top + 26, name, 16,
+        /* 0x43D51C / 0x43EBC8 compact the candidate before drawing it. */
+        game_compact_display_name(
+            compact_name, sizeof(compact_name), source_name);
+        draw_big5_text(screen, text_x, top + 26, compact_name, 16,
                        rich4_character_rgb565_color(0x00101010u),
                        0, 0, 2);
         draw_big5_text(screen, text_x, top + 48, bail_points, 16,

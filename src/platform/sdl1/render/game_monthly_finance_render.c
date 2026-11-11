@@ -96,8 +96,12 @@ static void dividends(SDL_Surface *screen, const GamePreviewAssets *a,
     text(screen, 42, 118, "\xa4\xbd\xa5\x71", 12, 5);
     for (player = 0; player < s->state->player_count; ++player)
         if ((d->player_mask & (1u << player)) != 0) {
-            text(screen, x, 112,
-                new_game_character_name(s->state->players[player].character), 16, 2);
+            char player_name[64];
+            /* The original report uses compact #0096..#0121 name strings. */
+            game_compact_display_name(
+                player_name, sizeof(player_name),
+                new_game_character_name(s->state->players[player].character));
+            text(screen, x, 112, player_name, 16, 2);
             x += 98;
         }
     text(screen, 566, 112, "\xa5\xbb\xa4\xeb\xac\xd5\xbe\x6c", 16, 2);
@@ -211,6 +215,7 @@ void draw_periodic_finance(SDL_Surface *screen, const GamePreviewAssets *a,
     const GamePeriodicFinancePresentationState *p;
     int winning, no_winner, rolling, revealed;
     char number[32];
+    char winner_name[64];
     if (screen == NULL || a == NULL || s == NULL ||
         !s->presentation->periodic_finance.active) return;
     p = &s->presentation->periodic_finance;
@@ -249,9 +254,13 @@ void draw_periodic_finance(SDL_Surface *screen, const GamePreviewAssets *a,
     draw_big5_text_with_spacing(screen, winning ? 91 : 77, winning ? 56 : 228,
         number,20,rich4_character_rgb565_color(0xff0000),0,0,0,2);
     if (p->phase == 5 && p->winner >= 0) {
+        /* The original lottery overlay also uses its compact name table. */
+        game_compact_display_name(
+            winner_name, sizeof(winner_name),
+            new_game_character_name(s->state->players[p->winner].character));
         draw_finance_panel_chunk_at(screen, a, 15, 24, 320, 200, 1);
         draw_big5_text_with_spacing(screen, 320, 180,
-            new_game_character_name(s->state->players[p->winner].character), 28,
+            winner_name, 28,
             rich4_character_rgb565_color(0x00ff0000u),
             rich4_character_rgb565_color(0x00400000u),3,4,2);
     }

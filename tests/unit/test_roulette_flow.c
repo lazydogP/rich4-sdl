@@ -18,6 +18,29 @@ int main(void)
     Rich4AudioEvent audio_event;
     GameEvent event;
 
+    /* 0x475CF8 prompt order and the mode-specific result strings must stay
+     * aligned with the shared roulette mode. */
+    assert(strcmp(rich4_roulette_prompt_format_big5(0),
+        "%s\n\n\xb0\x65\xb1\x7a\xa5\x58\xb0\xea\xae\xc8\xb9\x43...") == 0);
+    assert(strcmp(rich4_roulette_prompt_format_big5(1),
+        "%s\xaa\xba\xae\xc8\xc0\x5d\n\n"
+        "\xbd\xd0\xb6\x69\xa8\xd3\xa5\xf0\xae\xa7...") == 0);
+    assert(strcmp(rich4_roulette_prompt_format_big5(2),
+        "%s\xaa\xba\xc1\xca\xaa\xab\xa4\xa4\xa4\xdf\n\n"
+        "\xb1\x7a\xaa\xba\xae\xf8\xb6\x4f\xad\xbf\xbc\xc6\xac\xb0...") == 0);
+    assert(strcmp(rich4_roulette_prompt_format_big5(3),
+        "%s\n\n\xb1\x7a\xaa\xba\xa7\xeb\xab\x4f"
+        "\xa4\xd1\xbc\xc6\xac\xb0...") == 0);
+    assert(strcmp(rich4_roulette_result_format_big5(0),
+        "\xa4\xa3\xa5\xce\xa5\x58\xb0\xea\xa1\x49") == 0);
+    assert(strcmp(rich4_roulette_result_format_big5(1),
+        "\xa5\xf0\xae\xa7%d\xa4\xd1\n\n\xb6\x4f\xa5\xce%d\xa4\xb8\xa1\x49") == 0);
+    assert(strcmp(rich4_roulette_result_format_big5(2),
+        "\xb1\x7a\xaa\xba\xae\xf8\xb6\x4f\xaa\xf7\xc3\x42\xac\xb0\n\n"
+        "%d\xa4\xb8x%d\xad\xbf=%d\xa4\xb8") == 0);
+    assert(rich4_roulette_prompt_format_big5(-1) == NULL);
+    assert(rich4_roulette_result_format_big5(3) == NULL);
+
     memset(&session, 0, sizeof(session));
     session.state.player_count = 1;
     session.state.players[0].is_ai = 0;

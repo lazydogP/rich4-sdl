@@ -170,7 +170,9 @@ typedef enum GameSpecialPlaceNoticeKind {
     GAME_SPECIAL_NOTICE_BANK_REPAY,
     GAME_SPECIAL_NOTICE_BANK_OWNER_SHORTFALL,
     /* 0x452444 Christmas/peace/dinosaur/new-year card presentation. */
-    GAME_SPECIAL_NOTICE_HOLIDAY_GIFT
+    GAME_SPECIAL_NOTICE_HOLIDAY_GIFT,
+    /* 0x41ABE6: aviation roulette result zero, held for 1500 ms. */
+    GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL
 } GameSpecialPlaceNoticeKind;
 
 /* A single tagged payload boundary for event data that historically occupied
