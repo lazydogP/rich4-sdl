@@ -49,6 +49,45 @@ static void app_owned_animation_boundaries(void)
     assert(!rich4_tool_animation_update(&session, 20, 30, 2001, NULL, &completion));
 }
 
+static void disappearance_animation_state(void)
+{
+    GameSession session;
+    GameEvent event;
+    Rich4GameEventFields fields;
+    const GameToolAnimationRequest *request;
+
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 1;
+    fields = (Rich4GameEventFields){
+        0, 0, GAME_DISAPPEARING_TRAVEL_RESOURCE,
+        GAME_DISAPPEARING_TRAVEL_EFFECT, 3,
+        {GAME_DOMAIN_STATUS, GAME_STATUS_DISAPPEARING},
+        {GAME_DOMAIN_PLAYER, 0}
+    };
+    event = rich4_game_event_tool_presentation_requested_from_fields(fields);
+    assert(rich4_tool_animation_enqueue(
+        &session, &event, 20, 30, 100, 200, 1, 1000));
+    request = &session.presentation.tool_animation[0];
+    assert(request->after_sync_player == 0);
+    assert(request->confinement_days == 3);
+    assert(request->origin_play_state == 0);
+
+    memset(&session.presentation, 0, sizeof(session.presentation));
+    fields.value = GAME_DISAPPEARING_ALIEN_RESOURCE;
+    fields.value2 = GAME_DISAPPEARING_ALIEN_EFFECT;
+    fields.flags = GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT |
+                   GAME_DISAPPEARING_PRESENTATION_RETURN_BIT;
+    event = rich4_game_event_tool_presentation_requested_from_fields(fields);
+    assert(rich4_tool_animation_enqueue(
+        &session, &event, 28, 30, 100, 200, 1, 2000));
+    request = &session.presentation.tool_animation[0];
+    assert(request->after_sync_player == 0);
+    assert(request->confinement_days == (int)fields.flags);
+    assert(request->origin_play_state ==
+           (GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT));
+}
+
 static void test_admission_retains_camera(void)
 {
     static GameSession s;
@@ -153,6 +192,7 @@ int main(void)
 {
     test_admission_retains_camera();
     test_admission_without_flc();
+    disappearance_animation_state();
     GameSession session;
     GameEvent event;
     Rich4AudioEventQueue audio_events;

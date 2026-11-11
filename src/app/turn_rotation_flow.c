@@ -135,7 +135,8 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                     ? GAME_CONFINEMENT_HOSPITAL
                     : GAME_CONFINEMENT_NONE;
             if (rich4_status_player_has_pending(player))
-                rich4_app_process_pending_status_events(session, event.player);
+                rich4_app_process_pending_status_events_to(
+                    session, event.player, events);
             if (confinement_kind != GAME_CONFINEMENT_NONE)
                 begin_confinement_exit(session, map, event.player,
                                        confinement_kind);
@@ -204,11 +205,25 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                     ? session->presentation.bank_settlement.until + 1500
                     : now + 1500;
         } else if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED) {
-            /* Calendar FLCs are produced below the platform boundary.  A
-             * zero timing pair leaves the request pending until SDL has
-             * resolved the Data.MKF frame count and authored delay. */
+            int world_x = 0;
+            int world_y = 0;
+            int has_world_position = 0;
+            if (rich4_game_event_subject_ref(&event).kind ==
+                    GAME_DOMAIN_STATUS &&
+                rich4_game_event_subject_ref(&event).id ==
+                    GAME_STATUS_DISAPPEARING &&
+                event.player >= 0 &&
+                event.player < session->state.player_count) {
+                world_x = session->presentation.actors[event.player].visual_x;
+                world_y = session->presentation.actors[event.player].visual_y;
+                has_world_position = 1;
+            }
+            /* Calendar and status FLCs are produced below the platform
+             * boundary. A zero timing pair stays pending until SDL resolves
+             * the Data.MKF frame count and authored delay. */
             (void)rich4_tool_animation_enqueue(
-                session, &event, 0, 0, 0, 0, 0, now);
+                session, &event, 0, 0, world_x, world_y,
+                has_world_position, now);
         } else if (holiday_notice) {
             (void)rich4_special_place_notice_enqueue(session, &event, now);
         }

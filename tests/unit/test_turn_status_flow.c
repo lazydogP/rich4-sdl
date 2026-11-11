@@ -46,6 +46,7 @@ int main(void)
     assert(rich4_app_process_pending_status_events(&session, 0) == 1);
     assert(session.state.players[0].days_in_prison == 0);
     assert(session.debug.status_event_processed_count == 1);
+    assert(session.pending_turn_events.count == 0);
 
     session.state.special_player_status[0][0] = GAME_STATUS_PENDING_BIT;
     session.state.special_player_play_state[0] = GAME_PLAYER_PLAY_STATE_FROZEN;
@@ -73,6 +74,22 @@ int main(void)
         &session, 2399, 0) == 1);
     assert(rich4_app_update_confinement_status_presentation(
         &session, 2400, 0) == 2);
+
+    setup(&session);
+    session.state.ai_rng_state = 12345;
+    session.state.players[0].days_disappearing =
+        GAME_DISAPPEARING_ALIEN_BIT | 2;
+    assert(rich4_app_begin_confinement_status_presentation(
+        &session, 0, 51, 2500));
+    assert(session.presentation.confinement_status.active);
+    assert(session.presentation.confinement_status.slot == 51);
+    assert(session.presentation.confinement_status.days == 3);
+    assert(session.presentation.confinement_status.until == 0);
+    assert(!session.presentation.speech.active);
+    assert(session.state.ai_rng_state == 12345);
+    assert(rich4_app_update_confinement_status_presentation(
+        &session, 2500, 0) == 1);
+    assert(session.presentation.confinement_status.until == 4000);
 
     {
         Rich4GameEventFields fields = { 0 };

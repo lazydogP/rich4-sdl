@@ -25,6 +25,12 @@ static struct ToolAnimationRequest *rich4_tool_animation_last(
     return &session->presentation.tool_animation[slot];
 }
 
+static int is_disappearance_resource(int resource)
+{
+    return resource == GAME_DISAPPEARING_TRAVEL_RESOURCE ||
+           resource == GAME_DISAPPEARING_ALIEN_RESOURCE;
+}
+
 int rich4_tool_animation_enqueue(
     GameSession *session, const GameEvent *event, int frame_count, int frame_delay_ms,
     int world_x, int world_y, int has_world_position, uint32_t now)
@@ -77,6 +83,18 @@ int rich4_tool_animation_enqueue(
         request->confinement_days = rich4_game_event_tool_confinement_days(event);
         request->origin_play_state = session->state.players[event->player].play_state |
             GAME_PLAYER_PLAY_STATE_FROZEN;
+    }
+    if (is_disappearance_resource(request->resource) && event->player >= 0 &&
+        event->player < session->state.player_count) {
+        unsigned int flags = rich4_game_event_flags(event);
+        /* Reuse the serialized transition fields for 0x40D375/0x40D4E5:
+         * confinement_days retains direction/status flags, while
+         * origin_play_state carries the pre-refresh +51 byte. */
+        request->confinement_days = (int)flags;
+        request->origin_play_state =
+            (flags & GAME_DISAPPEARING_PRESENTATION_RETURN_BIT) != 0
+                ? (int)(flags & 0xffu) : 0;
+        request->after_sync_player = event->player;
     }
     /* 0x40F381 commits the little devil's demolition before Data[526]. */
     if (request->resource == 526 && session->presentation.property.god_type == 10)

@@ -333,6 +333,22 @@ int rich4_game_view_model_build(const GameState *state,
             }
             player = &effect_player;
             effect_at_origin = input->tool_effect_has_world_position;
+        } else if (input->tool_effect_actor == i + 1 &&
+                   ((input->tool_effect_resource ==
+                         GAME_DISAPPEARING_TRAVEL_RESOURCE &&
+                     input->tool_effect_frame <
+                         GAME_DISAPPEARING_TRAVEL_REFRESH_FRAME - 1) ||
+                    (input->tool_effect_resource ==
+                         GAME_DISAPPEARING_ALIEN_RESOURCE &&
+                     input->tool_effect_frame <
+                         GAME_DISAPPEARING_ALIEN_REFRESH_FRAME - 1))) {
+            /* 0x4512BF redraws departure/return at one-based frames 20/28.
+             * A departure retains the visible zero status; a return retains
+             * the pending status and therefore stays hidden until refresh. */
+            effect_player = *player;
+            effect_player.days_disappearing =
+                input->tool_effect_origin_play_state;
+            player = &effect_player;
         }
         int actor_direction = actor_flow->direction;
         /* In sub_40D7C4 case 1, EA2 stays on the movement resource while

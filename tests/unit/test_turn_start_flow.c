@@ -41,6 +41,21 @@ int main(void)
            RICH4_TURN_START_CONFINEMENT_STATUS);
     assert(session.presentation.has_view_override == 0);
 
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 1;
+    session.state.current_player = 0;
+    session.state.players[0].play_state = 1;
+    session.state.players[0].days_disappearing =
+        GAME_DISAPPEARING_ALIEN_BIT | 2;
+    session.presentation.actors[0].dirty_flags = GAME_PLAYER_DIRTY_TURN;
+    session.presentation.has_view_override = 1;
+    assert(rich4_turn_start_prepare_request(
+        &session, 350, &request));
+    assert(request.action == RICH4_TURN_START_CONFINEMENT_STATUS);
+    assert(request.status_slot == 51);
+    assert(session.presentation.has_view_override == 0);
+
     /* Manual hosting redispatches this same actor before selecting tools. */
     memset(&session, 0, sizeof(session));
     session.state.active = 1;

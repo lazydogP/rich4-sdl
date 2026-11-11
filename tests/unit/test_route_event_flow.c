@@ -219,6 +219,18 @@ int main(void)
         assert(!rich4_app_route_event_presentation(
             &route_presentation_event, &presentation));
         assert(presentation.kind == RICH4_ROUTE_PRESENTATION_NONE);
+
+        route_presentation_event =
+            rich4_game_event_tool_presentation_requested_from_fields(
+                (Rich4GameEventFields){
+                    0, 0, GAME_DISAPPEARING_TRAVEL_RESOURCE,
+                    GAME_DISAPPEARING_TRAVEL_EFFECT, 3,
+                    {GAME_DOMAIN_STATUS, GAME_STATUS_DISAPPEARING},
+                    {GAME_DOMAIN_PLAYER, 0}
+                });
+        assert(rich4_app_route_event_presentation(
+            &route_presentation_event, &presentation));
+        assert(presentation.kind == RICH4_ROUTE_PRESENTATION_TOOL_ANIMATION);
     }
 
     memset(&session, 0, sizeof(session));

@@ -62,10 +62,11 @@ static void confinement_exit_arrival(void)
     int kind, object, ai, tick;
     services.property_end_delay_ms = 20;
     /* Real pending-status/rotation entry, both facilities and human/AI.
-     * object: empty, roadblock, mine, ground bomb, attached bomb expiry. */
+     * object: empty, roadblock, mine, ground bomb, attached bomb expiry,
+     * attached bomb survival. */
     for (kind = GAME_CONFINEMENT_PRISON; kind <= GAME_CONFINEMENT_HOSPITAL; ++kind)
     for (ai = 0; ai <= 1; ++ai)
-    for (object = 0; object <= 4; ++object) {
+    for (object = 0; object <= 5; ++object) {
         int slot = object == 1 ? 0 : object == 2 ? 10 : 20;
         int days, status_count;
         GameEvent event;
@@ -89,13 +90,16 @@ static void confinement_exit_arrival(void)
         else s.state.players[0].days_in_prison = GAME_STATUS_PENDING_BIT;
         if (object > 0) {
             s.state.tool_placed_objects[slot].kind =
-                (uint8_t)(object == 4 ? 18 : 15 + object);
+                (uint8_t)(object >= 4 ? 18 : 15 + object);
             s.state.tool_placed_objects[slot].node = 1;
         }
-        if (object == 4) {
+        if (object >= 4) {
             s.state.players[0].attached_timed_bomb_slot = slot;
             s.state.tool_placed_objects[slot].attached_player = 1;
-            s.state.tool_placed_objects[slot].countdown = 1;
+            s.state.tool_placed_objects[slot].countdown =
+                (uint8_t)(object == 4 ? 1 : 2);
+        }
+        if (object == 4) {
             /* Expiry returns before dispatching the ground mine. */
             s.state.tool_placed_objects[10].kind = 17;
             s.state.tool_placed_objects[10].node = 1;
@@ -122,6 +126,16 @@ static void confinement_exit_arrival(void)
             assert(s.state.players[0].attached_timed_bomb_slot == 20);
             assert(s.state.tool_placed_objects[20].countdown == 38);
             assert(s.state.tool_placed_objects[20].attached_player == 1);
+        } else if (object == 5) {
+            /* 0x43EE6E leaves player +64 intact. 0x41B697 advances the
+             * attached bomb once on the return arrival and removes it only
+             * when that countdown reaches zero. */
+            assert(s.state.players[0].attached_timed_bomb_slot == 20);
+            assert(s.state.tool_placed_objects[20].kind == 18);
+            assert(s.state.tool_placed_objects[20].countdown == 1);
+            assert(s.state.tool_placed_objects[20].attached_player == 1);
+            assert(s.presentation.dynamic_objects[36].countdown == 1);
+            assert(s.presentation.dynamic_objects[36].attached_player == 1);
         } else if (object > 0) {
             assert(s.state.tool_placed_objects[slot].kind == 0);
         }
@@ -175,6 +189,12 @@ static void confinement_exit_arrival(void)
             assert(s.debug.status_event_processed_count == status_count);
             assert(s.state.players[0].node == 1);
             if (object == 3) assert(s.state.tool_placed_objects[20].countdown == 38);
+            if (object == 5) {
+                assert(s.state.players[0].attached_timed_bomb_slot == 20);
+                assert(s.state.tool_placed_objects[20].kind == 18);
+                assert(s.state.tool_placed_objects[20].countdown == 1);
+                assert(s.state.tool_placed_objects[20].attached_player == 1);
+            }
         }
         assert(s.state.elapsed_days == days);
         assert(!s.flow.turn_flow_active);

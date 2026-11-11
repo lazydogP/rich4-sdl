@@ -54,6 +54,16 @@
  * alien abduction; kind 0 is ordinary overseas travel. */
 #define GAME_DISAPPEARING_DAYS_MASK 0x3f
 #define GAME_DISAPPEARING_ALIEN_BIT 0x40
+/* 0x40D375/0x40D4E5 play the same FLC on departure and return.  Event flags
+ * retain the status byte that the map must render before the FLC refresh;
+ * bit 8 distinguishes the return path from a first departure. */
+#define GAME_DISAPPEARING_PRESENTATION_RETURN_BIT 0x100u
+#define GAME_DISAPPEARING_TRAVEL_RESOURCE 558
+#define GAME_DISAPPEARING_TRAVEL_EFFECT 96
+#define GAME_DISAPPEARING_TRAVEL_REFRESH_FRAME 20
+#define GAME_DISAPPEARING_ALIEN_RESOURCE 533
+#define GAME_DISAPPEARING_ALIEN_EFFECT 84
+#define GAME_DISAPPEARING_ALIEN_REFRESH_FRAME 28
 #define GAME_CONFINEMENT_NONE 0
 #define GAME_CONFINEMENT_PRISON 1
 #define GAME_CONFINEMENT_HOSPITAL 2

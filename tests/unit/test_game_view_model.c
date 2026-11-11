@@ -221,6 +221,31 @@ int main(void)
     state.players[0].days_disappearing = 0;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.actors[0].visible);
+    /* 0x40D375/0x40D4E5 refresh the map on one-based frames 20/28. */
+    state.players[0].days_disappearing = 3;
+    flow.tool_effect_actor = 1;
+    flow.tool_effect_resource = GAME_DISAPPEARING_TRAVEL_RESOURCE;
+    flow.tool_effect_frame = GAME_DISAPPEARING_TRAVEL_REFRESH_FRAME - 2;
+    flow.tool_effect_origin_play_state = 0;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.actors[0].visible);
+    flow.tool_effect_frame = GAME_DISAPPEARING_TRAVEL_REFRESH_FRAME - 1;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(!model.actors[0].visible);
+    state.players[0].days_disappearing = 0;
+    flow.tool_effect_resource = GAME_DISAPPEARING_ALIEN_RESOURCE;
+    flow.tool_effect_frame = GAME_DISAPPEARING_ALIEN_REFRESH_FRAME - 2;
+    flow.tool_effect_origin_play_state =
+        GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(!model.actors[0].visible);
+    flow.tool_effect_frame = GAME_DISAPPEARING_ALIEN_REFRESH_FRAME - 1;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.actors[0].visible);
+    flow.tool_effect_actor = 0;
+    flow.tool_effect_resource = 0;
+    flow.tool_effect_frame = 0;
+    flow.tool_effect_origin_play_state = 0;
     state.players[0].days_in_prison = 1;
     state.players[0].confinement_actor_type = GAME_CONFINEMENT_PRISON;
     assert(rich4_game_actor_part(&state.players[0], 0, 0, &overlay) == 9);

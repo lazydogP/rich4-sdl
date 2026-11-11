@@ -14,6 +14,8 @@ void rich4_app_update_player_status_countdowns(GameSession *session,
                                                int player_index);
 int rich4_app_process_pending_status_events(GameSession *session,
                                             int player_index);
+int rich4_app_process_pending_status_events_to(
+    GameSession *session, int player_index, GameEventQueue *presentation_events);
 void rich4_app_update_win_candidate(GameSession *session);
 void rich4_app_capture_game_ended(GameSession *session,
                                   const GameEvent *event);

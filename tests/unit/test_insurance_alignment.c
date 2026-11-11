@@ -79,6 +79,23 @@ static int capture_claims(GameEventQueue *events, uint32_t now)
     return count;
 }
 
+static int count_disappearance_animations(const GameEventQueue *events,
+                                           int resource)
+{
+    int i;
+    int count = 0;
+    for (i = 0; i < events->count; ++i) {
+        const GameEvent *event =
+            &events->events[(events->head + i) % GAME_EVENT_QUEUE_CAPACITY];
+        if (event->type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED &&
+            rich4_game_event_tool_resource(event) == resource &&
+            rich4_game_event_subject_ref(event).kind == GAME_DOMAIN_STATUS &&
+            rich4_game_event_subject_ref(event).id == GAME_STATUS_DISAPPEARING)
+            count++;
+    }
+    return count;
+}
+
 /* 0x44C0E8 and every shared incoming jump to 0x44CEC2/0x44D172. */
 static void monetary_fortune_matrix(void)
 {
@@ -180,10 +197,16 @@ static void disappearing_and_confinement(void)
         assert(session.state.players[0].days_in_hospital == 0);
         assert(session.state.players[0].days_disappearing == 3 + 64 * kind);
         assert(session.state.players[0].traffic_method == 2 && session.state.players[0].ndices == 3);
+        assert(count_disappearance_animations(
+                   &q, kind ? GAME_DISAPPEARING_ALIEN_RESOURCE
+                            : GAME_DISAPPEARING_TRAVEL_RESOURCE) == 1);
         rich4_game_event_queue_reset(&q);
         assert(rich4_confinement_disappear(&session.state, 0, 3, 1 - kind, 0, &q) == GAME_CONFINEMENT_APPLIED);
         assert(session.state.players[0].days_disappearing == 6 + 64 * (1 - kind));
         assert(session.state.players[0].cash == 512000 && session.state.players[0].total_confinement_days == 3);
+        assert(count_disappearance_animations(
+                   &q, kind ? GAME_DISAPPEARING_TRAVEL_RESOURCE
+                            : GAME_DISAPPEARING_ALIEN_RESOURCE) == 0);
         assert(capture_claims(&q, 1000) == 0);
     }
     /* Specials never receive cash or insurance notices. */
@@ -226,6 +249,8 @@ static void beneficiaries_and_non_claims(void)
         &company, &q) == GAME_PAYMENT_COMMITTED);
     assert(company.payer == 2 && session.state.players[2].days_disappearing == 3);
     assert(session.state.players[0].days_disappearing == 0);
+    assert(count_disappearance_animations(
+               &q, GAME_DISAPPEARING_TRAVEL_RESOURCE) == 1);
     assert(capture_claims(&q, 1000) == 1);
     assert(session.presentation.insurance.queue[0].player == 2);
     assert(rich4_insurance_flow_update(&session, 1000));
@@ -234,6 +259,8 @@ static void beneficiaries_and_non_claims(void)
     rich4_game_event_queue_reset(&q);
     assert(rich4_company_resolve_landing(&session.state, 0, 0, 2, 1, 0, -1,
         &company, &q) == GAME_PAYMENT_COMMITTED);
+    assert(count_disappearance_animations(
+               &q, GAME_DISAPPEARING_TRAVEL_RESOURCE) == 0);
     assert(session.state.players[2].days_disappearing == 5 && capture_claims(&q, 4000) == 0);
 
     for (id = 0; id < 2; id++) {

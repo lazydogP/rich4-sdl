@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "core/game_constants.h"
+
 void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
                                             const GamePresentationState *presentation,
                                             GameViewModelInput *out_input)
@@ -51,7 +53,9 @@ void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
                 &presentation->tool_animation[presentation->tool_animation_head];
             if (request->active && request->after_sync_player >= 0 &&
                 (request->resource == 525 || request->resource == 532 ||
-                   request->resource == 524 || request->resource == 538)) {
+                 request->resource == 524 || request->resource == 538 ||
+                 request->resource == GAME_DISAPPEARING_TRAVEL_RESOURCE ||
+                 request->resource == GAME_DISAPPEARING_ALIEN_RESOURCE)) {
                 out_input->tool_effect_actor = request->after_sync_player + 1;
                 out_input->tool_effect_resource = request->resource;
                 out_input->tool_effect_frame = request->admission_stage ? -1 :

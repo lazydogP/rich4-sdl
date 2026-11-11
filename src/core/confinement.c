@@ -24,6 +24,22 @@ static int push_confinement_event(GameEventQueue *events,
     return rich4_game_event_emit_typed(events, constructor, fields);
 }
 
+static int emit_disappearance_animation(GameEventQueue *events, int actor,
+                                        int status)
+{
+    int alien = (status & GAME_DISAPPEARING_ALIEN_BIT) != 0;
+    return rich4_game_event_emit_typed_domain(
+        events, rich4_game_event_tool_presentation_requested_from_fields,
+        actor,
+        rich4_game_domain_ref(GAME_DOMAIN_STATUS, GAME_STATUS_DISAPPEARING),
+        rich4_game_domain_ref(GAME_DOMAIN_PLAYER, actor),
+        alien ? GAME_DISAPPEARING_ALIEN_RESOURCE
+              : GAME_DISAPPEARING_TRAVEL_RESOURCE,
+        alien ? GAME_DISAPPEARING_ALIEN_EFFECT
+              : GAME_DISAPPEARING_TRAVEL_EFFECT,
+        (unsigned int)(status & 0xff));
+}
+
 static int special_node(const GameState *state, int kind)
 {
     return kind == GAME_CONFINEMENT_PRISON ? state->prison_node : state->hospital_node;
@@ -196,6 +212,8 @@ GameConfinementResult rich4_confinement_disappear(GameState *state, int actor,
             rich4_game_domain_ref(GAME_DOMAIN_STATUS, GAME_STATUS_DISAPPEARING),
             rich4_game_domain_ref(GAME_DOMAIN_PLAYER, actor),
             p->days_disappearing, 0, 0) ||
+        (first && !emit_disappearance_animation(
+            &staged, actor, p->days_disappearing)) ||
         !rich4_game_event_queue_append(events, &staged))
         return GAME_CONFINEMENT_EVENT_CAPACITY;
     *state = next;

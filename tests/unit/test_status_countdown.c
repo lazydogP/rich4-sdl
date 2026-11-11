@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "core/player_status.h"
+#include "core/game_event_payload.h"
 #include "core/status_countdown.h"
 
 int main(void)
@@ -54,7 +55,8 @@ int main(void)
     assert(player->days_sleeping == GAME_STATUS_PENDING_BIT);
     assert(batch.events[0].original_offset == 56);
     player->delayed_status_block = GAME_STATUS_PENDING_BIT;
-    player->days_disappearing = GAME_STATUS_PENDING_BIT;
+    player->days_disappearing =
+        GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT;
     player->days_in_prison = GAME_STATUS_PENDING_BIT;
     player->days_in_hospital = GAME_STATUS_PENDING_BIT;
     player->days_sleeping = GAME_STATUS_PENDING_BIT;
@@ -77,12 +79,28 @@ int main(void)
     state.players[1].god_status_days = 3;
     rich4_game_event_queue_reset(&events);
     assert(rich4_status_consume_pending_events(&state, 0, &batch, &events) == 12);
-    assert(events.count == 20);
+    assert(events.count == 21);
     assert(rich4_game_event_queue_pop(&events, &event));
     assert(event.type == GAME_EVENT_STATUS_EFFECT_RESOLVED &&
            rich4_game_event_subject(&event) == 50 &&
            rich4_game_event_value(&event) == STATUS_HANDLER_40D6BE &&
            rich4_game_event_value2(&event) == STATUS_EFFECT_APPLIED);
+    {
+        int found_return_animation = 0;
+        while (rich4_game_event_queue_pop(&events, &event)) {
+            if (event.type != GAME_EVENT_TOOL_PRESENTATION_REQUESTED) continue;
+            assert(event.player == 0);
+            assert(rich4_game_event_tool_resource(&event) ==
+                   GAME_DISAPPEARING_ALIEN_RESOURCE);
+            assert(rich4_game_event_tool_effect(&event) ==
+                   GAME_DISAPPEARING_ALIEN_EFFECT);
+            assert(rich4_game_event_flags(&event) ==
+                   (GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT |
+                    GAME_DISAPPEARING_PRESENTATION_RETURN_BIT));
+            found_return_animation++;
+        }
+        assert(found_return_animation == 1);
+    }
     for (i = 0; i < 12; i++) assert(batch.events[i].original_offset == expected[i]);
     assert(batch.events[0].handler == STATUS_HANDLER_40D6BE);
     assert(batch.events[0].effect_result == STATUS_EFFECT_APPLIED);

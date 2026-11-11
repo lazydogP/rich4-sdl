@@ -4,6 +4,7 @@
 #include <SDL/SDL.h>
 
 #include "app/new_game_setup_flow.h"
+#include "core/game_constants.h"
 #include "platform/sdl1/app_asset_types.h"
 #include "platform/sdl1/render/blit.h"
 #include "platform/sdl1/render/game_overlay_render.h"
@@ -117,7 +118,9 @@ void draw_game_tool_animation(SDL_Surface *screen,
      * Their authored canvas aligns with the building anchor at (220,260). */
     if (request->resource == 553 || request->resource == 523 ||
         request->resource == 554 ||
-        request->resource == 532 || request->resource == 552) {
+        request->resource == 532 || request->resource == 552 ||
+        request->resource == GAME_DISAPPEARING_TRAVEL_RESOURCE ||
+        request->resource == GAME_DISAPPEARING_ALIEN_RESOURCE) {
         x = 0;
         y = 40;
     }

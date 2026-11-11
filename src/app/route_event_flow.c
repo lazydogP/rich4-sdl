@@ -52,9 +52,21 @@ int rich4_app_route_event_presentation(
         out_presentation->kind = RICH4_ROUTE_PRESENTATION_SPECIAL_EVENT;
         break;
     case GAME_EVENT_TOOL_PRESENTATION_REQUESTED:
-        if (rich4_game_event_tool_presentation_requested_fields(event).subject_ref.kind != GAME_DOMAIN_GOD)
+        if (rich4_game_event_tool_presentation_requested_fields(event)
+                .subject_ref.kind == GAME_DOMAIN_GOD) {
+            out_presentation->kind = RICH4_ROUTE_PRESENTATION_GOD_ANIMATION;
+        } else if (rich4_game_event_tool_presentation_requested_fields(event)
+                       .subject_ref.kind == GAME_DOMAIN_STATUS &&
+                   rich4_game_event_tool_presentation_requested_fields(event)
+                           .subject_ref.id == GAME_STATUS_DISAPPEARING &&
+                   (rich4_game_event_tool_resource(event) ==
+                        GAME_DISAPPEARING_TRAVEL_RESOURCE ||
+                    rich4_game_event_tool_resource(event) ==
+                        GAME_DISAPPEARING_ALIEN_RESOURCE)) {
+            out_presentation->kind = RICH4_ROUTE_PRESENTATION_TOOL_ANIMATION;
+        } else {
             return 0;
-        out_presentation->kind = RICH4_ROUTE_PRESENTATION_GOD_ANIMATION;
+        }
         break;
     case GAME_EVENT_PROPERTY_LEVEL_CHANGED:
         out_presentation->kind = RICH4_ROUTE_PRESENTATION_PROPERTY_LEVEL;

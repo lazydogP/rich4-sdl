@@ -228,8 +228,8 @@ void rich4_app_capture_game_ended(GameSession *session,
     session->presentation.ending.continuation_confirmation_started = 0;
 }
 
-int rich4_app_process_pending_status_events(GameSession *session,
-                                            int player_index)
+int rich4_app_process_pending_status_events_to(
+    GameSession *session, int player_index, GameEventQueue *presentation_events)
 {
     StatusEventBatch batch;
     GameEventQueue events;
@@ -263,8 +263,19 @@ int rich4_app_process_pending_status_events(GameSession *session,
                 session, event.player,
                 event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED
                     ? rich4_game_event_subject(&event) : -1);
+        else if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED &&
+                 presentation_events != NULL)
+            (void)rich4_game_event_queue_push(presentation_events, &event);
     }
     return batch.count;
+}
+
+int rich4_app_process_pending_status_events(GameSession *session,
+                                            int player_index)
+{
+    if (session == NULL) return 0;
+    return rich4_app_process_pending_status_events_to(
+        session, player_index, &session->pending_turn_events);
 }
 
 void rich4_app_update_win_candidate(GameSession *session)
@@ -336,18 +347,21 @@ int rich4_app_begin_confinement_status_presentation(
 
     if (session == NULL || player_index < 0 ||
         player_index >= session->state.player_count ||
-        (status_slot != 50 && status_slot != 52 && status_slot != 53))
+        status_slot < 50 || status_slot > 53)
         return 0;
     player = &session->state.players[player_index];
-    counter = status_slot == 50 ? player->delayed_status_block : status_slot == 52
+    counter = status_slot == 50 ? player->delayed_status_block : status_slot == 51
+        ? player->days_disappearing : status_slot == 52
         ? player->days_in_prison : player->days_in_hospital;
     session->presentation.confinement_status.active = 1;
     session->presentation.confinement_status.player = player_index;
     session->presentation.confinement_status.slot = status_slot;
-    session->presentation.confinement_status.days = (counter & 0x7f) + 1;
+    session->presentation.confinement_status.days =
+        (counter & (status_slot == 51 ? GAME_DISAPPEARING_DAYS_MASK : 0x7f)) + 1;
     /* The 1500 ms countdown begins after the optional player_say modal. */
     session->presentation.confinement_status.until = 0;
-    if (status_slot == 50) return 1; /* 0x40C9D2 has no confinement speech. */
+    /* 0x40C9D2/0x40CA08: hotel and disappearance show text only. */
+    if (status_slot == 50 || status_slot == 51) return 1;
     if ((rich4_rng_next_at(&session->state.ai_rng_state) & 1u) == 0) return 1;
     speech = rich4_character_confinement_speech(
         player->character, status_slot == 53);

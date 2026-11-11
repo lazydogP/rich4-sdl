@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "core/game_constants.h"
 #include "platform/sdl1/game_view_model_input.h"
 
 int main(void)
@@ -45,6 +46,23 @@ int main(void)
            input.special_actor.animation_frame == 11 &&
            input.special_actor.resource_part == 3 &&
            input.special_actor.steps_remaining == 5);
+
+    presentation.tool_animation_count = 1;
+    presentation.tool_animation[0].active = 1;
+    presentation.tool_animation[0].after_sync_player = 0;
+    presentation.tool_animation[0].resource =
+        GAME_DISAPPEARING_ALIEN_RESOURCE;
+    presentation.tool_animation[0].frame =
+        GAME_DISAPPEARING_ALIEN_REFRESH_FRAME - 2;
+    presentation.tool_animation[0].origin_play_state =
+        GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT;
+    rich4_sdl1_game_view_model_input_build(&flow, &presentation, &input);
+    assert(input.tool_effect_actor == 1);
+    assert(input.tool_effect_resource == GAME_DISAPPEARING_ALIEN_RESOURCE);
+    assert(input.tool_effect_frame ==
+           GAME_DISAPPEARING_ALIEN_REFRESH_FRAME - 2);
+    assert(input.tool_effect_origin_play_state ==
+           (GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT));
 
     presentation.view_world_x = 999;
     presentation.actors[0].visual_x = 999;

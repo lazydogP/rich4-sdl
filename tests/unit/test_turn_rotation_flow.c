@@ -176,6 +176,30 @@ static void test_normal_status_consumption(void)
             GAME_PLAYER_DIRTY_TURN) != 0);
 }
 
+static void test_disappearance_return_animation(void)
+{
+    GameSession session;
+    Rich4AppTurnRotationResult result;
+    const GameToolAnimationRequest *animation;
+
+    setup_session(&session);
+    session.state.players[0].days_disappearing =
+        GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT;
+    session.presentation.actors[0].visual_x = 123;
+    session.presentation.actors[0].visual_y = 456;
+    assert(rich4_app_advance_turn_rotation(&session, NULL, 1000, &result));
+    assert(session.state.players[0].days_disappearing == 0);
+    assert(session.presentation.tool_animation_count == 1);
+    animation = &session.presentation.tool_animation[
+        session.presentation.tool_animation_head];
+    assert(animation->resource == GAME_DISAPPEARING_ALIEN_RESOURCE);
+    assert(animation->effect == GAME_DISAPPEARING_ALIEN_EFFECT);
+    assert(animation->origin_play_state ==
+           (GAME_STATUS_PENDING_BIT | GAME_DISAPPEARING_ALIEN_BIT));
+    assert(animation->after_sync_player == 0);
+    assert(animation->world_x == 123 && animation->world_y == 456);
+}
+
 static void test_special_action_is_returned_to_platform_seam(void)
 {
     GameSession session;
@@ -469,6 +493,7 @@ int main(void)
     test_calendar_defers_turn_status();
     test_god_expiry();
     test_normal_status_consumption();
+    test_disappearance_return_animation();
     test_special_action_is_returned_to_platform_seam();
     test_control_locked_turn_cleanup();
     test_confinement_exit_tick();

@@ -19,6 +19,23 @@ static int push_status_countdown_event(
     return rich4_game_event_emit_typed(events, constructor, fields);
 }
 
+static int push_disappearance_return_event(GameEventQueue *events,
+                                           int player, int status)
+{
+    int alien = (status & GAME_DISAPPEARING_ALIEN_BIT) != 0;
+    return rich4_game_event_emit_typed_domain(
+        events, rich4_game_event_tool_presentation_requested_from_fields,
+        player,
+        rich4_game_domain_ref(GAME_DOMAIN_STATUS, GAME_STATUS_DISAPPEARING),
+        rich4_game_domain_ref(GAME_DOMAIN_PLAYER, player),
+        alien ? GAME_DISAPPEARING_ALIEN_RESOURCE
+              : GAME_DISAPPEARING_TRAVEL_RESOURCE,
+        alien ? GAME_DISAPPEARING_ALIEN_EFFECT
+              : GAME_DISAPPEARING_TRAVEL_EFFECT,
+        (unsigned int)(status & 0xff) |
+            GAME_DISAPPEARING_PRESENTATION_RETURN_BIT);
+}
+
 #include <string.h>
 
 static int tick_regular(int value)
@@ -228,8 +245,11 @@ int rich4_status_consume_pending_events(GameState *state,
     StatusEventBatch batch;
     int count;
     int i;
-    if (state == NULL || events == NULL) return 0;
+    int disappearing_status;
+    if (state == NULL || events == NULL || player_index < 0 ||
+        player_index >= state->player_count) return 0;
     next = *state;
+    disappearing_status = next.players[player_index].days_disappearing & 0xff;
     rich4_game_event_queue_reset(&staged);
     count = rich4_status_consume_pending(&next, player_index, &batch);
     for (i = 0; i < batch.count; i++) {
@@ -237,6 +257,9 @@ int rich4_status_consume_pending_events(GameState *state,
                 &staged, rich4_game_event_status_effect_resolved_from_fields,
                 player_index, batch.events[i].original_offset,
                 batch.events[i].handler, batch.events[i].effect_result)) return 0;
+        if (batch.events[i].handler == STATUS_HANDLER_40D4E5 &&
+            !push_disappearance_return_event(
+                &staged, player_index, disappearing_status)) return 0;
         if (batch.events[i].handler == STATUS_HANDLER_43D7BF ||
             batch.events[i].handler == STATUS_HANDLER_43EE6E) {
             int kind = batch.events[i].handler == STATUS_HANDLER_43D7BF

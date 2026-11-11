@@ -76,6 +76,7 @@ static void present_route_event(
             context->now);
         break;
     case RICH4_ROUTE_PRESENTATION_GOD_ANIMATION:
+    case RICH4_ROUTE_PRESENTATION_TOOL_ANIMATION:
         game_tool_animation_enqueue_from_platform(context->session, context->assets,
                                                   &presentation->event, context->now);
         break;
