@@ -23,7 +23,6 @@ class ReleasePackageTests(unittest.TestCase):
                 '.local/sdl1/mingw64/bin/zlib1.dll': b'zlib',
                 'assets/original/Data.mkf': b'private game data',
                 'assets/fonts/rich4.ttc': b'private font',
-                'assets/fonts/rich4_font.r4atlas': b'private font atlas',
                 'assets/music/track.wav': b'private music',
                 'saves/SAVE0.R4S': b'private save',
                 'build/miyoo/package/App/Rich4/stale.mkf': b'stale private data',

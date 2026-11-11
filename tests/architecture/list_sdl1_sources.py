@@ -12,19 +12,9 @@ PLATFORM_ROOT = ROOT / "src" / "platform" / "sdl1"
 
 
 def sources(profile: str | None = None) -> list[Path]:
-    excluded: set[str] = set()
-    if profile == "desktop":
-        excluded = {"font_atlas.c", "text_backend_atlas.c"}
-    elif profile == "handheld":
-        excluded = {"text_backend_freetype.c"}
+    del profile
     return sorted(
         PLATFORM_ROOT.rglob("*.c"),
-        # The profile filter only changes the production link set.  The
-        # unfiltered inventory remains the source of generated test rules.
-        key=lambda path: path.relative_to(ROOT).as_posix().lower(),
-    ) if profile is None else sorted(
-        (path for path in PLATFORM_ROOT.rglob("*.c")
-         if path.name not in excluded),
         key=lambda path: path.relative_to(ROOT).as_posix().lower(),
     )
 

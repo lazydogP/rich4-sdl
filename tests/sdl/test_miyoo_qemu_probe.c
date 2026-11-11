@@ -1,4 +1,4 @@
-/* QEMU-only probe of the production Mini adapter and production Big5 atlas.
+/* QEMU-only probe of the production Mini adapter and Big5 TTF rendering.
  * The text below is a diagnostic specimen, not a new game UI. */
 #include <assert.h>
 #include <stdio.h>
@@ -9,8 +9,7 @@
 #endif
 #include "platform/sdl1/miyoo_input.h"
 #include "platform/sdl1/input_adapter.h"
-#include "platform/sdl1/text/font_atlas.h"
-#include "platform/sdl1/text/text_backend_atlas.h"
+#include "platform/sdl1/text/text_backend_freetype.h"
 
 int main(int argc, char **argv)
 {
@@ -26,7 +25,6 @@ int main(int argc, char **argv)
         RICH4_APP_KEY_LETTER_W, RICH4_APP_KEY_TAB, RICH4_APP_KEY_RETURN,
         RICH4_APP_KEY_ESCAPE, RICH4_APP_KEY_UP, RICH4_APP_KEY_DOWN,
         RICH4_APP_KEY_LEFT, RICH4_APP_KEY_RIGHT};
-    Rich4FontAtlas atlas = {0};
     Rich4TextBackend backend = {0};
     Rich4TextStyle style = {16, 0, 1, 0, 0xffff, 0};
     Rich4TextTarget target;
@@ -62,16 +60,13 @@ int main(int argc, char **argv)
         }
     }
     puts("QA_MAPPING_PASS physical_buttons=15 press_release_cases=30");
-    assert(rich4_font_atlas_load_file(&atlas, "assets/fonts/rich4_font.r4atlas"));
     while (*p) {
         uint16_t code = *p++;
-        const Rich4FontGlyph *glyph;
         if (code >= 0x80) code = (uint16_t)((code << 8) | *p++);
-        glyph = rich4_font_atlas_find(&atlas, code);
-        assert(glyph != NULL);
-        if (code >= 0x80) { assert(glyph->width && glyph->height); glyphs++; }
+        if (code >= 0x80) glyphs++;
     }
-    assert(rich4_text_backend_atlas_init(&backend, &atlas));
+    rich4_text_backend_freetype_set_font_path("assets/fonts/rich4.ttc");
+    assert(rich4_text_backend_freetype_init(&backend));
     assert(SDL_Init(0) == 0);
     surface = SDL_CreateRGBSurface(SDL_SWSURFACE, 640, 80, 16,
                                    0xf800, 0x07e0, 0x001f, 0);
@@ -86,11 +81,10 @@ int main(int argc, char **argv)
         if (target.pixels[x]) visible++;
     assert(visible > 100);
     assert(SDL_SaveBMP(surface, argv[1]) == 0);
-    printf("QA_CHINESE_PASS chinese_glyphs=%d rendered_pixels=%d atlas_glyphs=%u\n",
-           glyphs, visible, (unsigned int)atlas.glyph_count);
+    printf("QA_CHINESE_PASS chinese_glyphs=%d rendered_pixels=%d\n",
+           glyphs, visible);
     SDL_FreeSurface(surface);
     backend.shutdown(&backend);
-    rich4_font_atlas_close(&atlas);
     SDL_Quit();
     return 0;
 }

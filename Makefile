@@ -145,18 +145,8 @@ $(APP_OBJS): src/app/audio_event.h
 # A12.3: recursive source discovery is the one SDL1 source/object inventory.
 # It owns source paths, object names, compile rules and the link set so a new
 # platform source cannot silently remain uncompiled or unlinked.
-RICH4_SDL1_PROFILE := desktop
-ifneq (,$(findstring RICH4_PLATFORM_HANDHELD,$(CPPFLAGS)))
-RICH4_SDL1_PROFILE := handheld
-endif
-ifneq (,$(findstring RICH4_PLATFORM_MIYOO,$(CPPFLAGS)))
-RICH4_SDL1_PROFILE := miyoo
-endif
 SDL1_SOURCES := $(shell $(PYTHON) tests/architecture/list_sdl1_sources.py)
-# Keep generated rules for the complete source inventory so standalone tests
-# can build either backend, but link only the selected profile's production
-# backend.  This is the explicit A10 profile difference.
-SDL1_OBJECT_MANIFEST := $(shell $(PYTHON) tests/architecture/list_sdl1_sources.py --objects --profile $(RICH4_SDL1_PROFILE))
+SDL1_OBJECT_MANIFEST := $(shell $(PYTHON) tests/architecture/list_sdl1_sources.py --objects)
 SDL1_OBJECTS := $(patsubst build/%,$(BUILD_DIR)/%,$(SDL1_OBJECT_MANIFEST))
 SDL1_SOURCE_OBJECT_PAIRS := $(subst |build/,|$(BUILD_DIR)/,$(shell $(PYTHON) tests/architecture/list_sdl1_sources.py --pairs))
 PLATFORM_OBJS = $(filter-out $(BUILD_DIR)/audio.o $(BUILD_DIR)/audio_stub.o $(if $(strip $(MIXER_LIBS)),,$(BUILD_DIR)/sdl1_audio_sdl_mixer_playback.o),$(SDL1_OBJECTS)) $(if $(strip $(MIXER_LIBS)),$(BUILD_DIR)/audio.o,$(BUILD_DIR)/audio_stub.o)
@@ -302,12 +292,8 @@ test-miyoo-qemu: miyoo-qa-build
 	$(PYTHON) scripts/setup_miyoo_toolchain.py --qemu $(MIYOO_SETUP_ARGS)
 	$(PYTHON) scripts/validate_miyoo_qemu.py --memory-mb $(MIYOO_QEMU_MEMORY_MB) $(MIYOO_QEMU_ARGS)
 
-.PHONY: font-bake-miyoo
-font-bake-miyoo: font-bake
-	$(PYTHON) scripts/bake_miyoo_font.py
-
-$(BIN_DIR)/test_miyoo_qemu_probe: tests/sdl/test_miyoo_qemu_probe.c $(BUILD_DIR)/sdl1_miyoo_input.o $(BUILD_DIR)/sdl1_input_adapter.o $(BUILD_DIR)/app_command.o $(BUILD_DIR)/game_command.o $(BUILD_DIR)/game_domain.o $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_text_backend_atlas.o $(BUILD_DIR)/sdl1_text_rules.o | dirs
-	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^ $(SDL_LIBS)
+$(BIN_DIR)/test_miyoo_qemu_probe: tests/sdl/test_miyoo_qemu_probe.c $(BUILD_DIR)/sdl1_miyoo_input.o $(BUILD_DIR)/sdl1_input_adapter.o $(BUILD_DIR)/app_command.o $(BUILD_DIR)/game_command.o $(BUILD_DIR)/game_domain.o $(BUILD_DIR)/sdl1_text_backend_freetype.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_big5_utf8.o $(BUILD_DIR)/sdl1_text_rules.o | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(TTF_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^ $(TTF_LIBS) $(SDL_LIBS)
 
 $(BUILD_DIR)/libmiyoo_qa.so: tests/sdl/miyoo_qemu_qa.c | dirs
 	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(filter-out -no-pie,$(CFLAGS)) $(WARNFLAGS) -fPIC -shared -o $@ $< $(SDL_LIBS) -ldl
@@ -520,7 +506,7 @@ $(BIN_DIR)/test_god_sdl: tests/sdl/test_god_acquisition.c $(MKF_OBJS) $(SPR_SMP_
 test-unit: $(BIN_DIR)/test_auction
 test-unit: $(BIN_DIR)/test_auction_flow
 
-test-unit: check-core-headers $(BIN_DIR)/test_rng $(BIN_DIR)/test_flc_format_names $(BIN_DIR)/test_map_object_ref $(BIN_DIR)/test_resource_catalog $(BIN_DIR)/test_character_speech $(BIN_DIR)/test_game_speech_flow $(BIN_DIR)/test_insurance_flow $(BIN_DIR)/test_bank_flow $(BIN_DIR)/test_monster_card_flow $(BIN_DIR)/test_lottery_flow $(BIN_DIR)/test_roulette_flow $(BIN_DIR)/test_point_minigame_flow $(BIN_DIR)/test_magic_house_flow $(BIN_DIR)/test_confinement_flow $(BIN_DIR)/test_shop_flow $(BIN_DIR)/test_dice_flow $(BIN_DIR)/test_property_flow $(BIN_DIR)/test_tool_animation_flow $(BIN_DIR)/test_tool_followup_flow $(BIN_DIR)/test_tool_panel_flow $(BIN_DIR)/test_special_presentation_flow $(BIN_DIR)/test_ai_flow $(BIN_DIR)/test_turn_start_flow $(BIN_DIR)/test_turn_status_flow $(BIN_DIR)/test_special_event_text $(BIN_DIR)/test_music $(BIN_DIR)/test_special_actor_action $(BIN_DIR)/test_new_game_init $(BIN_DIR)/test_new_game_setup_flow $(BIN_DIR)/test_game_domain $(BIN_DIR)/test_game_command $(BIN_DIR)/test_bank $(BIN_DIR)/test_game_dispatch $(BIN_DIR)/test_game_event_payload $(BIN_DIR)/test_ai $(BIN_DIR)/test_first_turn_dispatch $(BIN_DIR)/test_route_movement $(BIN_DIR)/test_route_event_queue $(BIN_DIR)/test_route_event_executor $(BIN_DIR)/test_route_flow $(BIN_DIR)/test_route_event_flow $(BIN_DIR)/test_player_status $(BIN_DIR)/test_status_countdown $(BIN_DIR)/test_confinement_god $(BIN_DIR)/test_special_event $(BIN_DIR)/test_stock $(BIN_DIR)/test_turn_rotation $(BIN_DIR)/test_turn_flow $(BIN_DIR)/test_victory $(BIN_DIR)/test_game_view_model $(BIN_DIR)/test_game_view_model_input $(BIN_DIR)/test_game_state_purity $(BIN_DIR)/test_renderer_viewmodel_boundary $(BIN_DIR)/test_behavior_traceability $(BIN_DIR)/test_map_renderer $(BIN_DIR)/test_scene $(BIN_DIR)/test_game_presentation $(BIN_DIR)/test_sdl1_input_adapter $(BIN_DIR)/test_sdl1_session_header $(BIN_DIR)/test_sdl1_text_rules $(BIN_DIR)/test_text_backend $(BIN_DIR)/test_big5_utf8 $(BIN_DIR)/test_font_atlas $(BIN_DIR)/test_sdl1_blit $(BIN_DIR)/test_file_line_budget $(BIN_DIR)/test_no_debug_ui $(BIN_DIR)/test_audio_event $(BIN_DIR)/test_public_api_contract $(BIN_DIR)/test_byte_reader $(BIN_DIR)/test_text_backend_selector $(BIN_DIR)/test_text_backend_selector_handheld
+test-unit: check-core-headers $(BIN_DIR)/test_rng $(BIN_DIR)/test_flc_format_names $(BIN_DIR)/test_map_object_ref $(BIN_DIR)/test_resource_catalog $(BIN_DIR)/test_character_speech $(BIN_DIR)/test_game_speech_flow $(BIN_DIR)/test_insurance_flow $(BIN_DIR)/test_bank_flow $(BIN_DIR)/test_monster_card_flow $(BIN_DIR)/test_lottery_flow $(BIN_DIR)/test_roulette_flow $(BIN_DIR)/test_point_minigame_flow $(BIN_DIR)/test_magic_house_flow $(BIN_DIR)/test_confinement_flow $(BIN_DIR)/test_shop_flow $(BIN_DIR)/test_dice_flow $(BIN_DIR)/test_property_flow $(BIN_DIR)/test_tool_animation_flow $(BIN_DIR)/test_tool_followup_flow $(BIN_DIR)/test_tool_panel_flow $(BIN_DIR)/test_special_presentation_flow $(BIN_DIR)/test_ai_flow $(BIN_DIR)/test_turn_start_flow $(BIN_DIR)/test_turn_status_flow $(BIN_DIR)/test_special_event_text $(BIN_DIR)/test_music $(BIN_DIR)/test_special_actor_action $(BIN_DIR)/test_new_game_init $(BIN_DIR)/test_new_game_setup_flow $(BIN_DIR)/test_game_domain $(BIN_DIR)/test_game_command $(BIN_DIR)/test_bank $(BIN_DIR)/test_game_dispatch $(BIN_DIR)/test_game_event_payload $(BIN_DIR)/test_ai $(BIN_DIR)/test_first_turn_dispatch $(BIN_DIR)/test_route_movement $(BIN_DIR)/test_route_event_queue $(BIN_DIR)/test_route_event_executor $(BIN_DIR)/test_route_flow $(BIN_DIR)/test_route_event_flow $(BIN_DIR)/test_player_status $(BIN_DIR)/test_status_countdown $(BIN_DIR)/test_confinement_god $(BIN_DIR)/test_special_event $(BIN_DIR)/test_stock $(BIN_DIR)/test_turn_rotation $(BIN_DIR)/test_turn_flow $(BIN_DIR)/test_victory $(BIN_DIR)/test_game_view_model $(BIN_DIR)/test_game_view_model_input $(BIN_DIR)/test_game_state_purity $(BIN_DIR)/test_renderer_viewmodel_boundary $(BIN_DIR)/test_behavior_traceability $(BIN_DIR)/test_map_renderer $(BIN_DIR)/test_scene $(BIN_DIR)/test_game_presentation $(BIN_DIR)/test_sdl1_input_adapter $(BIN_DIR)/test_sdl1_session_header $(BIN_DIR)/test_sdl1_text_rules $(BIN_DIR)/test_text_backend $(BIN_DIR)/test_big5_utf8 $(BIN_DIR)/test_sdl1_blit $(BIN_DIR)/test_file_line_budget $(BIN_DIR)/test_no_debug_ui $(BIN_DIR)/test_audio_event $(BIN_DIR)/test_public_api_contract $(BIN_DIR)/test_byte_reader $(BIN_DIR)/test_text_backend_freetype
 	$(BIN_DIR)/test_rng
 	$(BIN_DIR)/test_flc_format_names
 	$(BIN_DIR)/test_map_object_ref
@@ -598,14 +584,12 @@ test-unit: check-core-headers $(BIN_DIR)/test_rng $(BIN_DIR)/test_flc_format_nam
 	$(BIN_DIR)/test_sdl1_text_rules
 	$(BIN_DIR)/test_text_backend
 	$(BIN_DIR)/test_big5_utf8
-	$(BIN_DIR)/test_font_atlas
 	$(BIN_DIR)/test_sdl1_blit
 	$(BIN_DIR)/test_file_line_budget
 	$(BIN_DIR)/test_no_debug_ui
 	$(BIN_DIR)/test_audio_event
 	$(BIN_DIR)/test_public_api_contract
-	$(BIN_DIR)/test_text_backend_selector
-	$(BIN_DIR)/test_text_backend_selector_handheld
+	$(BIN_DIR)/test_text_backend_freetype
 
 include tools/frame_diff/targets.mk
 
@@ -1510,15 +1494,8 @@ $(BIN_DIR)/test_text_backend: tests/unit/test_text_backend.c $(BUILD_DIR)/sdl1_t
 $(BIN_DIR)/test_big5_utf8: tests/unit/test_big5_utf8.c $(BUILD_DIR)/sdl1_big5_utf8.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_big5_utf8.c $(BUILD_DIR)/sdl1_big5_utf8.o
 
-$(BIN_DIR)/test_text_backend_selector: stage-sdl-runtime tests/unit/test_text_backend_selector.c $(BUILD_DIR)/sdl1_text_backend_selector.o $(BUILD_DIR)/sdl1_text_backend_freetype.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o $(BUILD_DIR)/sdl1_big5_utf8.o | dirs
-	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_text_backend_selector.c $(BUILD_DIR)/sdl1_text_backend_selector.o $(BUILD_DIR)/sdl1_text_backend_freetype.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o $(BUILD_DIR)/sdl1_big5_utf8.o $(TTF_LIBS) $(SDL_LIBS)
-
-$(BIN_DIR)/test_text_backend_selector_handheld: tests/unit/test_text_backend_selector.c src/platform/sdl1/text/text_backend_selector.c src/platform/sdl1/text/text_backend_selector.h src/platform/platform_profile.h $(BUILD_DIR)/sdl1_text_backend_atlas.o $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o | dirs
-	$(CC) $(CPPFLAGS) -DRICH4_PLATFORM_HANDHELD $(CFLAGS) $(WARNFLAGS) -c -o $(BUILD_DIR)/sdl1_text_backend_selector_handheld.o src/platform/sdl1/text/text_backend_selector.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -DRICH4_PLATFORM_HANDHELD -o $@ tests/unit/test_text_backend_selector.c $(BUILD_DIR)/sdl1_text_backend_selector_handheld.o $(BUILD_DIR)/sdl1_text_backend_atlas.o $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o
-
-$(BIN_DIR)/test_font_atlas: tests/unit/test_font_atlas.c $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_text_backend_atlas.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o | dirs
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_font_atlas.c $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_text_backend_atlas.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o
+$(BIN_DIR)/test_text_backend_freetype: stage-sdl-runtime tests/unit/test_text_backend_freetype.c $(BUILD_DIR)/sdl1_text_backend_freetype.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o $(BUILD_DIR)/sdl1_big5_utf8.o | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(TTF_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_text_backend_freetype.c $(BUILD_DIR)/sdl1_text_backend_freetype.o $(BUILD_DIR)/sdl1_text_backend.o $(BUILD_DIR)/sdl1_text_rules.o $(BUILD_DIR)/sdl1_big5_utf8.o $(TTF_LIBS) $(SDL_LIBS)
 
 $(BIN_DIR)/test_byte_reader: tests/resource/test_byte_reader.c $(BUILD_DIR)/byte_reader.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/resource/test_byte_reader.c $(BUILD_DIR)/byte_reader.o
@@ -1528,12 +1505,6 @@ $(BIN_DIR)/test_file_line_budget: tests/unit/test_file_line_budget.c tests/archi
 
 $(BIN_DIR)/test_no_debug_ui: tests/unit/test_no_debug_ui.c | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_no_debug_ui.c
-
-$(BIN_DIR)/font_bake: tools/font_bake.c $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_big5_utf8.o | dirs
-	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(TTF_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tools/font_bake.c $(BUILD_DIR)/sdl1_font_atlas.o $(BUILD_DIR)/sdl1_big5_utf8.o $(TTF_LIBS) $(SDL_LIBS)
-
-.PHONY: font-bake
-font-bake: $(BIN_DIR)/font_bake
 
 $(BIN_DIR)/test_audio_event: tests/unit/test_audio_event.c $(BUILD_DIR)/audio_event.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_audio_event.c $(BUILD_DIR)/audio_event.o
@@ -1823,6 +1794,5 @@ test-flc-regression: stage-sdl-runtime $(FLC_REGRESSION_BINS)
 	$(PYTHON) scripts/run_flc_regression.py $(FLC_REGRESSION_BINS)
 
 .PHONY: test-text-backends
-test-text-backends: $(BIN_DIR)/test_text_backend_selector $(BIN_DIR)/test_text_backend_selector_handheld
-	$(BIN_DIR)/test_text_backend_selector
-	$(BIN_DIR)/test_text_backend_selector_handheld
+test-text-backends: $(BIN_DIR)/test_text_backend_freetype
+	$(BIN_DIR)/test_text_backend_freetype

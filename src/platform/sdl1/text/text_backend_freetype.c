@@ -22,7 +22,7 @@
  * text engine is FreeType via SDL_ttf, not GDI.
  *
  * When SDL_ttf is unavailable at build time the backend degrades to a stub
- * whose measure/render return 0 so the caller can pick another backend. */
+ * whose measure/render return 0 so the caller can use its ASCII fallback. */
 
 #if defined(HAVE_SDL_TTF)
 
@@ -446,7 +446,6 @@ int rich4_text_backend_freetype_init(Rich4TextBackend *backend)
     backend->render = rich4_ft_render;
     backend->shutdown = rich4_ft_shutdown;
     backend->ctx = &g_freetype_state;
-    backend->borrowed_ctx = NULL;
     return 1;
 }
 
@@ -493,7 +492,6 @@ int rich4_text_backend_freetype_init(Rich4TextBackend *backend)
     backend->render = rich4_ft_render_stub;
     backend->shutdown = rich4_ft_shutdown_stub;
     backend->ctx = NULL;
-    backend->borrowed_ctx = NULL;
     return 0; /* backend present but not functional without SDL_ttf */
 }
 

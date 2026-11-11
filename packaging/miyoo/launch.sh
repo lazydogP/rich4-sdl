@@ -22,7 +22,6 @@ export RICH4_MIYOO_ROTATE="${RICH4_MIYOO_ROTATE:-1}"
 if [ -f debug.env ]; then
     . ./debug.env
 fi
-export RICH4_TEXT_BACKEND="${RICH4_TEXT_BACKEND:-ttf}"
 export RICH4_PROFILE="${RICH4_PROFILE:-0}"
 export RICH4_PROFILE_LOG="$DIR/logs/perf.log"
 export RICH4_LOG_MEMORY="${RICH4_LOG_MEMORY:-0}"
@@ -42,7 +41,6 @@ echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >&3
 echo "LD_PRELOAD=${LD_PRELOAD:-}" >&3
 echo "RICH4_MIYOO_ROTATE=$RICH4_MIYOO_ROTATE" >&3
 echo "RICH4_PROFILE=$RICH4_PROFILE" >&3
-echo "RICH4_TEXT_BACKEND=$RICH4_TEXT_BACKEND" >&3
 ./rich4_sdl --data-dir assets/original --music-dir assets/music \
     --input-config config/input.toml "$@" >logs/console.log 2>&1 &
 GAME_PID=$!

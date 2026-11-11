@@ -8,17 +8,14 @@
 
 #include <SDL/SDL.h>
 
-#include "platform/platform_profile.h"
 #include "platform/sdl1/runtime_trace.h"
 #include "platform/sdl1/render/blit.h"
-#include "platform/sdl1/text/font_atlas.h"
 #include "platform/sdl1/text/runtime_text.h"
-#include "platform/sdl1/text/text_backend_selector.h"
+#include "platform/sdl1/text/text_backend_freetype.h"
 #include "platform/sdl1/text_rules.h"
 
 typedef struct Rich4RuntimeText {
     Rich4TextBackend backend;
-    Rich4FontAtlas atlas;
     int initialized;
     int available;
 } Rich4RuntimeText;
@@ -43,20 +40,19 @@ static int rich4_runtime_text_init(void)
     }
     memset(&g_runtime_text, 0, sizeof(g_runtime_text));
     g_runtime_text.initialized = 1;
-    rich4_text_backend_set_font_path(g_runtime_font_path);
-#if RICH4_TEXT_BACKEND == RICH4_TEXT_BACKEND_ATLAS
-    if (rich4_text_backend_uses_atlas() && !rich4_font_atlas_load_file(&g_runtime_text.atlas,
-                                    RICH4_FONT_ATLAS_PATH)) {
-        return 0;
+    rich4_text_backend_freetype_set_font_path(g_runtime_font_path);
+    g_runtime_text.available = rich4_text_backend_freetype_init(
+        &g_runtime_text.backend);
+#if defined(RICH4_PLATFORM_MIYOO)
+    if (g_runtime_text.available) {
+        /* Open the packaged font now so the log reports actual availability,
+         * not just successful callback installation. */
+        const Rich4TextStyle style = {16, 0, 1, 0, 0xffff, 0};
+        g_runtime_text.available = rich4_text_backend_measure(
+            &g_runtime_text.backend, "A", &style, NULL, NULL);
     }
-    g_runtime_text.available = rich4_text_backend_init_for_profile(
-        &g_runtime_text.backend, &g_runtime_text.atlas);
-#else
-    g_runtime_text.available = rich4_text_backend_init_for_profile(
-        &g_runtime_text.backend, NULL);
 #endif
-    fprintf(stderr, "TEXT_BACKEND name=%s available=%d\n",
-            rich4_text_backend_uses_atlas() ? "atlas" : "ttf",
+    fprintf(stderr, "TEXT_BACKEND name=ttf available=%d\n",
             g_runtime_text.available);
     return g_runtime_text.available;
 }
@@ -67,9 +63,6 @@ void rich4_sdl_text_shutdown(void)
         return;
     }
     rich4_text_backend_shutdown(&g_runtime_text.backend);
-#if RICH4_TEXT_BACKEND == RICH4_TEXT_BACKEND_ATLAS
-    rich4_font_atlas_close(&g_runtime_text.atlas);
-#endif
     memset(&g_runtime_text, 0, sizeof(g_runtime_text));
 }
 

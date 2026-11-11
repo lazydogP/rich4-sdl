@@ -36,7 +36,7 @@ def run_smoke(
     smoke_env = os.environ.copy()
     smoke_env["SDL_VIDEODRIVER"] = "dummy"
     smoke_env["SDL_AUDIODRIVER"] = "dummy"
-    for name in ("R4DIFF_LINK", "RICH4_TEXT_BACKEND", "RICH4_PROFILE",
+    for name in ("R4DIFF_LINK", "RICH4_PROFILE",
                  "RICH4_PROFILE_LOG", "RICH4_UI_QA_BMP"):
         smoke_env.pop(name, None)
     # Personal RICH4*.CFG files and saves must not define the fixture or be

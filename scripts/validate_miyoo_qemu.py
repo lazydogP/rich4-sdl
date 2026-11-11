@@ -85,7 +85,6 @@ def main():
     parser.add_argument('--memory-mb', type=int, default=128)
     parser.add_argument('--timeout', type=int, default=300)
     parser.add_argument('--stalls-benchmark', action='store_true', help='run locally built before/after save and decode CPU probes')
-    parser.add_argument('--text-backend', choices=('atlas', 'ttf'), default='ttf')
     parser.add_argument('--reuse-disk', action='store_true')
     parser.add_argument('--output-dir', type=Path)
     parser.add_argument('--baseline-binary', type=Path,
@@ -104,7 +103,9 @@ def main():
     shutil.copyfile(ROOT / 'bin/miyoo/rich4_sdl', app / 'rich4_sdl')
     (app / 'launch.sh').write_text((ROOT / 'packaging/miyoo/launch.sh').read_text(encoding='utf-8'),
                                  encoding='utf-8', newline='\n')
-    shutil.copyfile(ROOT / 'assets/fonts/rich4_font.r4atlas', app / 'assets/fonts/rich4_font.r4atlas')
+    for stale_font in (app / 'assets/fonts').iterdir():
+        if stale_font.is_file():
+            stale_font.unlink()
     shutil.copyfile(ROOT / 'assets/fonts/rich4.ttc', app / 'assets/fonts/rich4.ttc')
     from stage_miyoo_original_assets import DEFAULT_DATA_DIR, stage_original_assets
     stage_original_assets(DEFAULT_DATA_DIR, app / 'assets/original')
@@ -180,7 +181,7 @@ mkdir -p /mnt/results/menu /mnt/results/game /mnt/results/new_game
 cd /mnt/App/Rich4 || exit 2
 export LD_LIBRARY_PATH=/lib SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
 export RICH4_MIYOO_ROTATE=0 RICH4_LOG_MEMORY=1
-export RICH4_PROFILE=2 RICH4_TEXT_BACKEND=TEXT_BACKEND_CHOICE
+export RICH4_PROFILE=2
 /qa/present_pixels > /mnt/results/present_pixels.log 2>&1
 echo PRESENT_PIXELS_EXIT=$?
 cat /mnt/results/present_pixels.log
@@ -279,7 +280,7 @@ sleep 2
 umount /mnt
 echo VM_TEST_END
 poweroff -f
-'''.replace('MODULE_COMMANDS', module_commands).replace('TEXT_BACKEND_CHOICE', args.text_backend)
+'''.replace('MODULE_COMMANDS', module_commands)
     initrd = out / 'initramfs.gz'
     initrd.write_bytes(initramfs(files, modules, script))
     (out / 'init.sh').write_text(script, encoding='utf-8', newline='\n')

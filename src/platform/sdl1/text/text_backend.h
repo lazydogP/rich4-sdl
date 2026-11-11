@@ -49,10 +49,9 @@ struct Rich4TextBackend {
                   int y,
                   const char *big5_text,
                   const Rich4TextStyle *style);
-    /* Release any backend-owned resources (fonts, caches, atlas). */
+    /* Release any backend-owned resources (fonts and caches). */
     void (*shutdown)(Rich4TextBackend *self);
     void *ctx; /* backend-private mutable state */
-    const void *borrowed_ctx; /* backend-private read-only borrowed state */
 };
 
 /* Convenience dispatch wrappers (null-safe). */

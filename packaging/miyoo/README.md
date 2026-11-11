@@ -7,7 +7,6 @@ python scripts/make_minimal.py setup-miyoo --progress
 python scripts/make_minimal.py miyoo --progress
 python scripts/make_minimal.py package-miyoo --progress
 python scripts/make_minimal.py test-miyoo-input
-python scripts/make_minimal.py font-bake-miyoo
 python scripts/make_minimal.py test-miyoo-qemu MIYOO_QEMU_MEMORY_MB=128 --progress
 ```
 
@@ -227,14 +226,12 @@ test-hud-layout test-frame-pacing`；ARM QEMU 也运行全部 65536 色值、透
 向量尾部、裁剪、正向与 180 度提交测试。QEMU dummy 驱动的耗时不代表真机帧率。
 
 
-Miyoo 的 TTF 版本默认选择 SDL_ttf/FreeType，并一起打包原有 CJK 字体
-`assets/fonts/rich4.ttc`。在 `debug.env` 写入 `RICH4_TEXT_BACKEND=atlas`，
-重启即可切回原有预烘焙字库；`ttf` 为默认值。`launch.log` 记录选择，
-`console.log` 的 `TEXT_BACKEND` 记录初始化结果。TTF 会产生与 atlas 不同的
-文字像素和度量；非文字画面、绘制次序和游戏规则不变。
+Miyoo 统一使用 SDL_ttf/FreeType，并一起打包 CJK 字体
+`assets/fonts/rich4.ttc`。`console.log` 的 `TEXT_BACKEND` 记录初始化结果。
+文字后端不改变非文字画面、绘制次序和游戏规则。
 `DETAIL group=text name=render` 包含首次字体初始化与文字绘制，嵌套在 UI
-或其他绘制分段中，不能与它们相加。构建使用独立的 `build/miyoo-ttf` 目录，
-避免复用未启用 TTF 时的目标文件；普通 handheld 仍使用 atlas。
+或其他绘制分段中，不能与它们相加。Miyoo 构建使用独立的
+`build/miyoo-ttf` 目录。
 
 自动存档的固定宽度小端编码对连续基本类型数组批量复制，CRC32 使用同多项式
 的不可变查找表。存档版本和字段顺序不变，仍然先写临时文件、`fflush`/`fsync`
@@ -255,7 +252,7 @@ Panel[63/78/79/80] 与 Data[553]，占用同一个预算，不固定驻留。后
 python scripts/make_minimal.py package-miyoo "MIYOO_PACKAGE_ARGS=--update-only --output bin/miyoo/Rich4-MiyooMini-save-event-ttf-update.zip"
 ```
 
-增量包包含程序、启动脚本、两种字体资源及 TTF 的四项库依赖，不包含存档、
+增量包包含程序、启动脚本、CJK 字体及 TTF 的四项库依赖，不包含存档、
 游戏配置、音乐或 MKF。量化结果与验证状态见
 `build/miyoo/save-event-ttf-validation.json`；ARM/QEMU 的 CPU、dummy 显示与
 内存结果不代表 Miyoo 真机 SD 卡耗时或帧率。
@@ -264,9 +261,9 @@ FreeType 随包使用设备 SD 卡原有库的副本，仅要求 GLIBC_2.4；SDL
 全部 FT_* 符号已核对。`scripts/miyoo_ttf_runtime.py` 为打包和 QEMU 提供同一
 依赖清单，避免验证使用一种库、安装包使用另一种库。
 
-本次发布测量（ARM/QEMU，128 MB，无交换，atlas 与 TTF 分别独立运行）：
-600 帧地图、7152 次文字绘制，atlas 累计 256 ms，TTF 累计 465 ms；包含
-首次字体加载。整帧绘图平均 7.22 → 7.31 ms，地图峰值 RSS 53.37 → 46.93 MiB。
+本次 TTF 发布测量（ARM/QEMU，128 MB，无交换）：600 帧地图、
+7152 次文字绘制累计 465 ms，包含首次字体加载。整帧绘图平均
+7.31 ms，地图峰值 RSS 46.93 MiB。
 TTF 四人新局峰值 56.95 MiB，最低采样可用内存 24.96 MiB。TTF 字体与四项
 依赖新增磁盘占用 27.0 MiB；增量包 14.78 MiB。字体会改变文字像素和度量，
 这些 QEMU 数据不能替代真机显示驱动、SD 卡及音频测试。
@@ -276,10 +273,6 @@ TTF 四人新局峰值 56.95 MiB，最低采样可用内存 24.96 MiB。TTF 字�
 保持旧存档不变；损坏 CRC、截断文件及旧版本回放检查通过。磁盘同步仍保留，
 本次 CPU 数字不代表真机端到端写入延迟。
 
-最终 atlas 回放的 1040 帧摘要、66 张 BMP 与优化前一致；105 个 FLC、3099 帧
+最终 TTF 回放的 1040 帧摘要、66 张 BMP 与优化前一致；105 个 FLC、3099 帧
 及四人开局的完整时序验证通过。打包 ELF 的加载代码/数据（忽略 strip 修改的
-节表头字段）和全部 TTF 库字节，与两个最终 QEMU 受测负载相符。
-
-```powershell
-python scripts/compare_miyoo_text.py build/miyoo/stalls-atlas-release128 build/miyoo/stalls-ttf-release128 --baseline build/miyoo/ui-present-after --save-benchmark build/miyoo/stalls-atlas-final/extracted/results/save_benchmark.log --package bin/miyoo/Rich4-MiyooMini-save-event-ttf-update.zip --output build/miyoo/save-event-ttf-validation.json
-```
+节表头字段）和全部 TTF 库字节，与最终 QEMU 受测负载相符。

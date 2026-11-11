@@ -2,8 +2,7 @@
 
 #include <stddef.h>
 
-/* R10.2a: null-safe dispatch helpers for the text backend interface. Concrete
- * backends (FreeType desktop / prebaked atlas handheld) plug into the vtable. */
+/* R10.2a: null-safe dispatch helpers for the SDL_ttf/FreeType text backend. */
 
 int rich4_text_backend_measure(Rich4TextBackend *backend,
                                const char *big5_text,

@@ -2,41 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "platform/platform_profile.h"
-#include "platform/sdl1/text/text_backend_selector.h"
+#include "platform/sdl1/text/text_backend_freetype.h"
 
 int main(void)
 {
     Rich4TextBackend backend = { 0 };
-    Rich4FontAtlas atlas = { 0 };
-
-#if RICH4_TEXT_BACKEND == RICH4_TEXT_BACKEND_ATLAS
-    /* Backend selection needs only a synthetic glyph, not a licensed font. */
-    const Rich4FontGlyph glyph = { 'A', 3, 2, 4, 0, 0, 0 };
-    const unsigned char bitmap[] = { 255, 255, 255, 255, 255, 255 };
-    atlas.cell_height = 16;
-    atlas.glyph_count = 1;
-    atlas.glyphs = &glyph;
-    atlas.bitmap = bitmap;
-    atlas.bitmap_size = sizeof(bitmap);
-    assert(rich4_text_backend_init_for_profile(&backend, &atlas));
-    assert(backend.borrowed_ctx == &atlas);
-    {
-        uint16_t pixels[32 * 32];
-        Rich4TextTarget target = { pixels, 32 * (int)sizeof(uint16_t), 32, 32 };
-        Rich4TextStyle style = { 16, 0, 1, 0, 0xffff, 0 };
-        int ink = 0;
-        int i;
-        memset(pixels, 0, sizeof(pixels));
-        assert(rich4_text_backend_render(
-            &backend, &target, 0, 0, "A", &style));
-        for (i = 0; i < (int)(sizeof(pixels) / sizeof(pixels[0])); i++)
-            if (pixels[i] != 0) ink = 1;
-        assert(ink);
-    }
-    rich4_text_backend_shutdown(&backend);
-    rich4_font_atlas_close(&atlas);
-#else
     uint16_t pixels[128 * 128];
     Rich4TextTarget target = {
         pixels, 128 * (int)sizeof(uint16_t), 128, 128
@@ -53,8 +23,8 @@ int main(void)
     int third_line_ink = 0;
     int i;
 
-    rich4_text_backend_set_font_path("assets/fonts/rich4.ttc");
-    assert(rich4_text_backend_init_for_profile(&backend, &atlas));
+    rich4_text_backend_freetype_set_font_path("assets/fonts/rich4.ttc");
+    assert(rich4_text_backend_freetype_init(&backend));
     assert(backend.ctx != NULL);
     assert(rich4_text_backend_measure(
         &backend, "\xa8\xfa\xae\xf8", &regular_style,
@@ -82,7 +52,6 @@ int main(void)
     }
     assert(ink && first_line_ink && third_line_ink);
     rich4_text_backend_shutdown(&backend);
-#endif
-    puts("profile text backend selector: ok");
+    puts("FreeType text backend: ok");
     return 0;
 }

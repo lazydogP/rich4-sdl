@@ -19,7 +19,7 @@ TEMPLATES = Path(__file__).resolve().parent
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data-dir', type=Path, default=DEFAULT_DATA_DIR)
-    parser.add_argument('--update-only', action='store_true', help='package only the executable, launcher, app metadata/artwork, font backends and their libraries')
+    parser.add_argument('--update-only', action='store_true', help='package only the executable, launcher, app metadata/artwork, font and its libraries')
     parser.add_argument('--output', type=Path, default=ROOT / 'bin/miyoo/Rich4-MiyooMini.zip')
     args = parser.parse_args()
     try:
@@ -33,6 +33,9 @@ def main():
     app = stage / 'App/Rich4'
     for rel in ('lib', 'assets/original', 'assets/fonts', 'assets/music', 'config'):
         (app / rel).mkdir(parents=True, exist_ok=True)
+    for stale_font in (app / 'assets/fonts').iterdir():
+        if stale_font.is_file():
+            stale_font.unlink()
     for name in ('Data.mkf', 'Map.mkf', 'Panel.mkf', 'Effect.mkf', 'Speaking.mkf', 'Jump.mkf', 'Help.mkf'):
         source = args.data_dir / name
         if not source.is_file():
@@ -49,13 +52,12 @@ def main():
     strip = STRIP
     subprocess.run([str(strip), '--strip-unneeded', str(app / 'rich4_sdl'),
                     str(app / 'lib/libSDL_mixer-1.2.so.0'), str(app / 'lib/libgcc_s.so.1')], check=True)
-    shutil.copyfile(ROOT / 'assets/fonts/rich4_font.r4atlas', app / 'assets/fonts/rich4_font.r4atlas')
     shutil.copyfile(TEMPLATES / 'input.toml', app / 'config/input.toml')
     shutil.copyfile(ROOT / 'RICH4-SDL.CFG.example', app / 'RICH4-SDL.CFG.example')
     (app / 'launch.sh').write_text((TEMPLATES / 'launch.sh').read_text(encoding='utf-8'),
                                  encoding='utf-8', newline='\n')
     (app / 'debug.env.example').write_text(
-        'RICH4_PROFILE=2\nRICH4_LOG_MEMORY=1\nRICH4_TEXT_BACKEND=ttf\n', encoding='ascii', newline='\n')
+        'RICH4_PROFILE=2\nRICH4_LOG_MEMORY=1\n', encoding='ascii', newline='\n')
     for name in ('config.json', 'icon.png'):
         shutil.copyfile(TEMPLATES / name, app / name)
     # The full-size logo belongs to the project README, not the device package.
@@ -92,7 +94,7 @@ SELECT：Tab，切换视图。MENU：Esc，返回/取消、解除电脑托管。
 可将 App/Rich4/RICH4-SDL.CFG.example 复制为同目录的 RICH4-SDL.CFG 后修改 SDL 设置。
 没有实际配置文件时使用内置默认值；更新时保留已有 RICH4-SDL.CFG。
 画面倒置时，将 launch.sh 中 RICH4_MIYOO_ROTATE 的默认值从 1 改成 0。
-使用预烘焙中文字库；音乐已转为 22050Hz 立体声 WAV。
+使用 SDL_ttf/FreeType 中文字体；音乐已转为 22050Hz 立体声 WAV。
 使用本工作区 V3.11 资源，作为本机个人测试包。尚未进行真机验证。
 资源按场景、当前地图和实际角色加载；事件、面板、角色动作及开局 FLC 按需取得，近期事件原始数据最多保留 4 MiB。
 128 MB、无交换空间的 QEMU 已通过启动、中文显示、按键及资源释放验证。
@@ -107,7 +109,7 @@ SELECT：Tab，切换视图。MENU：Esc，返回/取消、解除电脑托管。
 设备按需读取和解压；常用 HUD、首次落地和日志中最慢的五项事件资源在 loading 界面准备。
 内存按实际峰值、可用量和换页停顿判断，不设固定 60/16 MiB 门槛。
 交互帧的绘图和提交计入等待期限，超时后不追加固定 16 ms；动画继续使用原版各自周期。
-默认使用 TTF 字体；debug.env 中设置 RICH4_TEXT_BACKEND=atlas 并重启可切回现有字库。
+统一使用 TTF 字体。
 存档批量编码和查表 CRC 不改变格式；保留临时文件、同步落盘及原子替换流程。
 RICH4_PROFILE=2 增加 save 的 encode/crc/write/flush/replace 耗时；DETAIL text 统计字体绘制。
 未完成全流程或真机验证；QEMU 的 dummy 驱动不验证真机画面方向、声音和性能。
@@ -127,8 +129,7 @@ SPAN 分段计时覆盖更新分派、移动、骰子、落地、自动存档、
     update_files = {'README.txt', 'App/Rich4/rich4_sdl', 'App/Rich4/launch.sh',
                     'App/Rich4/RICH4-SDL.CFG.example',
                     'App/Rich4/config.json', 'App/Rich4/icon.png',
-                    'App/Rich4/debug.env.example', 'App/Rich4/assets/fonts/rich4.ttc',
-                    'App/Rich4/assets/fonts/rich4_font.r4atlas'}
+                    'App/Rich4/debug.env.example', 'App/Rich4/assets/fonts/rich4.ttc'}
     update_files.update('App/Rich4/lib/' + name for name in
                         ('libSDL_ttf-2.0.so.0', 'libfreetype.so.6', 'libpng16.so.16', 'libz.so.1'))
     output = args.output.resolve()
