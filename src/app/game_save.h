@@ -26,6 +26,11 @@ int rich4_game_save_read(const char *path, int slot,
  * The decoder itself preserves serialized RNG for replay and inspection. */
 int rich4_game_save_resume(GameSession *session, const GameSession *loaded,
                            uint32_t now);
+/* Consume the one-shot platform audio resync request after a resume.  Music
+ * markers live in the serialized presentation but describe a process-local
+ * backend, so they must be cleared at the app boundary before SDL restarts
+ * the current owner. */
+int rich4_game_save_take_music_restart(GameSession *session);
 /* A decoded save can only be attached to a preloaded map whose typed domain
  * counts match the state that was serialized with it. */
 int rich4_game_save_session_matches_map(const GameSession *session,

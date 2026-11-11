@@ -601,9 +601,28 @@ int rich4_game_save_resume(GameSession *session, const GameSession *loaded,
     *session = *loaded;
     session->rng_clock_offset = clock_offset;
     session->state.ai_rng_state = now + clock_offset;
-    return rich4_presentation_rebind_speech(&session->presentation) &&
-        (!session->time_machine_valid ||
-         rich4_presentation_rebind_speech(&session->time_machine_presentation));
+    if (!rich4_presentation_rebind_speech(&session->presentation) ||
+        (session->time_machine_valid &&
+         !rich4_presentation_rebind_speech(
+             &session->time_machine_presentation)))
+        return 0;
+    session->loaded_music_restart_pending = 1;
+    return 1;
+}
+
+int rich4_game_save_take_music_restart(GameSession *session)
+{
+    if (session == NULL || !session->loaded_music_restart_pending)
+        return 0;
+    session->loaded_music_restart_pending = 0;
+    if (session->presentation.periodic_finance.active &&
+        session->presentation.periodic_finance.phase > 0)
+        session->presentation.periodic_finance.music_started = 0;
+    if (session->presentation.point_minigame.active)
+        session->presentation.point_minigame.music_started = 0;
+    if (session->presentation.shop_visit.active)
+        session->presentation.shop_visit.music_started = 0;
+    return 1;
 }
 
 int rich4_game_save_read(const char *path, int slot,

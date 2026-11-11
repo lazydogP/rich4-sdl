@@ -45,8 +45,11 @@ void game_capture_modal_music_context(
 
 void game_update_modal_music(GameModalMusicContext *context);
 
+int game_session_has_modal_music(const GameSession *session);
+
 void game_restore_shop_music_if_pending(
-    Rich4Audio *audio, const char *music_dir, Rich4MusicBank music_bank,
+    const GameSession *session, Rich4Audio *audio,
+    const char *music_dir, Rich4MusicBank music_bank,
     int music_enabled, int *main_map_music_track,
     int *main_map_music_active, int *shop_music_restore_pending);
 

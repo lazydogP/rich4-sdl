@@ -10,6 +10,7 @@
 
 #include "platform/sdl1/game_loop_audio_events.h"
 #include "platform/sdl1/game_loop_confirm_route_interaction.h"
+#include "platform/sdl1/game_loop_load_music.h"
 #include "platform/sdl1/game_loop_modal_music.h"
 #include "platform/sdl1/game_loop_orchestration.h"
 #include "platform/sdl1/game_loop_panels.h"
@@ -296,6 +297,14 @@ void game_update_preview_frame(GamePreviewFrameContext *context)
      * full map own the nested modal loop. The original playlist's end
      * notification therefore remains live while simulation is frozen. */
     span_started = runtime_profile_now();
+    (void)game_restart_music_after_load(
+        context->session, context->audio, context->music_dir,
+        context->sdl_config->music_bank, context->config->music != 0,
+        context->main_map_music_track, context->main_map_music_active,
+        context->confinement_music_kind, context->bank_music_active,
+        context->lottery_music_active, context->magic_house_music_active,
+        context->auction_music_active, context->holiday_music_active,
+        context->shop_music_restore_pending);
     game_roll_main_map_music_if_finished(
         context->audio, context->music_dir, context->sdl_config->music_bank,
         context->config->music != 0, context->main_map_music_track,
@@ -321,7 +330,8 @@ void game_update_preview_frame(GamePreviewFrameContext *context)
         context->magic_house_music_active, context->auction_music_active,
         context->holiday_music_active);
     game_restore_shop_music_if_pending(
-        context->audio, context->music_dir, context->sdl_config->music_bank,
+        context->session, context->audio, context->music_dir,
+        context->sdl_config->music_bank,
         context->config->music != 0, context->main_map_music_track,
         context->main_map_music_active, context->shop_music_restore_pending);
 

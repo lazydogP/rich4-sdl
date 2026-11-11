@@ -1533,8 +1533,8 @@ $(BIN_DIR)/test_no_debug_ui: tests/unit/test_no_debug_ui.c | dirs
 $(BIN_DIR)/test_audio_event: tests/unit/test_audio_event.c $(BUILD_DIR)/audio_event.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_audio_event.c $(BUILD_DIR)/audio_event.o
 
-$(BIN_DIR)/test_music: tests/unit/test_music.c $(BUILD_DIR)/music.o | dirs
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_music.c $(BUILD_DIR)/music.o
+$(BIN_DIR)/test_music: tests/unit/test_music.c $(BUILD_DIR)/music.o $(BUILD_DIR)/sdl1_game_loop_load_music.o $(BUILD_DIR)/sdl1_game_loop_modal_music.o | dirs
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^
 
 $(BIN_DIR)/test_special_actor_action: tests/unit/test_special_actor_action.c $(BUILD_DIR)/special_actor_action.o $(BUILD_DIR)/card.o $(BUILD_DIR)/ledger.o $(BUILD_DIR)/victory.o $(BUILD_DIR)/bank.o $(BUILD_DIR)/stock.o $(BUILD_DIR)/tool.o $(BUILD_DIR)/tool_flow.o $(BUILD_DIR)/rng.o $(BUILD_DIR)/game_domain.o $(BUILD_DIR)/game_command.o $(BUILD_DIR)/game_event.o $(BUILD_DIR)/game_event_payload.o $(BUILD_DIR)/game_event_typed.o $(BUILD_DIR)/insurance.o $(BUILD_DIR)/map_object_ref.o $(BUILD_DIR)/confinement.o | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_special_actor_action.c $(BUILD_DIR)/special_actor_action.o $(BUILD_DIR)/card.o $(BUILD_DIR)/ledger.o $(BUILD_DIR)/victory.o $(BUILD_DIR)/bank.o $(BUILD_DIR)/stock.o $(BUILD_DIR)/tool.o $(BUILD_DIR)/tool_flow.o $(BUILD_DIR)/rng.o $(BUILD_DIR)/game_domain.o $(BUILD_DIR)/game_command.o $(BUILD_DIR)/game_event.o $(BUILD_DIR)/game_event_payload.o $(BUILD_DIR)/game_event_typed.o $(BUILD_DIR)/insurance.o $(BUILD_DIR)/map_object_ref.o $(BUILD_DIR)/confinement.o

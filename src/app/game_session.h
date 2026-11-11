@@ -58,6 +58,9 @@ typedef struct GameSession {
     Rich4AppLifecycleRequest lifecycle;
     /* GetTickCount minus the renderer clock; transient across save/load. */
     uint32_t rng_clock_offset;
+    /* 0x401981 calls 0x454D91(0) when a decoded game enters the live loop.
+     * Keep that one-shot music handoff outside the save codec. */
+    int loaded_music_restart_pending;
 } GameSession;
 
 /* Lifecycle reset for the app-owned aggregate. SDL resources are owned by

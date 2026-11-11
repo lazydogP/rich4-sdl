@@ -10,6 +10,43 @@
 #include "platform/sdl1/game_loop_modal_music.h"
 #include "platform/sdl1/runtime_bootstrap.h"
 
+int game_session_has_modal_music(const GameSession *session)
+{
+    int bank_active;
+    if (session == NULL) return 0;
+    bank_active = session->presentation.route_interaction.active &&
+        session->presentation.route_interaction.accept.type ==
+            GAME_COMMAND_BANK_APPLY_LOAN;
+    return session->presentation.bank_settlement.active ||
+        (session->presentation.periodic_finance.active &&
+         session->presentation.periodic_finance.phase > 0) ||
+        session->presentation.confinement_visit.active || bank_active ||
+        (session->presentation.point_minigame.active &&
+         !session->presentation.point_minigame.automatic) ||
+        (session->presentation.shop_visit.active &&
+         session->presentation.shop_visit.phase != RICH4_SHOP_OWNER_GIFT &&
+         session->presentation.shop_visit.phase != RICH4_SHOP_OWNER_SPEECH) ||
+        session->presentation.lottery.active ||
+        (session->presentation.magic_house.active &&
+         !session->presentation.magic_house.modal_music_finished) ||
+        (session->presentation.auction.active &&
+         session->presentation.auction.request.manage_music);
+}
+
+static void game_restore_main_map_music(GameModalMusicContext *context)
+{
+    if (context == NULL || game_session_has_modal_music(context->session))
+        return;
+    if (context->music_enabled)
+        *context->main_map_music_active = start_music_bank_track(
+            context->audio, context->music_dir, context->music_bank,
+            (size_t)*context->main_map_music_track, "main map");
+    else {
+        *context->main_map_music_active = 0;
+        rich4_audio_stop_music(context->audio);
+    }
+}
+
 void game_capture_modal_music_context(
     GameModalMusicContext *context, GameSession *session,
     Rich4Audio *audio, const char *music_dir, Rich4MusicBank music_bank,
@@ -53,20 +90,25 @@ void game_capture_modal_music_context(
 }
 
 void game_restore_shop_music_if_pending(
-    Rich4Audio *audio, const char *music_dir, Rich4MusicBank music_bank,
+    const GameSession *session, Rich4Audio *audio,
+    const char *music_dir, Rich4MusicBank music_bank,
     int music_enabled, int *main_map_music_track,
     int *main_map_music_active, int *shop_music_restore_pending)
 {
     if (shop_music_restore_pending == NULL ||
         !*shop_music_restore_pending)
         return;
-    if (music_enabled)
-        *main_map_music_active = start_music_bank_track(
-            audio, music_dir, music_bank,
-            (size_t)*main_map_music_track, "main map");
-    else {
-        *main_map_music_active = 0;
-        rich4_audio_stop_music(audio);
+    /* A preceding modal can close in the frame that a settlement starts.
+     * Its delayed restore must not replace the new modal's fixed MIDI. */
+    if (!game_session_has_modal_music(session)) {
+        if (music_enabled)
+            *main_map_music_active = start_music_bank_track(
+                audio, music_dir, music_bank,
+                (size_t)*main_map_music_track, "main map");
+        else {
+            *main_map_music_active = 0;
+            rich4_audio_stop_music(audio);
+        }
     }
     *shop_music_restore_pending = 0;
 }
@@ -113,11 +155,7 @@ void game_update_modal_music(GameModalMusicContext *context)
         (context->finance_was_active && context->finance_music_was_started &&
          !session->presentation.periodic_finance.active)) {
         if (context->settlement_was_active) *context->bank_music_active = 0;
-        if (context->music_enabled)
-            *context->main_map_music_active = start_music_bank_track(audio,
-                context->music_dir, context->music_bank,
-                (size_t)*context->main_map_music_track, "main map");
-        else rich4_audio_stop_music(audio);
+        game_restore_main_map_music(context);
     }
     if (context->music_enabled &&
         session->presentation.confinement_visit.active &&
@@ -140,18 +178,7 @@ void game_update_modal_music(GameModalMusicContext *context)
         /* Both modal entry functions restore the map playlist with
          * sub_454BCC after their callbacks return. */
         *context->confinement_music_kind = GAME_CONFINEMENT_NONE;
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio,
-                    context->music_dir,
-                    context->music_bank,
-                    (size_t)*context->main_map_music_track,
-                    "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     if (context->music_enabled && bank_active &&
         !*context->bank_music_active) {
@@ -229,51 +256,21 @@ void game_update_modal_music(GameModalMusicContext *context)
         !session->presentation.shop_visit.active &&
         context->shop_music_was_started) {
         /* 0x42ED0F restores the playlist after the shop callback. */
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio,
-                    context->music_dir,
-                    context->music_bank,
-                    (size_t)*context->main_map_music_track,
-                    "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     if (context->point_minigame_was_active &&
         !session->presentation.point_minigame.active &&
         context->point_minigame_music_was_started) {
         /* Each point-game callback restores the normal playlist on
          * return, just like the other modal activities. */
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio,
-                    context->music_dir,
-                    context->music_bank,
-                    (size_t)*context->main_map_music_track,
-                    "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     if (context->bank_was_active && !bank_active &&
         *context->bank_music_active) {
         /* sub_436668 restores the saved map playlist after the bank modal
          * callback returns. */
         *context->bank_music_active = 0;
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio, context->music_dir, context->music_bank,
-                    (size_t)*context->main_map_music_track, "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     if (context->lottery_was_active &&
         !session->presentation.lottery.active &&
@@ -281,18 +278,7 @@ void game_update_modal_music(GameModalMusicContext *context)
         /* 0x43165B calls sub_454BCC immediately after the modal
          * lottery callback returns. */
         *context->lottery_music_active = 0;
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio,
-                    context->music_dir,
-                    context->music_bank,
-                    (size_t)*context->main_map_music_track,
-                    "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     if (*context->magic_house_music_active &&
         ((context->magic_house_was_active &&
@@ -302,50 +288,17 @@ void game_update_modal_music(GameModalMusicContext *context)
         /* 0x4338B9 calls sub_454BCC immediately after Panel[20]'s
          * modal returns, before sub_431CAA visits target players. */
         *context->magic_house_music_active = 0;
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio,
-                    context->music_dir,
-                    context->music_bank,
-                    (size_t)*context->main_map_music_track,
-                    "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     if (*context->auction_music_active &&
         (!session->presentation.auction.active ||
          !session->presentation.auction.request.manage_music)) {
         *context->auction_music_active = 0;
-        if (context->music_enabled)
-            *context->main_map_music_active =
-                start_music_bank_track(
-                    audio, context->music_dir, context->music_bank,
-                    (size_t)*context->main_map_music_track, "main map");
-        else {
-            *context->main_map_music_active = 0;
-            rich4_audio_stop_music(audio);
-        }
+        game_restore_main_map_music(context);
     }
     {
         int holiday_index = rich4_stock_calendar_music_index(&session->state);
-        int modal_music_active =
-            session->presentation.bank_settlement.active ||
-            (session->presentation.periodic_finance.active &&
-             session->presentation.periodic_finance.phase > 0) ||
-            session->presentation.confinement_visit.active || bank_active ||
-            (session->presentation.point_minigame.active &&
-             !session->presentation.point_minigame.automatic) ||
-            (session->presentation.shop_visit.active &&
-             session->presentation.shop_visit.phase != RICH4_SHOP_OWNER_GIFT &&
-             session->presentation.shop_visit.phase != RICH4_SHOP_OWNER_SPEECH) ||
-            session->presentation.lottery.active ||
-            (session->presentation.magic_house.active &&
-             !session->presentation.magic_house.modal_music_finished) ||
-            (session->presentation.auction.active &&
-             session->presentation.auction.request.manage_music);
+        int modal_music_active = game_session_has_modal_music(session);
         if (modal_music_active) {
             /* A modal replaced the holiday track.  Its close branch restores
              * the map playlist; this tail then restarts a current holiday. */

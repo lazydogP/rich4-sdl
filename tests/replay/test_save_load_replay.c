@@ -495,6 +495,23 @@ static void runtime_load_reseeds_special_targets(const char *directory)
         memset(runtime,0,sizeof(*runtime));
         runtime->rng_clock_offset=10;
         assert(rich4_game_save_resume(runtime,decoded,ticks[i]));
+        assert(runtime->loaded_music_restart_pending == 1);
+        runtime->presentation.periodic_finance.active = 1;
+        runtime->presentation.periodic_finance.phase = 4;
+        runtime->presentation.periodic_finance.music_started = 1;
+        runtime->presentation.point_minigame.active = 1;
+        runtime->presentation.point_minigame.music_started = 1;
+        runtime->presentation.shop_visit.active = 1;
+        runtime->presentation.shop_visit.music_started = 1;
+        assert(rich4_game_save_take_music_restart(runtime));
+        assert(!runtime->loaded_music_restart_pending);
+        assert(!runtime->presentation.periodic_finance.music_started);
+        assert(!runtime->presentation.point_minigame.music_started);
+        assert(!runtime->presentation.shop_visit.music_started);
+        assert(!rich4_game_save_take_music_restart(runtime));
+        runtime->presentation.periodic_finance.active = 0;
+        runtime->presentation.point_minigame.active = 0;
+        runtime->presentation.shop_visit.active = 0;
         assert(runtime->rng_clock_offset==10 && runtime->state.ai_rng_state==ticks[i]+10u);
         assert(runtime->state.fortune_event_cursor==17 &&
                !memcmp(runtime->state.fortune_event_order,saved->state.fortune_event_order,
