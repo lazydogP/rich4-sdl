@@ -129,6 +129,27 @@ static void timing(void)
         if (!session.presentation.bank_settlement.active) break;
     }
     assert(!session.presentation.bank_settlement.active);
+    assert(session.presentation.bank_settlement.stage == 0);
+    assert(session.presentation.bank_settlement.stage_ticks == 0);
+    assert(!session.presentation.bank_settlement.skip_requested);
+    assert(session.state.players[0].monthly_loss == 0);
+
+    /* The presentation state is reused rather than reconstructed at the next
+     * month boundary.  A completed report must therefore be able to start a
+     * second full report in the same session. */
+    session.presentation.bank_settlement.active = 1;
+    session.presentation.bank_settlement.player_mask = 15;
+    session.presentation.bank_settlement.tick = 12000;
+    session.state.players[0].monthly_loss = 2000;
+    rich4_monthly_finance_begin(&session);
+    assert(session.presentation.bank_settlement.stage == 1);
+    for (unsigned int tick = 12100; tick < 19000; tick += 100) {
+        session.presentation.bank_settlement.speech_pending = 0;
+        assert(rich4_monthly_finance_update(&session, tick, 0, 0, 0, 71));
+        if (!session.presentation.bank_settlement.active) break;
+    }
+    assert(!session.presentation.bank_settlement.active);
+    assert(session.presentation.bank_settlement.stage == 0);
     assert(session.state.players[0].monthly_loss == 0);
 }
 
@@ -211,12 +232,23 @@ static void ui_timing(void)
     assert(b->stage==18 && b->animation_frame==31); /* four full cycles */
     rich4_monthly_finance_update(&s,10100+32*71,1,0,8,71);
     assert(b->stage==19 && b->speech_id==122);
+    assert(b->animation_frame==31); /* 0x439050 leaves the last FLC frame */
+    b->speech_pending=0;
+    rich4_monthly_finance_update(&s,10100+32*71+2000,1,0,8,71);
+    assert(b->stage==22 && b->display_stage==19 && b->animation_frame==31);
     b->stage=b->display_stage=2; b->face_mode=1;
     b->eye_state=1; b->mouth_ticks=0;
     rich4_monthly_banker_update(&s,0); assert(b->eye_chunk==28);
     rich4_monthly_banker_update(&s,0); assert(b->eye_chunk==27);
     rich4_monthly_banker_update(&s,0); assert(b->eye_chunk==28);
     rich4_monthly_banker_update(&s,0); assert(b->eye_chunk==25 && b->eye_state==0);
+    b->stage=b->display_stage=1; b->face_mode=0;
+    b->mouth_ticks=1; b->mouth_chunk=23;
+    rich4_monthly_banker_update(&s,1);
+    assert(b->mouth_ticks==0 && b->mouth_chunk==(22<<8));
+    for (int tick=0;tick<100 && b->mouth_ticks==0;++tick)
+        rich4_monthly_banker_update(&s,1);
+    assert(b->mouth_ticks>0 && (b->mouth_chunk>>8)==0);
 }
 
 int main(void)

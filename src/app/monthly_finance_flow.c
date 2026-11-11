@@ -186,7 +186,10 @@ static void monthly_stage(GameBankSettlementPresentationState *p,
     p->skip_requested = 0;
     p->speech_id = speech;
     p->speech_pending = speech != 0;
-    p->animation_frame = 0;
+    /* 0x43894E..0x438A14 and 0x439050..0x439115 only replace the
+     * host after the blocking FLC returns.  The award beam, reason card and
+     * last character frame remain on screen through stages 9/19 and the
+     * following hold, so do not discard that frame on ordinary transitions. */
     if (stage == 8 || stage == 18) p->animation_frame = -1;
     p->animation_tick = p->tick = now;
     p->stage_started = now;
@@ -201,8 +204,12 @@ void rich4_monthly_finance_begin(GameSession *s)
     p->stage = 1;
     p->display_stage = 1;
     p->display_speech_id = 92;
+    p->stage_ticks = 0;
+    p->skip_requested = 0;
     p->speech_id = 92;
     p->speech_pending = 1;
+    p->animation_frame = 0;
+    p->animation_tick = p->tick;
     p->stage_started = p->tick;
     p->effect_pending = 0;
     p->face_mode = -1;
@@ -234,20 +241,22 @@ int rich4_monthly_finance_update(GameSession *s, uint32_t now,
         int player = unlucky ? p->unlucky_player : p->richest_player;
         int total = frames * rich4_monthly_animation_repeats(
             s->state.players[player].character, unlucky);
+        int skipped = p->skip_requested;
         if (delay <= 0) delay = 71;
-        if (p->skip_requested) p->animation_frame = total;
-        else if (p->animation_frame < 0) {
+        if (skipped && p->animation_frame < 0) p->animation_frame = 0;
+        else if (!skipped && p->animation_frame < 0) {
             if (now - p->stage_started < 100) return 1;
             p->animation_frame = 0;
             rich4_animation_clock_reset(&s->presentation.animation_clock[RICH4_ANIMATION_MONTHLY]);
             p->animation_tick = now;
         }
-        if (p->animation_frame < total && rich4_animation_clock_step(
+        if (!skipped && p->animation_frame < total && rich4_animation_clock_step(
                 &s->presentation.animation_clock[RICH4_ANIMATION_MONTHLY],
                 now, delay)) {
             ++p->animation_frame; p->animation_tick = now;
         }
-        if (p->animation_frame < total) return 1;
+        if (!skipped && p->animation_frame < total) return 1;
+        if (!skipped && total > 0) p->animation_frame = total - 1;
         monthly_stage(p, unlucky ? 9 : 19, unlucky ? 108 : 122, now);
         rich4_monthly_banker_update(s,speech_playing);
         return 1;
@@ -297,6 +306,10 @@ int rich4_monthly_finance_update(GameSession *s, uint32_t now,
         rich4_monthly_clear_statistics(&s->state, p->player_mask);
         if (s->presentation.bank_loan_due.active)
             s->presentation.bank_loan_due.until = now + 1500;
+        /* This presentation object is reused next month.  Leave it in the
+         * idle stage so turn_rotation_flow starts the next report instead of
+         * resuming this completed stage 22. */
+        monthly_stage(p, 0, 0, now);
         p->active = 0;
         break;
     default: break;

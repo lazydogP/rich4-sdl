@@ -295,8 +295,25 @@ static void banker_face(SDL_Surface *screen, const GamePreviewAssets *a,
         int open = p->mouth_chunk & 255, closed = p->mouth_chunk >> 8;
         const int *r = mouth_rect[mode];
         if (open) draw_finance_panel_chunk_at(screen,a,25,(size_t)open,r[0],r[1],0);
-        if (closed) draw_finance_panel_chunk_at(screen,a,25,(size_t)closed,r[0]+r[2],r[1]+r[3],0);
+        if (closed) draw_finance_panel_chunk_at(screen,a,25,(size_t)closed,r[0],r[1],0);
     }
+}
+
+static int monthly_award_beam_visible(int stage)
+{
+    /* 0x438404..0x43856B and 0x438BCE..0x438D3B first draw the beam
+     * while announcing the selected character's name.  The preceding
+     * unlucky/rich introduction stages 6 and 16 do not draw one. */
+    return (stage >= 7 && stage <= 9) ||
+           (stage >= 17 && stage <= 19);
+}
+
+static int monthly_award_detail_visible(int stage)
+{
+    /* After 0x45144F returns, 0x43894E/0x439050 redraw only the host's
+     * rectangle.  The reason card and final FLC frame therefore remain
+     * visible during the consolation/goodbye stages. */
+    return stage == 8 || stage == 9 || stage == 18 || stage == 19;
 }
 
 int draw_monthly_award(SDL_Surface *screen, const GamePreviewAssets *a,
@@ -329,7 +346,8 @@ int draw_monthly_award(SDL_Surface *screen, const GamePreviewAssets *a,
     }
     row = count < 2 ? 0 : count - 2;
     draw_finance_panel_chunk_at(screen, a, 25, 0, 0, 0, 0);
-    if (selected >= 0) draw_finance_panel_chunk_at(screen, a, 25,
+    if (selected >= 0 && monthly_award_beam_visible(stage))
+        draw_finance_panel_chunk_at(screen, a, 25,
         (size_t)background_chunk[row][selected_ordinal], background_x[row][selected_ordinal], 0, 0);
     draw_finance_panel_chunk_at(screen, a, 25,
         stage == 5 ? 19u : stage == 6 || stage == 8 ? 32u : stage == 7 ? 37u :
@@ -343,8 +361,8 @@ int draw_monthly_award(SDL_Surface *screen, const GamePreviewAssets *a,
         if ((p->player_mask & (1u << i)) == 0) continue;
         c = s->state->players[i].character;
         actor = 47 + 3 * c;
-        if ((stage == 8 || stage == 18) && i == selected) {
-            int kind = stage == 8 ? 1 : 0;
+        if (monthly_award_detail_visible(stage) && i == selected) {
+            int kind = stage <= 9 ? 1 : 0;
             if (!game_asset_require_data(a, &a->ui.monthly_award_data[c][kind]))
                 continue;
             int frames = game_asset_graph_frames(a, &a->ui.monthly_award_data[c][kind], a->ui.monthly_award_size[c][kind]);
@@ -360,7 +378,7 @@ int draw_monthly_award(SDL_Surface *screen, const GamePreviewAssets *a,
                 x_positions[row][ordinal], 330 + chunk.y - chunk.height, 1);
         ++ordinal;
     }
-    if (stage == 8 || stage == 18) {
+    if (monthly_award_detail_visible(stage)) {
         char number[32];
         int values[3];
         static const char *const unlucky[3] = {
@@ -370,14 +388,14 @@ int draw_monthly_award(SDL_Surface *screen, const GamePreviewAssets *a,
         static const char *const wealthy[3] = {
             "\xb2\x7b\xaa\xf7\xa1\x47", "\xa6\x73\xb4\xda\xa1\x47",
             "\xc1\x60\xb8\xea\xb2\xa3\xa1\x47"};
-        values[0] = stage == 8 ? p->monthly_loss[selected] : p->cash[selected];
-        values[1] = stage == 8 ? p->monthly_income[selected] : p->balance[selected];
-        values[2] = stage == 8 ? p->monthly_bad_days[selected] : p->assets[selected];
+        values[0] = stage <= 9 ? p->monthly_loss[selected] : p->cash[selected];
+        values[1] = stage <= 9 ? p->monthly_income[selected] : p->balance[selected];
+        values[2] = stage <= 9 ? p->monthly_bad_days[selected] : p->assets[selected];
         draw_finance_panel_chunk_at(screen, a, 25, 2, 440, 405, 0);
         text(screen, 320, 370, "\xc0\xf2\xbc\xfa\xad\xec\xa6\x5d\xa1\x47", 16, 0);
         for (i = 0; i < 3; ++i) {
-            text(screen, 320, 388 + i * 18, stage == 8 ? unlucky[i] : wealthy[i], 16, 0);
-            if (stage == 8 && i == 2) snprintf(number, sizeof(number), "%d\xa4\xd1", values[i]);
+            text(screen, 320, 388 + i * 18, stage <= 9 ? unlucky[i] : wealthy[i], 16, 0);
+            if (stage <= 9 && i == 2) snprintf(number, sizeof(number), "%d\xa4\xd1", values[i]);
             else format_hud_number(number, sizeof(number), values[i], 1);
             text(screen, 560, 388 + i * 18, number, 16, 1);
         }

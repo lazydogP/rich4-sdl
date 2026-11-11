@@ -49,6 +49,16 @@ static void overlay_matches(SDL_Surface *screen,const GamePreviewAssets *a,
     assert(checked>10); SDL_FreeSurface(expected);
 }
 
+static int saved_region_matches(SDL_Surface *screen,
+    const unsigned char *saved,int x,int y,int w,int h)
+{
+    for (int row=y;row<y+h;++row)
+        if (memcmp(saved+(size_t)row*(size_t)screen->pitch+2*(size_t)x,
+                   (unsigned char *)screen->pixels+row*screen->pitch+2*x,
+                   2*(size_t)w)!=0) return 0;
+    return 1;
+}
+
 int main(void)
 {
     static GamePreviewAssets a;
@@ -148,6 +158,19 @@ int main(void)
                 (unsigned char *)screen->pixels+y*screen->pitch+520,440)==0);
         SDL_FreeSurface(e);
     }
+    {
+        unsigned char *saved=malloc((size_t)screen->pitch*(size_t)screen->h);
+        assert(saved!=NULL);
+        memcpy(saved,screen->pixels,(size_t)screen->pitch*(size_t)screen->h);
+        s.presentation.bank_settlement.face_mode=0;
+        s.presentation.bank_settlement.mouth_chunk=22<<8;
+        draw_bank_settlement_presentation(screen,&a,&snapshot);
+        /* 0x43974D..0x439759 passes (76,160), not the IDA-decompiler
+         * artifact (Rect.right,Rect.bottom) = (156,180). */
+        assert(saved_region_matches(screen,saved,156,180,80,20));
+        s.presentation.bank_settlement.mouth_chunk=0;
+        free(saved);
+    }
     assert(SDL_SaveBMP(screen,"build/monthly-bank-opening.bmp")==0);
     s.presentation.bank_settlement.display_speech_id=0;
     s.presentation.bank_settlement.frame = 2;
@@ -162,6 +185,47 @@ int main(void)
     s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=5;
     assert(draw_monthly_award(screen,&a,&snapshot));
     overlay_matches(screen,&a,25,74,324,299,301,269,46,61); /* bottom is exactly 330 */
+    {
+        unsigned char *saved=malloc((size_t)screen->pitch*(size_t)screen->h);
+        assert(saved!=NULL);
+        s.presentation.bank_settlement.unlucky_player=3;
+        s.presentation.bank_settlement.richest_player=3;
+        s.presentation.bank_settlement.display_speech_id=0;
+
+        /* 0x438336/0x438B23: the introduction has no beam.  The beam first
+         * appears with the name announcement at 0x438404/0x438BCE. */
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=6;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        memcpy(saved,screen->pixels,(size_t)screen->pitch*(size_t)screen->h);
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=7;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        assert(!saved_region_matches(screen,saved,494,0,146,348));
+
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=16;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        memcpy(saved,screen->pixels,(size_t)screen->pitch*(size_t)screen->h);
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=17;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        assert(!saved_region_matches(screen,saved,494,0,146,348));
+
+        /* 0x43894E..0x438A14 / 0x439050..0x439115 replace only the host.
+         * The beam, reason card and final FLC frame stay on the right. */
+        s.presentation.bank_settlement.animation_frame=4;
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=8;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        memcpy(saved,screen->pixels,(size_t)screen->pitch*(size_t)screen->h);
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=9;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        assert(saved_region_matches(screen,saved,494,180,146,300));
+
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=18;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        memcpy(saved,screen->pixels,(size_t)screen->pitch*(size_t)screen->h);
+        s.presentation.bank_settlement.stage=s.presentation.bank_settlement.display_stage=19;
+        assert(draw_monthly_award(screen,&a,&snapshot));
+        assert(saved_region_matches(screen,saved,494,180,146,300));
+        free(saved);
+    }
     s.presentation.bank_settlement.stage = 18;
     s.presentation.bank_settlement.display_stage = 18;
     s.presentation.bank_settlement.richest_player = 0;

@@ -52,13 +52,14 @@ void rich4_monthly_banker_update(GameSession *s, int speaking)
     if (mode < 6 && open_mouth[mode] && (speaking || p->mouth_ticks)) {
         if (p->mouth_ticks) {
             if (--p->mouth_ticks == 0)
-                /* The original copies the closed mouth at Rect.right/bottom
-                 * (0x439737..0x439759), retaining the earlier face pixels. */
-                p->mouth_chunk |= closed_mouth[mode] << 8;
+                /* At 0x43974D..0x439759 the second stack load occurs after
+                 * the first push, so the actual arguments remain Rect.left
+                 * and Rect.top despite IDA naming them right/bottom. */
+                p->mouth_chunk = closed_mouth[mode] << 8;
         } else if ((rich4_rng_original_state_next(&rng) >> 11) < 4) {
             n = open_mouth[mode];
             if (mode == 0 && !(rich4_rng_original_state_next(&rng) & 1)) n = 0;
-            p->mouth_chunk = (p->mouth_chunk & ~255) | n;
+            p->mouth_chunk = n;
             p->mouth_ticks = (rich4_rng_original_state_next(&rng) & 7) + 1;
         }
     }
