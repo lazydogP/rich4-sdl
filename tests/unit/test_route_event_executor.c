@@ -828,6 +828,34 @@ static void news_presentation_pause_resume(void)
     assert(queue.queue.count==0 && !queue.state.waiting_for_command);
 }
 
+static void display_object_id_does_not_select_news(void)
+{
+    GameState state;
+    RouteEventExecutor queue;
+    GameEventQueue events;
+    RouteEventExecutionResult result;
+    RouteEvent stop=route_event(ROUTE_EVENT_PHASE_STOP,9,0x1772,
+                                GAME_PROPERTY_STOP_BRANCH_UNSUPPORTED);
+    int i;
+    memset(&state,0,sizeof(state)); state.active=1; state.player_count=1;
+    state.players[0].play_state=1; state.players[0].linked_player=-1;
+    stop.snapshot.route_action=0;
+    rich4_route_event_executor_reset(&queue);
+    assert(rich4_route_event_queue_push(&queue.queue,&stop));
+    assert(rich4_route_event_executor_begin(&queue,0,93));
+    rich4_game_event_queue_reset(&events);
+    result=rich4_route_event_executor_step(&queue,&state,&events);
+    assert(result==ROUTE_EVENT_EXECUTION_PROGRESSED);
+    assert(state.special_event_phase==GAME_SPECIAL_PHASE_IDLE);
+    for (i=0;i<events.count;i++) {
+        const GameEvent *event=&events.events[
+            (events.head+i)%GAME_EVENT_QUEUE_CAPACITY];
+        assert(event->type!=GAME_EVENT_SPECIAL_EVENT_PREPARED);
+        assert(event->type!=GAME_EVENT_SPECIAL_EVENT_PRESENTATION_REQUESTED);
+    }
+    assert(queue.queue.count==0 && !queue.state.waiting_for_command);
+}
+
 static void bank_stop_itself_uses_two_pages(void)
 {
     GameState state;
@@ -1931,6 +1959,7 @@ int main(void)
     unknown_allows_next_turn();
     ai_upgrade_and_toll_bankruptcy();
     news_presentation_pause_resume();
+    display_object_id_does_not_select_news();
     bank_stop_itself_uses_two_pages();
     passive_special_rewards_apply_original_values();
     confinement_visit_pauses_and_resumes();

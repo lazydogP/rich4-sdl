@@ -265,14 +265,13 @@ RouteEventExecutionResult rich4_route_event_executor_step_special(
             *executor = next_queue;
             return ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND;
         } else if (event->phase == ROUTE_EVENT_PHASE_STOP &&
-            (action == 2 || action == 3 ||
-             (action == 0 && (raw == 0x1772 || raw == 0x1773)))) {
+                   (action == 2 || action == 3)) {
             GameState next_state=*state;
             RouteEventExecutor next_queue=*executor;
             GameEventQueue staged;
             GameSpecialEventResult special;
             rich4_game_event_queue_reset(&staged);
-            special = (action == 2 || (action == 0 && raw == 0x1772)) ?
+            special = action == 2 ?
                 rich4_special_event_begin_news(&next_state,executor->state.execution_actor,&staged) :
                 rich4_special_event_begin_fortune(&next_state,executor->state.execution_actor,&staged);
             if (special==GAME_SPECIAL_EVENT_PREPARED) {

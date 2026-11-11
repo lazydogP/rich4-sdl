@@ -8,11 +8,13 @@
 #include "app/point_minigame_flow.h"
 #include "app/route_event_flow.h"
 #include "app/route_flow.h"
+#include "app/turn_movement_flow.h"
 #include "app/turn_rotation_flow.h"
 #include "core/game_constants.h"
 #include "core/game_event_payload.h"
 #include "core/route_event.h"
 #include "core/rng.h"
+#include "core/special_event.h"
 
 static RouteEvent road_event(void)
 {
@@ -178,6 +180,96 @@ static void hosted_minigame_result_then_character_speech(void)
                 assert(global_after.state == global_before.state);
             }
     assert(variants_seen == 3u);
+}
+
+static void active_news_owns_route_tail(void)
+{
+    GameSession session;
+    Rich4AppRouteEventServices services = { 0 };
+    RouteEvent stop;
+
+    memset(&session, 0, sizeof(session));
+    memset(&stop, 0, sizeof(stop));
+    session.state.active = 1;
+    session.state.player_count = 1;
+    session.state.current_player = 0;
+    session.state.players[0].play_state = 1;
+    session.state.players[0].god_info = 1;
+    session.state.players[0].god_type = 9;
+    session.state.players[0].node = 2;
+    session.state.land_count = 1;
+    session.state.land_owner[0] = 0;
+    session.state.land_level[0] = 1;
+    session.state.land_type[0] = 0;
+    session.state.route_object_raw[2] = 0x7d1;
+    session.flow.turn_flow_active = 1;
+    session.flow.turn_state = GAME_TURN_STATE_ROUTE_EVENTS;
+    session.flow.route_events.state.execution_started = 1;
+    session.flow.route_events.state.execution_actor = 0;
+    stop.phase = ROUTE_EVENT_PHASE_STOP;
+    stop.node = 2;
+    stop.object_ref = rich4_map_object_ref(0x7d1);
+    stop.snapshot.player = 0;
+    stop.snapshot.event_kind = GAME_ROUTE_EVENT_LAND;
+    stop.snapshot.route_action = 0;
+    assert(rich4_route_event_collection_push(
+        &session.flow.route_facts, &stop));
+    session.presentation.special_event.active = 1;
+    session.presentation.special_event.family = GAME_SPECIAL_EVENT_NEWS;
+    session.presentation.special_event.phase = RICH4_SPECIAL_PRESENT_REACTION;
+
+    assert(rich4_app_route_event_update(
+        &session, NULL, 100, 1, &services) == 1);
+    assert(session.flow.turn_wait == 0);
+    assert(session.presentation.property.phase == GAME_PROPERTY_PRESENT_NONE);
+    assert(session.presentation.special_event.active);
+
+    session.presentation.special_event.active = 0;
+    assert(rich4_app_route_event_update(
+        &session, NULL, 101, 1, &services) == 1);
+    assert(session.flow.turn_wait == RICH4_ROUTE_END_EFFECTS);
+    assert(session.presentation.property.phase ==
+           GAME_PROPERTY_PRESENT_GOD_BUILD_TEXT);
+}
+
+static void news_action_skips_property_tail(void)
+{
+    GameSession session;
+    Rich4AppRouteEventServices services = { 0 };
+    RouteEvent stop;
+
+    memset(&session, 0, sizeof(session));
+    memset(&stop, 0, sizeof(stop));
+    session.state.active = 1;
+    session.state.player_count = 1;
+    session.state.current_player = 0;
+    session.state.players[0].play_state = 1;
+    session.state.players[0].god_info = 1;
+    session.state.players[0].god_type = 9;
+    session.state.players[0].node = 2;
+    session.state.land_count = 1;
+    session.state.land_owner[0] = 0;
+    session.state.land_level[0] = 1;
+    session.state.land_type[0] = 0;
+    session.state.route_object_raw[2] = 0x7d1;
+    session.flow.turn_flow_active = 1;
+    session.flow.turn_state = GAME_TURN_STATE_ROUTE_EVENTS;
+    session.flow.route_events.state.execution_started = 1;
+    session.flow.route_events.state.execution_actor = 0;
+    stop.phase = ROUTE_EVENT_PHASE_STOP;
+    stop.node = 2;
+    stop.object_ref = rich4_map_object_ref(0x7d1);
+    stop.snapshot.player = 0;
+    stop.snapshot.event_kind = GAME_ROUTE_EVENT_SECOND_SPECIAL;
+    stop.snapshot.route_action = 2;
+    assert(rich4_route_event_collection_push(
+        &session.flow.route_facts, &stop));
+
+    assert(rich4_app_route_event_update(
+        &session, NULL, 200, 1, &services) == 1);
+    assert(session.flow.turn_wait == RICH4_ROUTE_END_COUNTDOWN);
+    assert(session.flow.property_turn_end_ticks == 1);
+    assert(session.presentation.property.phase == GAME_PROPERTY_PRESENT_NONE);
 }
 
 int main(void)
@@ -412,6 +504,8 @@ int main(void)
                session.presentation.magic_house.selected_action == 6);
     }
     hosted_minigame_result_then_character_speech();
+    active_news_owns_route_tail();
+    news_action_skips_property_tail();
     puts("app route event flow: ok");
     return 0;
 }

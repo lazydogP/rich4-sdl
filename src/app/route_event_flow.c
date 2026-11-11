@@ -321,18 +321,40 @@ static void complete_route_turn(GameSession *session, const MapData *map,
         services->begin_special_actor(services->actor_context, &rotation);
 }
 
-static int stopped_common_tail_node(const GameSession *session)
+typedef enum Rich4RouteEndContinuationKind {
+    RICH4_ROUTE_END_CONTINUATION_DIRECT = 0,
+    RICH4_ROUTE_END_CONTINUATION_COMMON_TAIL
+} Rich4RouteEndContinuationKind;
+
+typedef struct Rich4RouteEndContinuation {
+    Rich4RouteEndContinuationKind kind;
+    int node;
+} Rich4RouteEndContinuation;
+
+static Rich4RouteEndContinuation stopped_route_end_continuation(
+    const GameSession *session)
 {
+    Rich4RouteEndContinuation continuation = {
+        RICH4_ROUTE_END_CONTINUATION_DIRECT, -1
+    };
     int i;
+    if (session == NULL) return continuation;
     for (i = 0; i < session->flow.route_facts.count; ++i) {
         const RouteEvent *event = rich4_route_event_collection_at(
             &session->flow.route_facts, i);
-        if (event != NULL && event->phase == ROUTE_EVENT_PHASE_STOP &&
-            event->snapshot.route_action == 0 &&
-            event->object_ref.raw_object_id != 0)
-            return event->node;
+        if (event == NULL || event->phase != ROUTE_EVENT_PHASE_STOP)
+            continue;
+        /* 0x41982D action 2/3 and the other nonzero actions return from
+         * their jump-table branch.  Only action 0 reaches 0x41B077's
+         * property/common tail (0x40F381, 0x448A7E and EA5=0x88). */
+        if (event->snapshot.route_action == 0 &&
+            event->object_ref.raw_object_id != 0) {
+            continuation.kind = RICH4_ROUTE_END_CONTINUATION_COMMON_TAIL;
+            continuation.node = event->node;
+        }
+        return continuation;
     }
-    return -1;
+    return continuation;
 }
 
 int rich4_app_route_event_update(
@@ -348,6 +370,11 @@ int rich4_app_route_event_update(
         return 0;
     if (session->presentation.engineering_attack.active) return 1;
     if (session->presentation.special_place_notice.queue.count > 0) return 1;
+    /* A completed route command can still own a news/fortune callback and
+     * its speech.  Keep that presentation as the state-machine owner until
+     * it deactivates; otherwise the route tail can start a god/property
+     * modal behind it and expose the old event page when that modal closes. */
+    if (session->presentation.special_event.active) return 1;
     if (services->update_property_charge != NULL &&
         services->update_property_charge(services->property_context))
         return 1;
@@ -485,22 +512,37 @@ int rich4_app_route_event_update(
         execution_result == ROUTE_EVENT_EXECUTION_INVALID)
         return 1;
     if (rich4_app_route_event_finish(session, now)) return 1;
-    /* 0x41982D's shared tail calls 0x40F381 after the property branch.
-     * No EA5 end ticks elapse during its presentations. */
-    if (session->flow.turn_wait != RICH4_ROUTE_END_EFFECTS) {
-        int node = stopped_common_tail_node(session);
-        session->flow.turn_wait = RICH4_ROUTE_END_EFFECTS;
-        if (node >= 0) {
-            if (rich4_property_begin_god_landing(
-                    session, session->state.current_player, node, now)) return 1;
+    {
+        Rich4RouteEndContinuation continuation =
+            stopped_route_end_continuation(session);
+
+        /* News, fortune and every other nonzero route action return directly
+         * from their jump-table branch.  They never enter the property tail,
+         * even when the actor has just collected an Angel on that square. */
+        if (continuation.kind == RICH4_ROUTE_END_CONTINUATION_DIRECT) {
+            session->flow.property_turn_end_ticks = 1;
+            session->flow.property_turn_end_tick =
+                session->presentation.movement_tick != 0
+                    ? session->presentation.movement_tick : now;
+            session->flow.turn_wait = RICH4_ROUTE_END_COUNTDOWN;
+            return 1;
         }
+
+        /* 0x41982D's action-0 common tail calls 0x40F381 after the
+         * property branch. No EA5 end ticks elapse during presentations. */
+        if (session->flow.turn_wait != RICH4_ROUTE_END_EFFECTS) {
+            session->flow.turn_wait = RICH4_ROUTE_END_EFFECTS;
+            if (rich4_property_begin_god_landing(
+                    session, session->state.current_player,
+                    continuation.node, now))
+                return 1;
+        }
+        session->flow.property_turn_end_ticks = 8;
+        /* 0x41B09D: after 0x40F381, before EA5's eight idle ticks. */
+        (void)rich4_engineering_attack_begin(
+            session, session->state.current_player,
+            continuation.node, now);
     }
-    session->flow.property_turn_end_ticks =
-        stopped_common_tail_node(session) >= 0 ? 8 : 1;
-    /* 0x41B09D: after 0x40F381, before EA5's eight idle ticks. */
-    (void)rich4_engineering_attack_begin(
-        session, session->state.current_player,
-        stopped_common_tail_node(session), now);
     if (session->presentation.hotel_entry.pending &&
         rich4_hotel_update_entry(session, map, now,
             (int)services->property_end_delay_ms))
