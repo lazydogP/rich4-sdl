@@ -49,7 +49,7 @@ struct Rich4Audio {
     Mix_Chunk *roulette;
     int roulette_channel;
     Mix_Chunk *magic_hover;
-    Mix_Chunk *magic_turn;
+    Mix_Chunk *turn_around;
     Mix_Chunk *magic_finale;
     Mix_Chunk *news_consequence[5];
     Mix_Chunk *point_minigame_effect[9];

@@ -74,6 +74,37 @@ int rich4_audio_event_pop(Rich4AudioEventQueue *queue,
     return 1;
 }
 
+int rich4_app_present_turn_around(
+    GameSession *session, GameDomainRef target,
+    Rich4AudioEventQueue *audio_events)
+{
+    if (session == NULL) return 0;
+    if (target.kind == GAME_DOMAIN_PLAYER) {
+        GameActorPresentationState *actor;
+        if (target.id < 0 || target.id >= session->state.player_count)
+            return 0;
+        actor = &session->presentation.actors[target.id];
+        actor->direction = (actor->direction + 4) & 7;
+        actor->walk_frame = 0;
+    } else if (target.kind == GAME_DOMAIN_SPECIAL_PLAYER) {
+        GameSpecialActorPresentationState *actor =
+            &session->presentation.special_actor;
+        if (target.id < 0 || target.id >= GAME_SPECIAL_PLAYER_COUNT)
+            return 0;
+        if (actor->active && actor->slot == target.id) {
+            actor->direction = (actor->direction + 4) & 7;
+            actor->animation_frame = 0;
+        }
+    } else {
+        return 0;
+    }
+    if (audio_events != NULL && rich4_audio_event_emit(
+            audio_events, RICH4_AUDIO_EVENT_TURN_AROUND, 1, 56))
+        return 1;
+    session->presentation.turn_around_sound_pending++;
+    return 1;
+}
+
 int rich4_audio_movement_sound_method(
     const GamePlayerState *player, const MapData *map)
 {
@@ -109,6 +140,10 @@ void rich4_app_collect_session_audio_events(
         rich4_audio_event_emit(audio_events, RICH4_AUDIO_EVENT_DOOR, 1, 0);
         session->presentation.intro.door_sound_pending--;
     }
+    while (session->presentation.turn_around_sound_pending > 0 &&
+           rich4_audio_event_emit(
+               audio_events, RICH4_AUDIO_EVENT_TURN_AROUND, 1, 56))
+        session->presentation.turn_around_sound_pending--;
     if (session->presentation.property.sound_pending == 1)
         rich4_audio_event_emit(
             audio_events, RICH4_AUDIO_EVENT_PROPERTY_PURCHASE, 1, 0);

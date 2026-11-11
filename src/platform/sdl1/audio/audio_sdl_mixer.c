@@ -123,8 +123,8 @@ void rich4_audio_shutdown(Rich4Audio *audio)
         Mix_FreeChunk(audio->roulette);
     if (audio->magic_hover != NULL)
         Mix_FreeChunk(audio->magic_hover);
-    if (audio->magic_turn != NULL)
-        Mix_FreeChunk(audio->magic_turn);
+    if (audio->turn_around != NULL)
+        Mix_FreeChunk(audio->turn_around);
     if (audio->magic_finale != NULL)
         Mix_FreeChunk(audio->magic_finale);
     {
@@ -438,8 +438,8 @@ int rich4_audio_load_special_place_sound(Rich4Audio *audio,
         Mix_FreeChunk(audio->roulette);
     if (audio->magic_hover != NULL)
         Mix_FreeChunk(audio->magic_hover);
-    if (audio->magic_turn != NULL)
-        Mix_FreeChunk(audio->magic_turn);
+    if (audio->turn_around != NULL)
+        Mix_FreeChunk(audio->turn_around);
     for (i = 0; i < 5; i++) {
         if (audio->news_consequence[i] != NULL)
             Mix_FreeChunk(audio->news_consequence[i]);
@@ -486,7 +486,7 @@ int rich4_audio_load_special_place_sound(Rich4Audio *audio,
      * action region; its Effect.MKF resource is 39. */
     audio->magic_hover = load_effect_resource(effect_mkf, 39);
     /* sub_40C78C plays structure 0x4823F2; its first byte is 56. */
-    audio->magic_turn = load_effect_resource(effect_mkf, 56);
+    audio->turn_around = load_effect_resource(effect_mkf, 56);
     if (audio->magic_finale != NULL) Mix_FreeChunk(audio->magic_finale);
     /* 0x432A6A -> 0x45144F: Panel[20] with Effect[59]. */
     audio->magic_finale = load_effect_resource(effect_mkf, 59);
@@ -497,7 +497,7 @@ int rich4_audio_load_special_place_sound(Rich4Audio *audio,
            audio->lottery_purchase != NULL ||
            audio->roulette != NULL ||
            audio->magic_hover != NULL ||
-           audio->magic_turn != NULL ||
+           audio->turn_around != NULL ||
            audio->magic_finale != NULL ||
            audio->news_consequence[0] != NULL ||
            audio->news_consequence[1] != NULL ||

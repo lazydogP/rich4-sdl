@@ -42,17 +42,27 @@ int main(void)
         session.presentation.god_acquisition.sound_pending = 1;
         session.presentation.god_acquisition.god_type = 15;
         session.presentation.monster_card.sound_resource = 97;
+        session.presentation.actors[0].direction = 2;
         session.presentation.actors[0].move_active = 1;
         rich4_audio_event_queue_init(&queue);
+        assert(rich4_app_present_turn_around(
+            &session, (GameDomainRef){GAME_DOMAIN_PLAYER, 0}, NULL));
+        assert(session.presentation.actors[0].direction == 6 &&
+               session.presentation.actors[0].walk_frame == 0 &&
+               session.presentation.turn_around_sound_pending == 1);
         rich4_app_collect_session_audio_events(&session, &map, &queue);
         assert(session.presentation.dice.sound_pending == 0);
         assert(session.presentation.property.sound_pending == 0);
         assert(session.presentation.god_acquisition.sound_pending == 0);
         assert(session.presentation.monster_card.sound_resource == 0);
         assert(session.presentation.god_detachment.sound_pending == 0);
-        assert(queue.count == 7);
+        assert(session.presentation.turn_around_sound_pending == 0);
+        assert(queue.count == 8);
         assert(rich4_audio_event_pop(&queue, &event) &&
                event.type == RICH4_AUDIO_EVENT_DICE);
+        assert(rich4_audio_event_pop(&queue, &event) &&
+               event.type == RICH4_AUDIO_EVENT_TURN_AROUND &&
+               event.value == 56);
         assert(rich4_audio_event_pop(&queue, &event) &&
                event.type == RICH4_AUDIO_EVENT_PROPERTY_TOLL);
         assert(rich4_audio_event_pop(&queue, &event) &&
@@ -67,6 +77,19 @@ int main(void)
                event.type == RICH4_AUDIO_EVENT_MOVEMENT && event.active);
         assert(rich4_audio_event_pop(&queue, &event) &&
                event.type == RICH4_AUDIO_EVENT_ATTACHED_BOMB && !event.active);
+        rich4_audio_event_queue_reset(&queue);
+        session.presentation.special_actor.active = 1;
+        session.presentation.special_actor.slot = 0;
+        session.presentation.special_actor.direction = 1;
+        assert(rich4_app_present_turn_around(
+            &session,
+            (GameDomainRef){GAME_DOMAIN_SPECIAL_PLAYER, 0},
+            &queue));
+        assert(session.presentation.special_actor.direction == 5);
+        assert(rich4_audio_event_pop(&queue, &event) &&
+               event.type == RICH4_AUDIO_EVENT_TURN_AROUND &&
+               event.value == 56);
+        session.presentation.special_actor.active = 0;
         rich4_app_collect_session_audio_events(&session, &map, &queue);
         assert(queue.count == 2); /* One-shot god sounds must not repeat. */
         assert(rich4_audio_event_pop(&queue, &event) &&

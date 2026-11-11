@@ -304,12 +304,34 @@ int main(void)
 
     setup(&state);
     state.players[0].card_inventory[0] = 6;
+    state.tool_route_node_count = 4;
+    state.players[1].node = 1;
+    state.players[1].next_node = 2;
+    state.tool_route_next[1][0] = 2;
+    state.tool_route_next[1][1] = 3;
     command = use_card(0, 5,
         rich4_game_domain_ref(GAME_DOMAIN_PLAYER, 1), GAME_COMMAND_SOURCE_HUMAN);
     rich4_game_event_queue_reset(&events);
     assert(rich4_card_apply_command(&state, &command, &events) ==
            GAME_CARD_USE_APPLIED);
-    assert(state.players[1].route_reversed == 1);
+    assert(state.players[1].next_node == 3 &&
+           state.players[1].route_reversed == 0);
+
+    setup(&state);
+    state.players[0].card_inventory[0] = 6;
+    state.tool_route_node_count = 4;
+    state.special_player_node[0] = 1;
+    state.special_player_previous_node[0] = 2;
+    state.tool_route_next[1][0] = 2;
+    state.tool_route_next[1][1] = 3;
+    command = use_card(0, 5,
+        rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, 0),
+        GAME_COMMAND_SOURCE_HUMAN);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_card_apply_command(&state, &command, &events) ==
+           GAME_CARD_USE_APPLIED);
+    assert(state.special_player_previous_node[0] == 3 &&
+           state.special_player_route_reversed[0] == 0);
 
     setup(&state);
     state.players[0].card_inventory[0] = 17; /* 陷害 */

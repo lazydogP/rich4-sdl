@@ -334,11 +334,11 @@ void rich4_audio_play_magic_hover(Rich4Audio *audio)
     Mix_PlayChannel(-1, audio->magic_hover, 0);
 }
 
-void rich4_audio_play_magic_turn(Rich4Audio *audio)
+void rich4_audio_play_turn_around(Rich4Audio *audio)
 {
     if (audio == NULL || !audio->ready || !audio->effects_enabled ||
-        audio->magic_turn == NULL) return;
-    Mix_PlayChannel(-1, audio->magic_turn, 0);
+        audio->turn_around == NULL) return;
+    Mix_PlayChannel(-1, audio->turn_around, 0);
 }
 
 static int point_minigame_effect_index(int resource)
@@ -585,7 +585,7 @@ void rich4_audio_consume_event(Rich4Audio *audio, const Rich4AudioEvent *event)
         break;
     case RICH4_AUDIO_EVENT_CANCEL: rich4_audio_play_cancel(audio); break;
     case RICH4_AUDIO_EVENT_MAGIC_HOVER: rich4_audio_play_magic_hover(audio); break;
-    case RICH4_AUDIO_EVENT_MAGIC_TURN: rich4_audio_play_magic_turn(audio); break;
+    case RICH4_AUDIO_EVENT_TURN_AROUND: rich4_audio_play_turn_around(audio); break;
     case RICH4_AUDIO_EVENT_MAGIC_FINALE:
         if (audio != NULL && audio->ready && audio->effects_enabled &&
             audio->magic_finale != NULL)

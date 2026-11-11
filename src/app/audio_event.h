@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include "core/game_domain.h"
+
 #define RICH4_AUDIO_EVENT_CAPACITY 32
 
 struct GamePlayerState;
@@ -38,7 +40,7 @@ typedef enum Rich4AudioEventType {
     RICH4_AUDIO_EVENT_POINT_MINIGAME_STOP_EFFECT,
     RICH4_AUDIO_EVENT_CANCEL,
     RICH4_AUDIO_EVENT_MAGIC_HOVER,
-    RICH4_AUDIO_EVENT_MAGIC_TURN,
+    RICH4_AUDIO_EVENT_TURN_AROUND,
     RICH4_AUDIO_EVENT_SPEECH_START,
     RICH4_AUDIO_EVENT_SPEECH_STOP,
     RICH4_AUDIO_EVENT_TOOL_EFFECT,
@@ -98,6 +100,11 @@ int rich4_audio_event_emit(Rich4AudioEventQueue *queue,
                            int value);
 int rich4_audio_event_pop(Rich4AudioEventQueue *queue,
                           Rich4AudioEvent *out_event);
+/* App half of original 0x40C78C: rotate the visible actor and play the
+ * shared Effect[56].  A NULL queue defers the one-shot to frame collection. */
+int rich4_app_present_turn_around(
+    struct GameSession *session, GameDomainRef target,
+    Rich4AudioEventQueue *audio_events);
 int rich4_audio_movement_sound_method(
     const struct GamePlayerState *player,
     const struct MapData *map);

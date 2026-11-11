@@ -97,8 +97,48 @@ static void confinement_actions_request_shared_presentations(void)
     }
 }
 
+static void turn_action_uses_shared_flow(void)
+{
+    GameSession session;
+    RouteEvent route = {0};
+    Rich4AudioEventQueue audio;
+    Rich4AudioEvent sound;
+
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 1;
+    session.state.players[0].play_state = 1;
+    session.state.players[0].node = 1;
+    session.state.players[0].next_node = 2;
+    session.state.tool_route_node_count = 4;
+    session.state.tool_route_next[1][0] = 2;
+    session.state.tool_route_next[1][1] = 3;
+    session.presentation.actors[0].direction = 2;
+    session.presentation.actors[0].walk_frame = 3;
+    route.phase = ROUTE_EVENT_PHASE_STOP;
+    route.snapshot.route_action = 16;
+    assert(rich4_route_event_queue_push(
+        &session.flow.route_events.queue, &route));
+    session.flow.route_events.state.execution_started = 1;
+    session.flow.route_events.state.waiting_for_presentation = 1;
+    session.flow.route_events.state.presentation_action = 16;
+    session.flow.route_events.state.presentation_condition = 6;
+    session.flow.route_events.state.presentation_targets = 1;
+    session.presentation.magic_house.active = 1;
+
+    rich4_audio_event_queue_init(&audio);
+    rich4_magic_house_finish(&session, 7, 1000, &audio, NULL);
+    assert(session.state.players[0].next_node == 3);
+    assert(session.presentation.actors[0].direction == 6);
+    assert(session.presentation.actors[0].walk_frame == 0);
+    assert(rich4_audio_event_pop(&audio, &sound));
+    assert(sound.type == RICH4_AUDIO_EVENT_TURN_AROUND &&
+           sound.value == 56);
+}
+
 int main(void)
 {
+    turn_action_uses_shared_flow();
     confinement_actions_request_shared_presentations();
     GameSession session;
     Rich4AudioEventQueue audio_events;

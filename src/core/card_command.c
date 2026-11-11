@@ -5,6 +5,7 @@
 #include "core/game_event_payload.h"
 #include "core/god.h"
 #include "core/stock.h"
+#include "core/turn_around.h"
 
 /* Active card command application; consumes typed domain commands and emits events. */
 static GameCardUseResult card_apply_command(GameState *state,
@@ -54,10 +55,8 @@ static GameCardUseResult card_apply_command(GameState *state,
         if (!rich4_card_apply_property_card(&next, command, card, &staged))
             return GAME_CARD_USE_INVALID;
     } else if (card == 5) {
-        target = command->target.id;
-        if (command->target.kind == GAME_DOMAIN_SPECIAL_PLAYER)
-            next.special_player_route_reversed[target] ^= 1;
-        else next.players[target].route_reversed ^= 1;
+        if (!rich4_turn_around_route(&next, command->target))
+            return GAME_CARD_USE_INVALID;
         if (!rich4_card_emit_effect(&staged, command->player, command->subject,
                          command->target, 1, 0)) return GAME_CARD_USE_INVALID;
     } else if (card == 12) {

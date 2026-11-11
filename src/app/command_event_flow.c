@@ -1,6 +1,7 @@
 #include "app/command_event_flow.h"
 
 #include "app/auction_flow.h"
+#include "app/audio_event.h"
 #include "app/bankruptcy_flow.h"
 #include "app/bank_flow.h"
 #include "app/dice_flow.h"
@@ -89,6 +90,17 @@ Rich4CommandEventResult rich4_app_apply_command_event(
     case GAME_EVENT_DICE_ROLL_REQUESTED:
         rich4_dice_begin_roll(session, now);
         return RICH4_COMMAND_EVENT_CONSUMED;
+    case GAME_EVENT_STATUS_CHANGED:
+        if (command != NULL && command->type == GAME_COMMAND_USE_CARD &&
+            command->subject.kind == GAME_DOMAIN_CARD &&
+            command->subject.id == 5 &&
+            rich4_game_event_status_subject(event).kind == GAME_DOMAIN_CARD &&
+            rich4_game_event_status_subject(event).id == 5) {
+            (void)rich4_app_present_turn_around(
+                session, rich4_game_event_status_target(event), NULL);
+            return RICH4_COMMAND_EVENT_CONSUMED;
+        }
+        return RICH4_COMMAND_EVENT_PLATFORM_FOLLOWUP;
     case GAME_EVENT_TURN_FLOW_REQUESTED:
         (void)rich4_turn_start_begin(session, now);
         return RICH4_COMMAND_EVENT_CONSUMED;

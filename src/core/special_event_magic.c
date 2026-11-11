@@ -6,6 +6,7 @@
 #include "core/ledger.h"
 #include "core/stock.h"
 #include "core/tool.h"
+#include "core/turn_around.h"
 #include "core/victory.h"
 #include "core/game_event_payload.h"
 
@@ -278,39 +279,6 @@ static int magic_add_relation(GameState *state, int target, int actor)
     return 1;
 }
 
-static int magic_turn_around(GameState *state, int player)
-{
-    Rich4Rng rng;
-    int candidates[4];
-    int count = 0;
-    int node;
-    int edge;
-    if (!rich4_special_event_active_player(state, player)) return 0;
-    node = state->players[player].node;
-    if (node <= 0 || node >= state->tool_route_node_count) {
-        state->players[player].next_node = 0;
-        return 1;
-    }
-    for (edge = 0; edge < 4; edge++) {
-        int next = state->tool_route_next[node][edge];
-        if (next <= 0 || next >= state->tool_route_node_count ||
-            next == state->players[player].next_node ||
-            (state->tool_route_edge_blocked[node] & (1u << edge)) != 0)
-            continue;
-        candidates[count++] = next;
-    }
-    if (count == 0) {
-        state->players[player].next_node = 0;
-        return 1;
-    }
-    rng.state = state->ai_rng_state;
-
-    state->players[player].next_node =
-        candidates[rich4_rng_original_state_range(&rng, count)];
-    state->ai_rng_state = rng.state;
-    return 1;
-}
-
 static int magic_consume_immunity(
     GameState *state, int player, GameEventQueue *events)
 {
@@ -403,7 +371,9 @@ static GameSpecialEventResult rich4_magic_house_apply_action_impl(
                 return GAME_SPECIAL_EVENT_EVENT_CAPACITY;
             break;
         case 7:
-            if (!magic_turn_around(&next, player))
+            if (!rich4_turn_around_route(
+                    &next,
+                    rich4_game_domain_ref(GAME_DOMAIN_PLAYER, player)))
                 return GAME_SPECIAL_EVENT_INVALID;
             value = next.players[player].next_node;
             break;

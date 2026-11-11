@@ -30,8 +30,8 @@ typedef struct GamePlayerState {
     int remote_dice_value;
     int saved_traffic_method;
     int saved_ndices;
-    /* Direction toggle written by 转向卡. The route adapter consumes this
-     * when choosing previous/next edges. */
+    /* Retained for save compatibility. 0x40C78C resolves 转向卡's route
+     * edge immediately; legacy saves may still carry a pending toggle. */
     int route_reversed;
     /* Original +100/+101 used by the engineering vehicle, not status restore. */
     int engineering_saved_traffic_method;

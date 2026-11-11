@@ -54,7 +54,7 @@ void rich4_audio_play_lottery_purchase(Rich4Audio *audio);
 void rich4_audio_play_roulette(Rich4Audio *audio);
 void rich4_audio_stop_roulette(Rich4Audio *audio);
 void rich4_audio_play_magic_hover(Rich4Audio *audio);
-void rich4_audio_play_magic_turn(Rich4Audio *audio);
+void rich4_audio_play_turn_around(Rich4Audio *audio);
 /* News callbacks 0x44913D/0x4492A0/0x44A453/0x44AB2C/0x44AC99. */
 void rich4_audio_play_news_consequence(Rich4Audio *audio, int logical_id);
 void rich4_audio_play_point_minigame_effect(Rich4Audio *audio, int resource);

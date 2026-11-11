@@ -79,7 +79,7 @@ void rich4_audio_play_lottery_purchase(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_roulette(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_stop_roulette(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_magic_hover(Rich4Audio *audio) { (void)audio; }
-void rich4_audio_play_magic_turn(Rich4Audio *audio) { (void)audio; }
+void rich4_audio_play_turn_around(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_news_consequence(Rich4Audio *audio, int logical_id)
 { (void)audio; (void)logical_id; }
 void rich4_audio_play_point_minigame_effect(Rich4Audio *audio, int resource)

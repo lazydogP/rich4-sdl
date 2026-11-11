@@ -429,7 +429,6 @@ void rich4_magic_house_finish(
     int changed_type[GAME_MAX_PLAYERS];
     int changed_count = 0;
     int player;
-    (void)audio_events;
     if (out_events != NULL) rich4_game_event_queue_reset(out_events);
     if (session == NULL || !session->presentation.magic_house.active ||
         action < 0 || action >= 12) return;
@@ -479,11 +478,10 @@ void rich4_magic_house_finish(
                  rich4_game_event_special_commit_subject(&event).id >= 0 &&
                  rich4_game_event_special_commit_subject(&event).id <
                      session->state.player_count) {
-            GameActorPresentationState *actor = &session->presentation.actors[
-                rich4_game_event_special_commit_subject(&event).id];
-            actor->direction = (actor->direction + 4) & 7;
-            actor->walk_frame = 0;
-            rich4_magic_emit(audio_events, RICH4_AUDIO_EVENT_MAGIC_TURN, 56);
+            (void)rich4_app_present_turn_around(
+                session,
+                rich4_game_event_special_commit_subject(&event),
+                audio_events);
         } else if (event.type == GAME_EVENT_AUCTION_REQUESTED) {
             if (!rich4_bankruptcy_capture_event(session, &event, now))
                 (void)rich4_auction_flow_enqueue(
