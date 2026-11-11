@@ -41,6 +41,7 @@ int rich4_audio_play_music(Rich4Audio *audio, const char *path)
 int rich4_audio_play_music_once(Rich4Audio *audio, const char *path)
 { (void)audio; (void)path; return 0; }
 int rich4_audio_music_playing(const Rich4Audio *audio) { (void)audio; return 0; }
+int rich4_audio_supports_midi(const Rich4Audio *audio) { (void)audio; return 0; }
 void rich4_audio_stop_music(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_ok(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_select(Rich4Audio *audio) { (void)audio; }

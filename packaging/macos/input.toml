@@ -1,0 +1,2 @@
+# macOS desktop defaults. Existing user input.toml is preserved on reimport.
+# The game supplies keyboard and mouse defaults when no overrides are present.

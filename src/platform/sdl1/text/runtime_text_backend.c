@@ -21,7 +21,13 @@ typedef struct Rich4RuntimeText {
 } Rich4RuntimeText;
 
 static Rich4RuntimeText g_runtime_text;
-static char g_runtime_font_path[512];
+static char g_runtime_font_path[4096];
+static long g_runtime_font_face_index;
+
+void rich4_sdl_text_set_font_face_index(long face_index)
+{
+    g_runtime_font_face_index = face_index;
+}
 
 void rich4_sdl_text_set_font_path(const char *font_path)
 {
@@ -41,6 +47,8 @@ static int rich4_runtime_text_init(void)
     memset(&g_runtime_text, 0, sizeof(g_runtime_text));
     g_runtime_text.initialized = 1;
     rich4_text_backend_freetype_set_font_path(g_runtime_font_path);
+    rich4_text_backend_freetype_set_font_face_index(
+        g_runtime_font_face_index);
     g_runtime_text.available = rich4_text_backend_freetype_init(
         &g_runtime_text.backend);
 #if defined(RICH4_PLATFORM_MIYOO)

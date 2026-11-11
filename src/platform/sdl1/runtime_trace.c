@@ -8,6 +8,8 @@
 #include <stdarg.h>
 #ifdef _WIN32
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach/mach_time.h>
 #else
 #include <time.h>
 #endif
@@ -41,6 +43,12 @@ static unsigned int wall_ms(void)
     QueryPerformanceFrequency(&frequency);
     return (unsigned int)((counter.QuadPart / frequency.QuadPart) * 1000 +
         (counter.QuadPart % frequency.QuadPart) * 1000 / frequency.QuadPart);
+#elif defined(__APPLE__)
+    mach_timebase_info_data_t timebase;
+    uint64_t ticks = mach_absolute_time();
+    mach_timebase_info(&timebase);
+    return (unsigned int)((ticks / timebase.denom * timebase.numer +
+        ticks % timebase.denom * timebase.numer / timebase.denom) / 1000000u);
 #else
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);

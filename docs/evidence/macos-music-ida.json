@@ -1,0 +1,424 @@
+{
+  "playlist": {
+    "addr": "0x454D91",
+    "code": "char __cdecl sub_454D91(int a1)\n{\n  char result; // al\n  CHAR strCommand[76]; // [esp+0h] [ebp-4Ch] BYREF\n\n  if ( a1 ) /*0x454d9d*/\n    byte_47E771 = a1 - 1; /*0x454da5*/\n  else\n    byte_47E771 = (byte_47E771 + 1) & 7; /*0x454dbf*/\n  if ( n4_7 ) /*0x454dcc*/\n  {\n    if ( byte_47E770 ) /*0x454dd9*/\n    {\n      sub_454AF5(); /*0x454e84*/\n      sprintf(strCommand, \"play cdtrack from %d notify\", (unsigned __int8)byte_47E771 + 2); /*0x454e9e*/\n      if ( !mciSendStringA(strCommand, 0, 0, hWnd) ) /*0x454eb6*/\n        byte_46CB04 = 1; /*0x454ec1*/\n    }\n    else\n    {\n      sub_454ACB(); /*0x454ddf*/\n      sprintf(strCommand, \"open sequencer!%s alias mid\", off_47E773[(unsigned __int8)byte_47E771]);// \"RICH08.MID\" /*0x454e02*/\n      if ( !mciSendStringA(strCommand, 0, 0, 0) /*0x454e51*/\n        || (sprintf(strCommand, \"open sequencer!%s%s alias mid\", &byte_476374, off_47E773[(unsigned __int8)byte_47E771]),\n            !mciSendStringA(strCommand, 0, 0, 0)) )// \"RICH08.MID\"\n      {\n        if ( !mciSendStringA(aPlayMidFrom0No, 0, 0, hWnd) )// \"play mid from 0 notify\" /*0x454e70*/\n          byte_46CB03 = 1; /*0x454e7b*/\n      }\n    }\n  }\n  result = byte_47E771 | 0x80; /*0x454ecd*/\n  byte_47E772 = byte_47E771 | 0x80; /*0x454ecf*/\n  return result; /*0x454ed4*/\n}",
+    "line_count": 35,
+    "total_lines": 35,
+    "truncated": false,
+    "cursor": {
+      "done": true
+    },
+    "refs": [
+      {
+        "addr": "0x47e771",
+        "name": "byte_47E771"
+      },
+      {
+        "addr": "0x454af5",
+        "name": "sub_454AF5"
+      },
+      {
+        "addr": "0x457110",
+        "name": "sprintf"
+      },
+      {
+        "addr": "0x46657a",
+        "name": "aPlayCdtrackFro_0",
+        "string": "play cdtrack from %d notify"
+      },
+      {
+        "addr": "0x46cb04",
+        "name": "byte_46CB04"
+      },
+      {
+        "addr": "0x46245c",
+        "name": "__imp_mciSendStringA"
+      },
+      {
+        "addr": "0x48a0d4",
+        "name": "hWnd"
+      },
+      {
+        "addr": "0x454acb",
+        "name": "sub_454ACB"
+      },
+      {
+        "addr": "0x4664a4",
+        "name": "aOpenSequencerS",
+        "string": "open sequencer!%s alias mid"
+      },
+      {
+        "addr": "0x47e773",
+        "name": "off_47E773"
+      },
+      {
+        "addr": "0x46cb03",
+        "name": "byte_46CB03"
+      },
+      {
+        "addr": "0x4664de",
+        "name": "aPlayMidFrom0No",
+        "string": "play mid from 0 notify"
+      },
+      {
+        "addr": "0x4664c0",
+        "name": "aOpenSequencerS_0",
+        "string": "open sequencer!%s%s alias mid"
+      },
+      {
+        "addr": "0x476374",
+        "name": "byte_476374"
+      },
+      {
+        "addr": "0x47e770",
+        "name": "byte_47E770"
+      },
+      {
+        "addr": "0x49715a",
+        "name": "n4_7"
+      },
+      {
+        "addr": "0x47e772",
+        "name": "byte_47E772"
+      }
+    ]
+  },
+  "fixed": {
+    "addr": "0x4549CF",
+    "code": "int __cdecl sub_4549CF(int a1)\n{\n  int v1; // esi\n  int result; // eax\n  CHAR strCommand[56]; // [esp+0h] [ebp-38h] BYREF\n\n  v1 = 0; /*0x4549d6*/\n  result = 0; /*0x4549d8*/\n  if ( !n51 ) /*0x4549e1*/\n  {\n    if ( (a1 & 0x8000) != 0 ) /*0x4549ec*/\n    {\n      a1 &= 0x7FFFu; /*0x4549ee*/\n      result = 1; /*0x4549f6*/\n    }\n    if ( n4_7 ) /*0x454a02*/\n    {\n      if ( byte_47E772 < 0 && !result ) /*0x454a13*/\n      {\n        sub_454B1A(); /*0x454a15*/\n        v1 = 1; /*0x454a1a*/\n      }\n      sub_454ACB(); /*0x454a1f*/\n      sprintf(strCommand, \"open sequencer!%s alias mid\", off_47E793[a1]);// \"MIDI01.MID\" /*0x454a41*/\n      if ( !mciSendStringA(strCommand, 0, 0, 0) /*0x454a88*/\n        || (sprintf(strCommand, \"open sequencer!%s%s alias mid\", &byte_476374, off_47E793[a1]),\n            !mciSendStringA(strCommand, 0, 0, 0)) )// \"MIDI01.MID\"\n      {\n        if ( !mciSendStringA(aPlayMidFrom0No, 0, 0, hWnd) )// \"play mid from 0 notify\" /*0x454aa6*/\n          byte_46CB03 = 1; /*0x454ab1*/\n      }\n    }\n    byte_47E772 = a1; /*0x454abc*/\n    return v1; /*0x454ac1*/\n  }\n  return result; /*0x454ac3*/\n}",
+    "line_count": 37,
+    "total_lines": 37,
+    "truncated": false,
+    "cursor": {
+      "done": true
+    },
+    "refs": [
+      {
+        "addr": "0x454b1a",
+        "name": "sub_454B1A"
+      },
+      {
+        "addr": "0x47e772",
+        "name": "byte_47E772"
+      },
+      {
+        "addr": "0x454acb",
+        "name": "sub_454ACB"
+      },
+      {
+        "addr": "0x457110",
+        "name": "sprintf"
+      },
+      {
+        "addr": "0x4664a4",
+        "name": "aOpenSequencerS",
+        "string": "open sequencer!%s alias mid"
+      },
+      {
+        "addr": "0x47e793",
+        "name": "off_47E793"
+      },
+      {
+        "addr": "0x46cb03",
+        "name": "byte_46CB03"
+      },
+      {
+        "addr": "0x46245c",
+        "name": "__imp_mciSendStringA"
+      },
+      {
+        "addr": "0x4664de",
+        "name": "aPlayMidFrom0No",
+        "string": "play mid from 0 notify"
+      },
+      {
+        "addr": "0x48a0d4",
+        "name": "hWnd"
+      },
+      {
+        "addr": "0x4664c0",
+        "name": "aOpenSequencerS_0",
+        "string": "open sequencer!%s%s alias mid"
+      },
+      {
+        "addr": "0x476374",
+        "name": "byte_476374"
+      },
+      {
+        "addr": "0x49715a",
+        "name": "n4_7"
+      },
+      {
+        "addr": "0x46cb06",
+        "name": "n51"
+      }
+    ]
+  },
+  "resume": {
+    "addr": "0x454BCC",
+    "code": "void sub_454BCC()\n{\n  char v0; // bl\n  char v1; // bl\n  CHAR strCommand[96]; // [esp+0h] [ebp-60h] BYREF\n\n  v0 = 0; /*0x454bd3*/\n  if ( !n51 && n4_7 ) /*0x454be9*/\n  {\n    sub_454ACB(); /*0x454bef*/\n    if ( byte_47E770 ) /*0x454bfb*/\n    {\n      if ( !mciSendStringA(aPlayCdtrackNot, 0, 0, hWnd) )// \"play cdtrack notify\" /*0x454ce7*/\n      {\n        byte_46CB04 = 1; /*0x454cf2*/\n        mciSendStringA(aStatusCdtrackC, strCommand, 0x28u, 0);// \"status cdtrack current track\" /*0x454d06*/\n        v0 = unknown_libname_1(strCommand) - 2; /*0x454d18*/\n      }\n      v1 = v0 | 0x80; /*0x454d1b*/\n    }\n    else\n    {\n      v1 = byte_48CB70[--dword_47E7D7]; /*0x454c14*/\n      sprintf(strCommand, \"open sequencer!%s alias mid\", off_47E773[v1 & 0x7F]);// \"RICH08.MID\" /*0x454c38*/\n      if ( !mciSendStringA(strCommand, 0, 0, 0) /*0x454c7f*/\n        || (sprintf(strCommand, \"open sequencer!%s%s alias mid\", &byte_476374, off_47E773[v1 & 0x7F]),\n            !mciSendStringA(strCommand, 0, 0, 0)) )// \"RICH08.MID\"\n      {\n        sprintf(strCommand, \"play mid from %d notify\", dword_48CB50[dword_47E7D7]); /*0x454cad*/\n        if ( !mciSendStringA(strCommand, 0, 0, hWnd) ) /*0x454cc5*/\n          byte_46CB03 = 1; /*0x454cd0*/\n      }\n    }\n    byte_47E772 = v1; /*0x454d1e*/\n  }\n}",
+    "line_count": 36,
+    "total_lines": 36,
+    "truncated": false,
+    "cursor": {
+      "done": true
+    },
+    "refs": [
+      {
+        "addr": "0x454acb",
+        "name": "sub_454ACB"
+      },
+      {
+        "addr": "0x46cb04",
+        "name": "byte_46CB04"
+      },
+      {
+        "addr": "0x46245c",
+        "name": "__imp_mciSendStringA"
+      },
+      {
+        "addr": "0x466542",
+        "name": "aStatusCdtrackC",
+        "string": "status cdtrack current track"
+      },
+      {
+        "addr": "0x4584db",
+        "name": "unknown_libname_1"
+      },
+      {
+        "addr": "0x46652e",
+        "name": "aPlayCdtrackNot",
+        "string": "play cdtrack notify"
+      },
+      {
+        "addr": "0x48a0d4",
+        "name": "hWnd"
+      },
+      {
+        "addr": "0x48cb70",
+        "name": "byte_48CB70"
+      },
+      {
+        "addr": "0x47e7d7",
+        "name": "dword_47E7D7"
+      },
+      {
+        "addr": "0x457110",
+        "name": "sprintf"
+      },
+      {
+        "addr": "0x4664a4",
+        "name": "aOpenSequencerS",
+        "string": "open sequencer!%s alias mid"
+      },
+      {
+        "addr": "0x47e773",
+        "name": "off_47E773"
+      },
+      {
+        "addr": "0x466516",
+        "name": "aPlayMidFromDNo",
+        "string": "play mid from %d notify"
+      },
+      {
+        "addr": "0x48cb50",
+        "name": "dword_48CB50"
+      },
+      {
+        "addr": "0x46cb03",
+        "name": "byte_46CB03"
+      },
+      {
+        "addr": "0x4664c0",
+        "name": "aOpenSequencerS_0",
+        "string": "open sequencer!%s%s alias mid"
+      },
+      {
+        "addr": "0x476374",
+        "name": "byte_476374"
+      },
+      {
+        "addr": "0x47e770",
+        "name": "byte_47E770"
+      },
+      {
+        "addr": "0x47e772",
+        "name": "byte_47E772"
+      },
+      {
+        "addr": "0x46cb06",
+        "name": "n51"
+      },
+      {
+        "addr": "0x49715a",
+        "name": "n4_7"
+      }
+    ]
+  },
+  "intro": {
+    "addr": "0x415872",
+    "code": "int __usercall sub_415872@<eax>(int a1@<ebp>)\n{\n  int v1; // edi\n  int n2; // esi\n  int n9; // ebx\n  int n9_4; // eax\n  int n9_1; // esi\n  int v6; // edi\n  int v7; // ebx\n  int n9_2; // esi\n  int result; // eax\n  int n2_1; // esi\n  int n9_3; // ebx\n  int n180; // [esp+68h] [ebp-20h] BYREF\n  int n60; // [esp+6Ch] [ebp-1Ch]\n  int n640; // [esp+70h] [ebp-18h]\n  int n480; // [esp+74h] [ebp-14h]\n\n  v1 = sub_4502FE(aJumpMkf_0); // \"JUMP.MKF\" /*0x415888*/\n  dword_48BDB0 = sub_450441(v1, 45, 0, 0); /*0x415899*/\n  dword_48BDB4 = sub_450441(v1, 46, 0, 0); /*0x4158ad*/\n  sub_456F60(dword_48BD90, 0, 32); /*0x4158bb*/\n  for ( n2 = 0; n2 < 2; ++n2 ) /*0x4158c3*/\n  {\n    for ( n9 = 0; n9 < ::n9; ++n9 ) /*0x4158cd*/\n      dword_48BD90[4 * n2 + n9] = sub_450441(v1, (unsigned __int8)byte_496B7B[104 * n9] + 12 * n2 + 47, 0, 0); /*0x415906*/\n  }\n  sub_450404(v1); /*0x415911*/\n  sub_454ACB(); /*0x415919*/\n  if ( lpBuffer__1 ) /*0x415926*/\n    n9_4 = sub_451677((int)aAirplaneAvi, (LPARAM)&lParam_, 1);// \"AIRPLANE.AVI\" /*0x415934*/\n  else\n    n9_4 = sub_451677(*(&off_4750E8 + lpBuffer__0), (LPARAM)&lParam_, 1);// \"FLYTW.AVI\" /*0x41594c*/\n  n9_1 = n9_4; /*0x415954*/\n  sub_454176(dword_4750F8); /*0x41595b*/\n  sub_454D91(1); /*0x415965*/\n  if ( !n9_1 ) /*0x41596f*/\n  {\n    (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x415986*/\n      dword_48A0E0,\n      0,\n      &n108_0,\n      1,\n      0);\n    sub_4563F5(n3_11, dword_48BDB0 + 12, 0, 0); /*0x41599b*/\n    (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x4159ac*/\n    n60 = 0; /*0x4159b2*/\n    n480 = 480; /*0x4159b6*/\n    n180 = 0; /*0x4159be*/\n    n640 = 640; /*0x4159c1*/\n    (*(void (__stdcall **)(int, _DWORD, _DWORD, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x4159e1*/\n      dword_48A0DC,\n      0,\n      0,\n      dword_48A0E0,\n      &n180,\n      16);\n    sub_4542CE(dword_4750F8, 0); /*0x4159ea*/\n    if ( !sub_45144F(a1, dword_48BDB4, 180, 60, 3, -1) ) /*0x415a04*/\n    {\n      v6 = (unsigned __int8)byte_496B7B[0]; /*0x415a14*/\n      while ( n9_1 <= ::n9 ) /*0x415a21*/\n      {\n        (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x415a3a*/\n          dword_48A0E0,\n          0,\n          &n108_0,\n          1,\n          0);\n        n3_12 = n3_11; /*0x415a42*/\n        sub_4562CC(&::n640, dword_48BDB0 + 12, 180, 60, 180, 60, 220, 240); /*0x415a6d*/\n        if ( v6 != -1 ) /*0x415a78*/\n        {\n          v7 = 12 * (v6 + 3); /*0x415a86*/\n          sub_4552B7( /*0x415aa4*/\n            *(_DWORD *)(v7 + dword_48BDB0 + 20),\n            *(_DWORD *)(v7 + dword_48BDB0 + 20),\n            2 * *(__int16 *)(v7 + dword_48BDB0 + 12) * *(__int16 *)(v7 + dword_48BDB0 + 14),\n            -20);\n          sub_456418(n3_11, dword_48BDB0 + 12 + v7, 270, 220); /*0x415ac7*/\n          sub_456418(n3_11, dword_48BDB0 + 36, 150, 60); /*0x415ae6*/\n        }\n        (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x415af8*/\n        n60 = 60; /*0x415afe*/\n        n480 = 300; /*0x415b06*/\n        n180 = 180; /*0x415b13*/\n        n640 = 400; /*0x415b16*/\n        (*(void (__stdcall **)(int, int, int, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x415b37*/\n          dword_48A0DC,\n          180,\n          60,\n          dword_48A0E0,\n          &n180,\n          16);\n        if ( n9_1 ) /*0x415b3c*/\n        {\n          sub_450CDA((int)&unk_475100, 0); /*0x415b45*/\n          if ( sub_45144F(a1, dword_48BD8C[n9_1], 0, 0, 335544323, -1) ) /*0x415b60*/\n            goto LABEL_25; /*0x415b6a*/\n        }\n        n60 = 400; /*0x415b75*/\n        n480 = 480; /*0x415b79*/\n        n180 = 320; /*0x415b81*/\n        n640 = 640; /*0x415b88*/\n        (*(void (__stdcall **)(int, int, int, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x415bac*/\n          dword_48A0DC,\n          320,\n          400,\n          dword_48A0E0,\n          &n180,\n          16);\n        if ( n9_1 >= ::n9 - 1 ) /*0x415bb7*/\n          v6 = -1; /*0x415bc8*/\n        else\n          v6 = (unsigned __int8)byte_496B7B[104 * n9_1 + 104]; /*0x415bbf*/\n        ++n9_1; /*0x415bcd*/\n      }\n      (*(void (__stdcall **)(int, _DWORD, int *, int, _DWORD))(*(_DWORD *)dword_48A0E0 + 100))( /*0x415be6*/\n        dword_48A0E0,\n        0,\n        &n108_0,\n        1,\n        0);\n      sub_4563F5(n3_11, dword_48BDB0 + 24, 0, 0); /*0x415bfc*/\n      (*(void (__stdcall **)(int, _DWORD))(*(_DWORD *)dword_48A0E0 + 128))(dword_48A0E0, 0); /*0x415c0e*/\n      n60 = 0; /*0x415c16*/\n      n480 = 480; /*0x415c1a*/\n      n180 = 0; /*0x415c24*/\n      n640 = 640; /*0x415c2c*/\n      (*(void (__stdcall **)(int, _DWORD, _DWORD, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x415c48*/\n        dword_48A0DC,\n        0,\n        0,\n        dword_48A0E0,\n        &n180,\n        16);\n      n60 = 440; /*0x415c4b*/\n      n480 = 480; /*0x415c53*/\n      n180 = 0; /*0x415c5d*/\n      n640 = 640; /*0x415c60*/\n      for ( n9_2 = 0; n9_2 < ::n9 && !sub_45144F(a1, dword_48BDA0[n9_2], 0, 0, 3, -1); ++n9_2 ) /*0x415c64*/\n      {\n        a1 = dword_48A0E0; /*0x415c98*/\n        (*(void (__stdcall **)(int, _DWORD, int, int, int *, int))(*(_DWORD *)dword_48A0DC + 28))( /*0x415ca7*/\n          dword_48A0DC,\n          0,\n          440,\n          dword_48A0E0,\n          &n180,\n          16);\n      }\n    }\n  }\nLABEL_25:\n  sub_454240(dword_4750F8); /*0x415cad*/\n  sub_456E11(dword_48BDB0); /*0x415cc0*/\n  result = sub_456E11(dword_48BDB4); /*0x415ccf*/\n  for ( n2_1 = 0; n2_1 < 2; ++n2_1 ) /*0x415cd7*/\n  {\n    for ( n9_3 = 0; n9_3 < ::n9; ++n9_3 ) /*0x415ce1*/\n      result = sub_456E11(dword_48BD90[4 * n2_1 + n9_3]); /*0x415cfa*/\n  }\n  return result; /*0x415d05*/\n}",
+    "line_count": 164,
+    "total_lines": 164,
+    "truncated": false,
+    "cursor": {
+      "done": true
+    },
+    "refs": [
+      {
+        "addr": "0x4502fe",
+        "name": "sub_4502FE"
+      },
+      {
+        "addr": "0x4637cf",
+        "name": "aJumpMkf_0",
+        "string": "JUMP.MKF"
+      },
+      {
+        "addr": "0x48bdb0",
+        "name": "dword_48BDB0"
+      },
+      {
+        "addr": "0x450441",
+        "name": "sub_450441"
+      },
+      {
+        "addr": "0x48bdb4",
+        "name": "dword_48BDB4"
+      },
+      {
+        "addr": "0x456f60",
+        "name": "sub_456F60"
+      },
+      {
+        "addr": "0x48bd90",
+        "name": "dword_48BD90"
+      },
+      {
+        "addr": "0x496b7b",
+        "name": "byte_496B7B"
+      },
+      {
+        "addr": "0x499114",
+        "name": "n9"
+      },
+      {
+        "addr": "0x450404",
+        "name": "sub_450404"
+      },
+      {
+        "addr": "0x454acb",
+        "name": "sub_454ACB"
+      },
+      {
+        "addr": "0x451677",
+        "name": "sub_451677"
+      },
+      {
+        "addr": "0x4637d8",
+        "name": "aAirplaneAvi",
+        "string": "AIRPLANE.AVI"
+      },
+      {
+        "addr": "0x46cadc",
+        "name": "lParam_"
+      },
+      {
+        "addr": "0x4750e8",
+        "name": "off_4750E8"
+      },
+      {
+        "addr": "0x4991b8",
+        "name": "lpBuffer__0"
+      },
+      {
+        "addr": "0x4991b6",
+        "name": "lpBuffer__1"
+      },
+      {
+        "addr": "0x454176",
+        "name": "sub_454176"
+      },
+      {
+        "addr": "0x4750f8",
+        "name": "dword_4750F8"
+      },
+      {
+        "addr": "0x454d91",
+        "name": "sub_454D91"
+      },
+      {
+        "addr": "0x48a0e0",
+        "name": "dword_48A0E0"
+      },
+      {
+        "addr": "0x48a068",
+        "name": "n108_0"
+      },
+      {
+        "addr": "0x4563f5",
+        "name": "sub_4563F5"
+      },
+      {
+        "addr": "0x48a08c",
+        "name": "n3_11"
+      },
+      {
+        "addr": "0x48a0dc",
+        "name": "dword_48A0DC"
+      },
+      {
+        "addr": "0x4542ce",
+        "name": "sub_4542CE"
+      },
+      {
+        "addr": "0x46caf4",
+        "name": "n3_12"
+      },
+      {
+        "addr": "0x4562cc",
+        "name": "sub_4562CC"
+      },
+      {
+        "addr": "0x46caec",
+        "name": "n640"
+      },
+      {
+        "addr": "0x4552b7",
+        "name": "sub_4552B7"
+      },
+      {
+        "addr": "0x456418",
+        "name": "sub_456418"
+      },
+      {
+        "addr": "0x450cda",
+        "name": "sub_450CDA"
+      },
+      {
+        "addr": "0x475100",
+        "name": "unk_475100"
+      },
+      {
+        "addr": "0x45144f",
+        "name": "sub_45144F"
+      },
+      {
+        "addr": "0x48bd8c",
+        "name": "dword_48BD8C"
+      },
+      {
+        "addr": "0x48bda0",
+        "name": "dword_48BDA0"
+      },
+      {
+        "addr": "0x454240",
+        "name": "sub_454240"
+      },
+      {
+        "addr": "0x456e11",
+        "name": "sub_456E11"
+      }
+    ]
+  }
+}

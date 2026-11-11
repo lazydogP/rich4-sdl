@@ -16,12 +16,18 @@ concurrency:
 jobs:
   build:
     name: Build ${{ matrix.platform }}
-    runs-on: windows-2022
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-x64, miyoo-mini]
+        include:
+          - platform: windows-x64
+            os: windows-2022
+          - platform: miyoo-mini
+            os: windows-2022
+          - platform: macos-universal-development
+            os: macos-26
     defaults:
       run:
         shell: pwsh
@@ -35,9 +41,11 @@ jobs:
           python-version: '3.12'
 
       - name: Prepare Windows host tools
+        if: matrix.os == 'windows-2022'
         run: ./scripts/setup-windows-toolchain.ps1 -SkipVerify
 
       - name: Verify release packaging
+        if: matrix.os == 'windows-2022'
         run: python tests/unit/test_package_release.py
 
       - name: Run tests without original game data
@@ -53,15 +61,38 @@ jobs:
         run: python scripts/make_minimal.py miyoo --progress
 
       - name: Package release
+        if: matrix.os == 'windows-2022'
         env:
           RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
         run: python scripts/package_release.py --platform "${{ matrix.platform }}" --version "$env:RELEASE_VERSION"
 
       - name: Upload release files
+        if: matrix.os == 'windows-2022'
         uses: actions/upload-artifact@v7.0.2
         with:
           path: build/release/*.zip
           archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Build and inspect macOS development bundle
+        shell: bash
+        if: matrix.platform == 'macos-universal-development'
+        run: python3 scripts/make_minimal.py package-macos test-macos-package --progress
+
+      - name: Record original-resource acceptance availability
+        shell: bash
+        if: matrix.platform == 'macos-universal-development'
+        run: python3 scripts/make_minimal.py test-macos-original --progress
+
+      # Deliberately excluded from the public Rich4-*.zip release artifact pattern.
+      # Desktop/listening acceptance and Developer ID notarization are still pending.
+      - name: Upload macOS development bundle
+        if: matrix.platform == 'macos-universal-development'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: macOS-universal-development
+          path: build/release/Rich4-macOS-universal-development.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -94,12 +125,16 @@ jobs:
           shopt -s nullglob
           archives=(*.zip)
           test "${#archives[@]}" -eq 2
+          test -f "Rich4-Windows-x64-${RELEASE_TAG}.zip"
+          test -f "Rich4-MiyooMini-update-${RELEASE_TAG}.zip"
           cat > notes.txt <<'EOF'
           Windows x64 portable runtime and Miyoo Mini / Mini Plus program update.
 
           Packages exclude original game data, music, fonts, saves and personal settings.
           Supply legally obtained MKF files and a CJK font as described in each package's README.txt.
           The Miyoo update requires an existing installation with its runtime libraries and font.
+          macOS Universal 2 (arm64 + x86_64) is available only as a development CI artifact until real-resource desktop,
+          listening, clean-system, Developer ID and notarization acceptance is complete.
           EOF
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then

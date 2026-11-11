@@ -36,7 +36,13 @@ typedef struct Rich4FreetypeState {
 } Rich4FreetypeState;
 
 static Rich4FreetypeState g_freetype_state;
-static char g_freetype_font_path[512];
+static char g_freetype_font_path[4096];
+static long g_freetype_font_face_index;
+
+void rich4_text_backend_freetype_set_font_face_index(long face_index)
+{
+    g_freetype_font_face_index = face_index;
+}
 
 void rich4_text_backend_freetype_set_font_path(const char *font_path)
 {
@@ -105,7 +111,7 @@ static TTF_Font *rich4_ft_open_font(Rich4FreetypeState *state, int height)
         state->initialized = 1;
     }
     if (g_freetype_font_path[0] != '\0') {
-        font = TTF_OpenFont(g_freetype_font_path, height);
+        font = TTF_OpenFontIndex(g_freetype_font_path, height, g_freetype_font_face_index);
         if (font != NULL) {
             state->fonts[height] = font;
             return font;
@@ -450,6 +456,11 @@ int rich4_text_backend_freetype_init(Rich4TextBackend *backend)
 }
 
 #else /* !HAVE_SDL_TTF */
+
+void rich4_text_backend_freetype_set_font_face_index(long face_index)
+{
+    (void)face_index;
+}
 
 void rich4_text_backend_freetype_set_font_path(const char *font_path)
 {

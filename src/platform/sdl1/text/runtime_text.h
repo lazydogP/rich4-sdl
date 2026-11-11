@@ -4,6 +4,7 @@
 #include <SDL/SDL.h>
 
 void rich4_sdl_text_set_font_path(const char *font_path);
+void rich4_sdl_text_set_font_face_index(long face_index);
 void rich4_sdl_text_shutdown(void);
 
 #endif

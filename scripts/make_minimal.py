@@ -31,8 +31,13 @@ DIAGNOSTIC = re.compile(
     re.IGNORECASE,
 )
 WARNING = re.compile(r"\bwarning\b", re.IGNORECASE)
+NOTICE = re.compile(r"\bNOT EXECUTED\b|\bSKIP\b|^macOS original-resource|^Development bundle:|^Original Big5 text font coverage:")
 FORCE_REBUILD = re.compile(r"^(?:--always-make|-[^-]*B[^=]*)$")
 LONG_TARGETS = {
+    "setup-macos",
+    "macos",
+    "package-macos",
+    "test-macos-original",
     "sdl",
     "sdl-handheld",
     "test",
@@ -82,7 +87,7 @@ def selected_diagnostics(lines: list[str], failed: bool) -> list[str]:
 
     selected: set[int] = set()
     for index, line in enumerate(lines):
-        if DIAGNOSTIC.search(line) or (not failed and WARNING.search(line)):
+        if DIAGNOSTIC.search(line) or NOTICE.search(line) or (not failed and WARNING.search(line)):
             selected.update(range(max(0, index - 1), min(len(lines), index + 2)))
 
     if failed:

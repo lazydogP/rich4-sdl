@@ -1820,3 +1820,28 @@ test-flc-regression: stage-sdl-runtime $(FLC_REGRESSION_BINS)
 .PHONY: test-text-backends
 test-text-backends: $(BIN_DIR)/test_text_backend_freetype
 	$(BIN_DIR)/test_text_backend_freetype
+
+# Native Apple launcher/importer and import-time DLS renderer.
+.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-package test-macos-original
+MACOS_SETUP_ARGS ?=
+setup-macos:
+	$(PYTHON) scripts/macos.py setup $(MACOS_SETUP_ARGS)
+macos-native:
+	$(PYTHON) scripts/macos.py native
+macos:
+	$(PYTHON) scripts/macos.py build
+package-macos: macos
+	$(PYTHON) scripts/macos.py package
+check-macos-package:
+	$(PYTHON) scripts/macos.py verify
+test-macos-package: check-macos-package
+	$(PYTHON) tests/macos/test_package.py
+test-macos-original: macos
+	$(PYTHON) scripts/macos.py test-original
+
+$(BIN_DIR)/music_probe: tests/sdl/music_probe.c $(MKF_OBJS) $(SPR_SMP_OBJS) $(FLC_OBJS) $(filter-out $(BUILD_DIR)/main_sdl.o,$(SDL_OBJS)) | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^ $(MIXER_LIBS) $(TTF_LIBS) $(SDL_LIBS)
+
+.PHONY: release-macos
+release-macos:
+	$(PYTHON) scripts/sign_macos.py --acceptance-file "$(MACOS_ACCEPTANCE_FILE)"

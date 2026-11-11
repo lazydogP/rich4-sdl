@@ -1,0 +1,157 @@
+{
+  "addr": "0x4545BA",
+  "asm": {
+    "name": "sub_4545BA",
+    "start_ea": "0x4545ba",
+    "segment": "AUTO",
+    "lines": [
+      {
+        "addr": "454621",
+        "instruction": "push 0; hwndCallback",
+        "comments": [
+          "hwndCallback"
+        ]
+      },
+      {
+        "addr": "454623",
+        "instruction": "push 28h ; '('; uReturnLength",
+        "comments": [
+          "uReturnLength"
+        ]
+      },
+      {
+        "addr": "454625",
+        "instruction": "lea eax, [esp+0B4h+strCommand]"
+      },
+      {
+        "addr": "454629",
+        "instruction": "push eax; lpstrReturnString",
+        "comments": [
+          "lpstrReturnString"
+        ]
+      },
+      {
+        "addr": "45462a",
+        "instruction": "push offset aStatusCdtrackN; \"status cdtrack number of tracks\"",
+        "refs": [
+          {
+            "addr": "0x466427",
+            "name": "aStatusCdtrackN",
+            "string": "status cdtrack number of tracks"
+          }
+        ]
+      },
+      {
+        "addr": "45462f",
+        "instruction": "call cs:__imp_mciSendStringA",
+        "refs": [
+          {
+            "addr": "0x46245c",
+            "name": "__imp_mciSendStringA"
+          }
+        ]
+      },
+      {
+        "addr": "454636",
+        "instruction": "lea eax, [esp+0ACh+strCommand]"
+      },
+      {
+        "addr": "45463a",
+        "instruction": "push eax"
+      },
+      {
+        "addr": "45463b",
+        "instruction": "call unknown_libname_1; Watcom v9-*1.5 32bit NT runtime",
+        "refs": [
+          {
+            "addr": "0x4584db",
+            "name": "unknown_libname_1"
+          }
+        ]
+      },
+      {
+        "addr": "454640",
+        "instruction": "add esp, 4"
+      },
+      {
+        "addr": "454643",
+        "instruction": "cmp eax, 9"
+      },
+      {
+        "addr": "454646",
+        "instruction": "jnz loc_454767",
+        "refs": [
+          {
+            "addr": "0x454767",
+            "name": "loc_454767"
+          }
+        ]
+      },
+      {
+        "addr": "45464c",
+        "instruction": "mov ds:byte_47E770, 1",
+        "refs": [
+          {
+            "addr": "0x47e770",
+            "name": "byte_47E770"
+          }
+        ]
+      },
+      {
+        "addr": "454653",
+        "instruction": "xor ebx, ebx"
+      }
+    ],
+    "stack_frame": [
+      {
+        "name": "pmoc",
+        "offset": "0x0",
+        "size": "0x34",
+        "type": "tagMIDIOUTCAPSA"
+      },
+      {
+        "name": "pac",
+        "offset": "0x34",
+        "size": "0x30",
+        "type": "tagAUXCAPSA"
+      },
+      {
+        "name": "strCommand",
+        "offset": "0x64",
+        "size": "0x1",
+        "type": "CHAR"
+      },
+      {
+        "name": "var_20",
+        "offset": "0x8c",
+        "size": "0x8",
+        "type": "_QWORD"
+      },
+      {
+        "name": "var_18",
+        "offset": "0x94",
+        "size": "0x8",
+        "type": "_QWORD"
+      },
+      {
+        "name": "var_10",
+        "offset": "0x9c",
+        "size": "0x10",
+        "type": "char[16]"
+      },
+      {
+        "name": "__return_address",
+        "offset": "0xac",
+        "size": "0x4",
+        "type": "_UNKNOWN *"
+      }
+    ],
+    "return_type": "MMRESULT",
+    "arguments": []
+  },
+  "instruction_count": 14,
+  "total_instructions": null,
+  "cursor": {
+    "next": 44
+  }
+}

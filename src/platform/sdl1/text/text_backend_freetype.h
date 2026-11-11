@@ -11,5 +11,6 @@ int rich4_text_backend_freetype_init(Rich4TextBackend *backend);
 /* Select the application-provided font before the first measure/render call.
  * The backend still retains its platform fallbacks for a missing/bad file. */
 void rich4_text_backend_freetype_set_font_path(const char *font_path);
+void rich4_text_backend_freetype_set_font_face_index(long face_index);
 
 #endif

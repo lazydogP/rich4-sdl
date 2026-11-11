@@ -1,0 +1,118 @@
+{
+  "architectures": ["arm64", "x86_64"],
+  "deployment_targets": {"arm64": "11.0", "x86_64": "10.10"},
+  "packages": [
+    {
+      "name": "cmake",
+      "url": "https://github.com/Kitware/CMake/releases/download/v3.31.8/cmake-3.31.8-macos-universal.tar.gz",
+      "sha256": "d1449f969c54d5c00886d5b643340d493dfb3c81cb39ee29b35453395c11ebf7",
+      "archive": "cmake.tar.gz",
+      "version": "3.31.8",
+      "patches": [],
+      "cmake": []
+    },
+    {
+      "name": "SDL2",
+      "url": "https://www.libsdl.org/release/SDL2-2.32.10.tar.gz",
+      "sha256": "5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165",
+      "archive": "SDL2.tar.gz",
+      "version": "2.32.10",
+      "patches": [],
+      "cmake": [
+        "-DSDL_SHARED=ON",
+        "-DSDL_STATIC=OFF",
+        "-DSDL_TEST=OFF",
+        "-DSDL_TESTS=OFF",
+        "-DSDL_LIBSAMPLERATE=OFF",
+        "-DSDL_HIDAPI_LIBUSB=OFF",
+        "-DSDL_X11=OFF"
+      ]
+    },
+    {
+      "name": "sdl12-compat",
+      "url": "https://codeload.github.com/libsdl-org/sdl12-compat/tar.gz/refs/tags/release-1.2.78",
+      "sha256": "40ec5f0bab13a217ffae7aab0c450f1f798761e91fb185051b5211925c9da11a",
+      "archive": "sdl12-compat.tar.gz",
+      "version": "1.2.78",
+      "patches": [],
+      "cmake": [
+        "-DSDL12TESTS=OFF"
+      ]
+    },
+    {
+      "name": "freetype",
+      "url": "https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.gz",
+      "sha256": "5c3a8e78f7b24c20b25b54ee575d6daa40007a5f4eea2845861c3409b3021747",
+      "archive": "freetype.tar.gz",
+      "version": "2.13.3",
+      "patches": [],
+      "cmake": [
+        "-DFT_DISABLE_ZLIB=ON",
+        "-DFT_DISABLE_BZIP2=ON",
+        "-DFT_DISABLE_PNG=ON",
+        "-DFT_DISABLE_HARFBUZZ=ON",
+        "-DFT_DISABLE_BROTLI=ON"
+      ]
+    },
+    {
+      "name": "ogg",
+      "url": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz",
+      "sha256": "0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664",
+      "archive": "ogg.tar.gz",
+      "version": "1.3.5",
+      "patches": [],
+      "cmake": [
+        "-DBUILD_TESTING=OFF",
+        "-DINSTALL_DOCS=OFF"
+      ]
+    },
+    {
+      "name": "vorbis",
+      "url": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz",
+      "sha256": "0e982409a9c3fc82ee06e08205b1355e5c6aa4c36bca58146ef399621b0ce5ab",
+      "archive": "vorbis.tar.gz",
+      "version": "1.3.7",
+      "patches": [],
+      "cmake": [
+        "-DBUILD_TESTING=OFF"
+      ]
+    },
+    {
+      "name": "SDL_mixer",
+      "url": "https://www.libsdl.org/projects/SDL_mixer/release/SDL_mixer-1.2.12.tar.gz",
+      "sha256": "1644308279a975799049e4826af2cfc787cad2abb11aa14562e402521f86992a",
+      "archive": "SDL_mixer.tar.gz",
+      "version": "1.2.12",
+      "patches": [
+        {
+          "file": "packaging/macos/patches/SDL_mixer-vorbis-const.patch",
+          "sha256": "2e8512d85436a62a45d04347b609976e68bb67586c1483b6b16c5b172a5c002f"
+        }
+      ],
+      "configure": [
+        "--disable-music-cmd",
+        "--enable-music-wave",
+        "--disable-music-mod",
+        "--disable-music-mod-modplug",
+        "--enable-music-midi",
+        "--disable-music-flac",
+        "--disable-music-mp3",
+        "--disable-music-mp3-mad-gpl",
+        "--enable-music-ogg",
+        "--disable-music-ogg-shared",
+        "--enable-music-native-midi",
+        "--disable-music-timidity-midi",
+        "--disable-music-fluidsynth-midi"
+      ]
+    },
+    {
+      "name": "SDL_ttf",
+      "url": "https://www.libsdl.org/projects/SDL_ttf/release/SDL_ttf-2.0.11.tar.gz",
+      "sha256": "724cd895ecf4da319a3ef164892b72078bd92632a5d812111261cde248ebcdb7",
+      "archive": "SDL_ttf.tar.gz",
+      "version": "2.0.11",
+      "patches": [],
+      "configure": []
+    }
+  ]
+}
