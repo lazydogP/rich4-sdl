@@ -210,6 +210,8 @@ typedef struct GameLandView {
     int level;
     int group;
     int price_status;
+    /* Selection survives the neutral frames in the 16-step flash cycle. */
+    int flash_selected;
     int flash_adjust;
 } GameLandView;
 

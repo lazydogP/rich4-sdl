@@ -29,13 +29,15 @@ int main(void)
     presentation.special_actor.resource_part = 3;
     presentation.special_actor.steps_remaining = 5;
     presentation.property.land = 12;
+    presentation.property.phase = GAME_PROPERTY_PRESENT_FLASH;
     presentation.property.flash_adjust = -8;
     rich4_sdl1_game_view_model_input_build(&flow, &presentation, &input);
     assert(input.route_count == 77 && input.map_direction == 3);
     assert(input.has_view_override && input.view_world_x == 352);
     assert(input.actors[0].visual_x == 123 && input.actors[0].move_active);
     assert(input.dice_faces[0] == 4);
-    assert(input.property_presentation_land == 12 && input.property_flash_adjust == -8);
+    assert(input.property_presentation_land == 12 && input.property_flash_adjust == -8 &&
+           input.property_flash_active);
     assert(input.special_actor.active && input.special_actor.slot == 2 &&
            input.special_actor.visual_x == 456 &&
            input.special_actor.visual_y == 789 &&

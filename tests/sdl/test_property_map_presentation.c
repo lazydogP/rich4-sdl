@@ -116,6 +116,7 @@ static void check_flash_footprint_and_occlusion(SDL_Surface *screen)
         input.map_direction = rotation;
         assert(rich4_game_view_model_build(&state, &input, &assets.map.maps[0], &view));
         view.property_flash_adjust = 8;
+        view.lands[0].flash_selected = 1;
         view.lands[0].flash_adjust = 8;
         assert(rich4_spr_smp_get_chunk(assets.map.map_common_data[2],
             assets.map.map_common_size[2], &assets.map.map_common_spr[2],
@@ -166,6 +167,7 @@ static void check_flash_building_pixels(SDL_Surface *screen, Rich4Mkf *mkf)
     state.land_owner[0] = 1;
     assert(rich4_game_view_model_build(&state, &input, &assets.map.maps[0], &view));
     view.actor_count = 0;
+    view.lands[0].flash_selected = 1;
     view.property_flash_adjust = view.lands[0].flash_adjust = -4;
     rich4_game_viewport_project(&view.viewport, 352, 640, &cx, &cy);
     SDL_FillRect(screen, NULL, 0x2104);
@@ -279,6 +281,13 @@ static void check_mask_equivalence_and_speed(SDL_Surface *screen, Rich4Mkf *mkf)
         SDL_FillRect(base,NULL,0x2104);
         draw_game_map_objects(base,&assets,&settings,&view,NULL);
         view.property_flash_active = 1;
+        for (i = 0; i < land_count; i++)
+            view.lands[i].flash_selected = i % 3 != 0;
+        /* A charge enters the flash phase with neutral brightness.  Build the
+         * cache on that first frame so selection cannot depend on adjustment. */
+        SDL_BlitSurface(base,NULL,screen,NULL);
+        assert(draw_game_cached_property_flash(
+            screen,&assets,&settings,&view,NULL,&cache));
         for (frame = 0; frame < 16; frame++) {
             int compare_scalar = 1;
 #ifdef RICH4_PLATFORM_MIYOO
@@ -288,7 +297,9 @@ static void check_mask_equivalence_and_speed(SDL_Surface *screen, Rich4Mkf *mkf)
             compare_scalar = frame == 0 || frame == 8;
 #endif
             view.property_flash_adjust = adjustments[frame];
-            for (i = 0; i < land_count; i++) view.lands[i].flash_adjust = (i % 3) ? adjustments[frame] : 0;
+            for (i = 0; i < land_count; i++)
+                view.lands[i].flash_adjust = view.lands[i].flash_selected
+                    ? adjustments[frame] : 0;
             if (compare_scalar) {
                 SDL_BlitSurface(base,NULL,reference,NULL);
                 started = SDL_GetTicks();

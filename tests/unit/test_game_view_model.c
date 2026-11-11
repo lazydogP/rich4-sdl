@@ -406,6 +406,11 @@ int main(void)
     state.land_price_status[1] = 0x51;
     state.facility_price_status[0] = 0x31;
     flow.property_presentation_land = 0;
+    flow.property_flash_active = 1;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.lands[0].flash_selected && model.lands[1].flash_selected &&
+           !model.lands[2].flash_selected);
+    assert(model.lands[0].flash_adjust == 0 && model.lands[1].flash_adjust == 0);
     flow.property_flash_adjust = 8;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.lands[0].price_status == 0x50 && model.lands[1].price_status == 0x51);
@@ -414,6 +419,7 @@ int main(void)
            model.lands[2].flash_adjust == 0);
     state.land_price_status[0] = state.land_price_status[1] = 0;
     state.facility_price_status[0] = 0;
+    flow.property_flash_active = 0;
     flow.property_flash_adjust = 0;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.lands[0].price_status == 0 && model.lands[1].price_status == 0 &&

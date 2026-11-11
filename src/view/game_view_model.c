@@ -597,10 +597,12 @@ int rich4_game_view_model_build(const GameState *state,
             model.lands[i].level--;
         model.lands[i].group = state->land_group[i];
         model.lands[i].price_status = state->land_price_status[i];
-        if (input->property_flash_adjust != 0 &&
+        if (input->property_flash_active &&
             rich4_property_toll_flash_contains(
-                state, input->property_presentation_land, i))
+                state, input->property_presentation_land, i)) {
+            model.lands[i].flash_selected = 1;
             model.lands[i].flash_adjust = input->property_flash_adjust;
+        }
     }
     model.facility_count = state->facility_count;
     if (model.facility_count < 0) model.facility_count = 0;

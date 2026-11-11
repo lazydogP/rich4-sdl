@@ -772,7 +772,7 @@ static void map_info_flash_mask(unsigned char *selection,
         MapInfoMask mask;
         int land = visible[i].object_id - 2001;
         unsigned char selected = land >= 0 && land < view->land_count
-            ? (unsigned char)(signed char)view->lands[land].flash_adjust : 0;
+            ? (unsigned char)view->lands[land].flash_selected : 0;
         if (map_info_generic_mask(assets, map, view, &visible[i], &mask) > 0)
             map_info_stamp(selection, &mask, selected);
         if (map_info_actual_mask(assets, view, &visible[i], &mask) > 0)
@@ -809,7 +809,7 @@ void draw_game_property_flash(SDL_Surface *screen,
     map_info_flash_mask(selection, assets, settings, view, objects);
     runtime_profile_span("render", "property.mask", started, -1, 0);
     started = runtime_profile_now();
-    map_info_apply_flash(screen, selection, 0);
+    map_info_apply_flash(screen, selection, view->property_flash_adjust);
     runtime_profile_span("render", "property.flash", started, -1, 0);
 }
 
