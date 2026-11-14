@@ -226,6 +226,7 @@ static void draw_game_bank_speech(SDL_Surface *screen,
 {
     Rich4PlayerSayText decoded;
     Rich4SprSmpChunk bubble;
+    char greeting[64];
     int left;
     int top;
     if (scene->bank_interaction_speech == NULL ||
@@ -233,6 +234,20 @@ static void draw_game_bank_speech(SDL_Surface *screen,
     rich4_player_say_decode(
         scene->bank_interaction_speech->big5,
         scene->bank_interaction_speech->speaking_resource, &decoded);
+    if (scene->bank_loan_reminder && decoded.display_text != NULL &&
+        strncmp(decoded.display_text, "%s", 2) == 0) {
+        char name[32];
+        const char *source = new_game_character_name(scene->bank_character);
+        size_t length = 0;
+        /* 0x452946 removes the spacing in the fixed character name. */
+        while (*source != '\0' && length + 1 < sizeof(name)) {
+            if (*source != ' ') name[length++] = *source;
+            source++;
+        }
+        name[length] = '\0';
+        snprintf(greeting, sizeof(greeting), "%s%s", name, decoded.display_text + 2);
+        decoded.display_text = greeting;
+    }
     if (decoded.display_text == NULL || decoded.display_text[0] == '\0' ||
         rich4_spr_smp_get_chunk(
             assets->ui.panel_data[23], assets->ui.panel_size[23],

@@ -9,6 +9,7 @@
 #include "platform/sdl1/runtime.h"
 #include "platform/sdl1/game_flow_api.h"
 #include "app/bank_interaction_flow.h"
+#include "app/bank_flow.h"
 #include "app/auction_flow.h"
 #include "app/confinement_flow.h"
 #include "app/dice_flow.h"
@@ -22,6 +23,17 @@ void game_handle_mouse_button_up_game(
     if (context == NULL || context->session == NULL ||
         context->cursor == NULL || context->settings == NULL)
         return;
+    if (context->app_state == RICH4_SCENE_GAME &&
+        rich4_bank_flow_loan_reminder_active(context->session)) {
+        if (context->button == SDL_BUTTON_RIGHT)
+            (void)rich4_bank_flow_loan_reminder_click(
+                context->session, 1, rich4_sdl1_ticks());
+        game_session_audio_flush(context->session, context->audio);
+        context->cursor->confirm_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
+        context->cursor->cancel_pressed = 0;
+        return;
+    }
     if (context->button == SDL_BUTTON_LEFT) {
         int release_player_info =
             context->app_state == RICH4_SCENE_GAME &&

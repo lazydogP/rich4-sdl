@@ -326,11 +326,8 @@ void draw_bank_loan_due_presentation(
     SDL_Surface *screen, const GamePreviewAssets *assets,
     const Rich4GameEventPresentationSnapshot *session)
 {
-    static const char reminder_format[] =
-        "\xb6\x55\xb4\xda\xc1\xd9\xa6\xb3%d"
-        "\xa4\xd1\xa8\xec\xb4\xc1";
     /* 0x436A5A: days 0/1/2 use 0x464B2C/0x464B43/0x464B5C.
-     * The existing SDL three-day reminder is not an original string. */
+     * Day 3 is the separate full-screen 0x436034 teller callback. */
     static const char *const original_notices[] = {
         "\xb6\x55\xb4\xda\xa8\xec\xb4\xc1\xa4\xe9\n\n"
         "\xb1\x6a\xa8\xee\xb0\xf5\xa6\xe6\xa1\x49",
@@ -343,7 +340,8 @@ void draw_bank_loan_due_presentation(
     char message[96];
     if (screen == NULL || assets == NULL || session == NULL ||
         !session->presentation->bank_loan_due.active ||
-        session->presentation->bank_settlement.active)
+        session->presentation->bank_settlement.active ||
+        session->presentation->bank_loan_due.days == 3)
         return;
     if (game_asset_ready(assets, &assets->ui.has_common_dialog) &&
         rich4_spr_smp_get_chunk(
@@ -358,9 +356,7 @@ void draw_bank_loan_due_presentation(
              session->presentation->bank_loan_due.days == 2)
         snprintf(message, sizeof(message), "%s", original_notices[
                  session->presentation->bank_loan_due.days]);
-    else
-        snprintf(message, sizeof(message), reminder_format,
-                 session->presentation->bank_loan_due.days);
+    else return;
     draw_big5_text(screen, 220, 140, message, 16,
                    rich4_character_rgb565_color(0x00f0f0f0u),
                    rich4_character_rgb565_color(0x00101010u), 3, 4);

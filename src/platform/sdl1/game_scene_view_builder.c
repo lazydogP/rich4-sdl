@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "app/game_session.h"
+#include "app/bank_flow.h"
 #include "app/new_game_setup_flow.h"
 #include "app/route_flow.h"
 #include "app/map_input_flow.h"
@@ -158,10 +159,17 @@ int build_game_session_render_view_for_state(
         out_view->landing_frames = game_first_landing_frame_count(
             assets, &state->players[out_view->landing_player],
             out_view->landing_player);
-    if (session->presentation.route_interaction.active) {
+    out_view->bank_loan_reminder = rich4_bank_flow_loan_reminder_active(session);
+    if (session->presentation.route_interaction.active || out_view->bank_loan_reminder) {
+        GameCommand reminder = {0};
         const GameCommand *command = &session->presentation.route_interaction.accept;
+        if (out_view->bank_loan_reminder) {
+            reminder.type = GAME_COMMAND_BANK_APPLY_LOAN;
+            reminder.player = session->presentation.bank_loan_due.player;
+            command = &reminder;
+        }
         int id = command->subject.id;
-        out_view->route_interaction_active = 1;
+        out_view->route_interaction_active = !out_view->bank_loan_reminder;
         out_view->route_interaction_hover = session->presentation.route_interaction.hover;
         out_view->route_interaction_pressed = session->presentation.route_interaction.pressed;
         out_view->route_interaction_type = command->type;
@@ -205,7 +213,7 @@ int build_game_session_render_view_for_state(
         {
             const RouteEvent *event = rich4_route_event_executor_current(
                 &session->flow.route_events);
-            out_view->bank_special_enabled = event != NULL &&
+            out_view->bank_special_enabled = !out_view->bank_loan_reminder && event != NULL &&
                 event->snapshot.property_owner == command->player;
         }
         out_view->bank_loan_days_remaining =

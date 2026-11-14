@@ -27,7 +27,8 @@ static void queue_bankruptcy_auctions(
     for (i = 0; i < state->player_count; i++) {
         if ((state->players[i].play_state & 0xff) == 0) continue;
         active++;
-        if (!state->players[i].is_ai) human++;
+        /* 0x40D020 counts the human slot even while it is AI-hosted. */
+        if ((state->players[i].play_state & 1) != 0) human++;
     }
     if (human == 0 || active == 1) return;
     rng.state = state->ai_rng_state;

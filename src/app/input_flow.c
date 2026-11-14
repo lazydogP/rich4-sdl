@@ -81,7 +81,8 @@ int rich4_app_input_ui_active(
           !session->presentation.bankruptcy.awaiting_auction &&
           !session->presentation.auction.active) ||
          session->presentation.bank_settlement.active ||
-         session->presentation.bank_loan_due.active))
+         (session->presentation.bank_loan_due.active &&
+          session->presentation.bank_loan_due.days != 3)))
         return 0;
     if (app_state == RICH4_SCENE_GAME && session != NULL &&
         session->presentation.save_load.mode !=
@@ -105,6 +106,7 @@ int rich4_app_input_ui_active(
     if (app_state == RICH4_SCENE_GAME && session != NULL &&
         (session->presentation.intro.active ||
          (session->flow.turn_flow_active &&
+          !session->presentation.bank_loan_due.active &&
           !session->presentation.route_interaction.active &&
           !session->presentation.confinement_visit.active &&
           !session->presentation.lottery.active &&

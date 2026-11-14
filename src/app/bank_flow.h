@@ -21,5 +21,11 @@ int rich4_bank_flow_begin_amount_prompt(
 int rich4_bank_flow_begin_result(
     GameSession *session, GameCommandType command_type, uint32_t now);
 void rich4_bank_flow_cancel_amount_entry(GameSession *session, uint32_t now);
+/* 0x436A5A / 0x43695E: countdown notices and the human-only teller visit. */
+void rich4_bank_flow_begin_loan_due(
+    GameSession *session, const GameEvent *event, uint32_t now);
+int rich4_bank_flow_loan_reminder_active(const GameSession *session);
+int rich4_bank_flow_loan_reminder_click(
+    GameSession *session, int cancel, uint32_t now);
 
 #endif

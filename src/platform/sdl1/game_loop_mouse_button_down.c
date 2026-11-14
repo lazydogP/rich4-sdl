@@ -6,6 +6,7 @@
 
 #include "app/ai_settings_flow.h"
 #include "app/bank_interaction_flow.h"
+#include "app/bank_flow.h"
 #include "app/map_input_flow.h"
 #include "app/stock_interaction_flow.h"
 #include "app/sale_interaction_flow.h"
@@ -32,6 +33,14 @@ int game_handle_mouse_button_down_modal(
     Rich4AiSettingsState *ai_settings_panel = context->ai_settings_panel;
     ToolPanelState *tool_panel = context->tool_panel;
     Rich4Audio *audio = context->audio;
+
+    if (app_state == RICH4_SCENE_GAME &&
+        rich4_bank_flow_loan_reminder_click(session, 0, rich4_sdl1_ticks())) {
+        game_session_audio_flush(session, audio);
+        cursor->confirm_pressed = 0;
+        cursor->confirm_pointer_pressed = 0;
+        return 1;
+    }
 
     if (app_state == RICH4_SCENE_GAME &&
         session->presentation.save_load.mode !=

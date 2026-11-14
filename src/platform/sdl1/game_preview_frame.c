@@ -76,9 +76,9 @@ void draw_game_preview_adapter(SDL_Surface *screen,
             runtime_profile_render_part(1, part_started);
             return;
         }
-        if (session_view.route_interaction_active &&
+        if (session_view.bank_loan_reminder || (session_view.route_interaction_active &&
             session_view.route_interaction_type ==
-                GAME_COMMAND_BANK_APPLY_LOAN) {
+                GAME_COMMAND_BANK_APPLY_LOAN)) {
             /* sub_436668 opens Panel23 in its own 640x480 modal surface. */
             SDL_LockSurface(screen);
             fill_rect(screen, 0, 0, SCREEN_W, SCREEN_H, 0x0000);

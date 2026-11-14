@@ -74,7 +74,7 @@ static int resolve_ordinary_loan_due(GameState *state, int player,
                                      GameEventQueue *events)
 {
     GamePlayerState *account;
-    GameState due_day;
+    GameEventQueue payment_events;
     int remaining;
     int principal;
     GamePaymentResult payment;
@@ -82,25 +82,20 @@ static int resolve_ordinary_loan_due(GameState *state, int player,
         player >= state->player_count) return 0;
     account = &state->players[player];
     if (account->loan_due_date == 0) return 1;
-    /* sub_433B7E computes +90 once, then advances that stored date until
-     * sub_4523D5 reports an open bank day.  Normalize before calculating
-     * reminders so 3/2/1 all count back from the shifted deadline. */
-    due_day = *state;
-    due_day.elapsed_days = account->loan_due_date;
-    while (rich4_stock_calendar_is_closed(&due_day)) {
-        if (account->loan_due_date == INT_MAX) return 0;
-        account->loan_due_date++;
-        due_day.elapsed_days = account->loan_due_date;
-    }
+    /* 0x436A5A reads the stored deadline.  Only 0x433B7E, when first
+     * installing it, advances a deadline past bank holidays. */
     remaining = rich4_bank_loan_days_remaining(state, player);
-    if (remaining > 3) return 1;
+    if (remaining < 0 || remaining > 3) return 1;
+    /* 0x43695E compares the entire control byte to 1. */
+    if (remaining == 3 && account->play_state != 1) return 1;
     if (remaining > 0) {
         GameEvent event = rich4_game_event_bank_loan_due(
             player, account->loan, remaining, 0, 0);
         return rich4_game_event_queue_push(events, &event);
     }
     principal = account->loan;
-    payment = rich4_ledger_debit_bank(state, player, principal, events);
+    rich4_game_event_queue_reset(&payment_events);
+    payment = rich4_ledger_debit_bank(state, player, principal, &payment_events);
     if (payment == GAME_PAYMENT_REJECTED ||
         payment == GAME_PAYMENT_LIQUIDATION)
         return 0;
@@ -109,7 +104,10 @@ static int resolve_ordinary_loan_due(GameState *state, int player,
     {
         GameEvent event = rich4_game_event_bank_loan_due(
             player, principal, 0, payment, 1u);
-        return rich4_game_event_queue_push(events, &event);
+        /* 0x436AA5 waits for the notice before 0x433BD8 can enter the
+         * blocking bankruptcy animation and its auctions. */
+        return rich4_game_event_queue_push(events, &event) &&
+               rich4_game_event_queue_append(events, &payment_events);
     }
 }
 
@@ -406,8 +404,15 @@ static int turn_advance_events_impl(GameState *state,
             tick_property_statuses(&next);
         }
     }
-    /* 0x41902E calls the blocking day update before player status ticks. */
-    if ((result.events & TURN_EVENT_STATUS_TICK) != 0)
+    /* 0x41C86D checks loans before status ticks; status-return turns skip
+     * 0x41C84F entirely. */
+    if (result.kind == TURN_SELECTION_NORMAL &&
+        (result.events & TURN_EVENT_STATUS_TICK) != 0 &&
+        !resolve_ordinary_loan_due(&next, result.selected_index, &staged))
+        return 0;
+    if ((result.events & TURN_EVENT_STATUS_TICK) != 0 &&
+        (result.kind != TURN_SELECTION_NORMAL ||
+         next.players[result.selected_index].play_state != 0))
         push_typed_turn_event(
             &staged, rich4_game_event_status_tick_requested_from_fields,
             result.selected_index, 0, 0, 0, 0);
@@ -415,10 +420,6 @@ static int turn_advance_events_impl(GameState *state,
         push_typed_turn_event(
             &staged, rich4_game_event_actor_dirty_requested_from_fields,
             result.selected_index, 0, 0, 0, 0);
-    if (result.kind == TURN_SELECTION_NORMAL &&
-        !resolve_ordinary_loan_due(
-            &next, result.selected_index, &staged))
-        return 0;
     if (!rich4_game_event_queue_append(events, &staged)) return 0;
     *state = next;
     if (out_result != NULL) *out_result = result;

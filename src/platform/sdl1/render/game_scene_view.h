@@ -61,6 +61,7 @@ typedef struct GameSceneView {
     int route_interaction_amount;
     char route_interaction_name[21];
     int bank_interaction_mode;
+    int bank_loan_reminder;
     int bank_interaction_amount;
     int bank_interaction_pressed_control;
     int bank_interaction_special_page;

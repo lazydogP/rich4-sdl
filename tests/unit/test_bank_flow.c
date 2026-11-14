@@ -4,6 +4,7 @@
 
 #include "app/bank_flow.h"
 #include "core/game_command.h"
+#include "core/game_event_payload.h"
 #include "core/rng.h"
 #include "data/character_speech.h"
 
@@ -15,11 +16,42 @@ static Rich4AudioEvent pop_audio(Rich4AudioEventQueue *events)
     return event;
 }
 
+static void test_three_day_teller_reminder(void)
+{
+    GameSession session = {0};
+    GameEvent event = rich4_game_event_bank_loan_due(0, 1000, 3, 0, 0);
+    rich4_bank_flow_begin_loan_due(&session, &event, 1000);
+    assert(rich4_bank_flow_loan_reminder_active(&session));
+    assert(!session.presentation.route_interaction.active);
+    assert(session.presentation.bank_interaction.card_x == 440);
+    assert(session.presentation.bank_interaction.speech != NULL &&
+           session.presentation.bank_interaction.speech->speaking_resource == 0);
+    assert(rich4_bank_flow_update(&session, 2999, 0, NULL));
+    assert(session.presentation.bank_interaction.stage == RICH4_BANK_PRESENT_DUE_GREETING);
+    assert(rich4_bank_flow_update(&session, 3050, 0, NULL));
+    assert(session.presentation.bank_interaction.stage == RICH4_BANK_PRESENT_DUE_WARNING);
+    assert(rich4_bank_flow_update(&session, 5050, 0, NULL));
+    assert(session.presentation.bank_interaction.stage == RICH4_BANK_PRESENT_DUE_GOODBYE);
+    assert(!rich4_bank_flow_update(&session, 7050, 0, NULL));
+    assert(!session.presentation.bank_loan_due.active);
+
+    rich4_bank_flow_begin_loan_due(&session, &event, 8000);
+    assert(rich4_bank_flow_loan_reminder_click(&session, 0, 8010));
+    assert(rich4_bank_flow_update(&session, 8050, 0, NULL));
+    assert(session.presentation.bank_interaction.stage == RICH4_BANK_PRESENT_DUE_WARNING);
+    assert(rich4_bank_flow_loan_reminder_click(&session, 1, 8060));
+    assert(!rich4_bank_flow_update(&session, 8100, 0, NULL));
+    assert(!session.presentation.bank_interaction.speech_snapshot.valid);
+    assert(!rich4_bank_flow_loan_reminder_click(&session, 0, 8200));
+}
+
 int main(void)
 {
     GameSession session;
     Rich4AudioEventQueue audio_events;
     Rich4AudioEvent audio_event;
+
+    test_three_day_teller_reminder();
 
     memset(&session, 0, sizeof(session));
     rich4_audio_event_queue_reset(&audio_events);

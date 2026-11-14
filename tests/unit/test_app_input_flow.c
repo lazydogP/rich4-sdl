@@ -71,6 +71,14 @@ static void test_gates(void)
         RICH4_SCENE_GAME, NULL, &session, 0, &cursor, &pointer));
     assert(cursor.x == 7 && cursor.y == 9);
 
+    session.presentation.bank_loan_due.active = 1;
+    session.presentation.bank_loan_due.days = 3;
+    assert(rich4_app_input_ui_active(RICH4_SCENE_GAME, NULL, &session, 0));
+    assert(rich4_app_input_display_visible(RICH4_SCENE_GAME, NULL, &session, 0));
+    session.presentation.bank_loan_due.days = 1;
+    assert(!rich4_app_input_ui_active(RICH4_SCENE_GAME, NULL, &session, 0));
+    session.presentation.bank_loan_due.active = 0;
+
     session.state.player_count = 1;
     session.state.players[0].cash = 2000;
     session.presentation.intro.active = 1;

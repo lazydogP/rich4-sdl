@@ -32,7 +32,12 @@ typedef enum Rich4BankInteractionStage {
     RICH4_BANK_PRESENT_REPAY_PROMPT = 9,
     RICH4_BANK_PRESENT_REPAY_AMOUNT = 10,
     RICH4_BANK_PRESENT_EXIT = 11,
-    RICH4_BANK_PRESENT_RETRACT = 12
+    RICH4_BANK_PRESENT_RETRACT = 12,
+    /* 0x436034's independent three-message reminder callback. */
+    RICH4_BANK_PRESENT_DUE_GREETING,
+    RICH4_BANK_PRESENT_DUE_WARNING,
+    RICH4_BANK_PRESENT_DUE_GOODBYE,
+    RICH4_BANK_PRESENT_DUE_EXIT
 } Rich4BankInteractionStage;
 #include "core/game_constants.h"
 #include "core/game_domain.h"

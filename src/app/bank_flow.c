@@ -1,6 +1,7 @@
 #include "app/bank_flow.h"
 
 #include "core/game_command.h"
+#include "core/game_event_payload.h"
 #include "core/rng.h"
 #include "data/character_speech.h"
 
@@ -29,6 +30,30 @@ static const Rich4CharacterSpeech *bank_speech(int resource)
 {
     return resource >= 75 && resource <= 85
         ? &bank_teller_speech[resource - 75] : NULL;
+}
+
+/* 0x464AEE, 0x464A2D, 0x464A4B.  These messages have no voice marker. */
+static const Rich4CharacterSpeech loan_reminder_speech[3] = {
+    {0, "%s\xb1\x7a\xa6\x6e"},
+    {0, "\xb1\x7a\xa6\x56\xbb\xc8\xa6\xe6\xad\xc9\xb6\x55\xaa\xba\n"
+        "\xb6\x55\xb4\xda\xa7\x59\xb1\x4e\xa8\xec\xb4\xc1\xa1\x43"},
+    {0, "\xbd\xd0\xa4\xa3\xad\x6e\xa7\xd1\xb0\x4f\xb3\xe1\xa1\x49"}
+};
+
+int rich4_bank_flow_loan_reminder_active(const GameSession *session)
+{
+    return session != NULL && session->presentation.bank_loan_due.active &&
+           session->presentation.bank_loan_due.days == 3;
+}
+
+static void bank_start_reminder_speech(
+    GameBankInteractionPresentationState *bank, int index, uint32_t now)
+{
+    bank->speech = &loan_reminder_speech[index];
+    (void)rich4_character_speech_snapshot_capture(
+        &bank->speech_snapshot, bank->speech);
+    bank->speech_pending = 0;
+    bank->speech_tick = now;
 }
 
 static int bank_is_loan_interaction(const GameSession *session)
@@ -267,11 +292,77 @@ void rich4_bank_flow_cancel_amount_entry(GameSession *session, uint32_t now)
     bank->anim_tick = now;
 }
 
+void rich4_bank_flow_begin_loan_due(
+    GameSession *session, const GameEvent *event, uint32_t now)
+{
+    GameBankLoanDuePresentationState *due;
+    if (session == NULL || event == NULL) return;
+    due = &session->presentation.bank_loan_due;
+    due->active = 1;
+    due->player = event->player;
+    due->days = rich4_game_event_bank_loan_days(event);
+    due->principal = rich4_game_event_bank_loan_principal(event);
+    due->forced = rich4_game_event_bank_loan_forced(event) != 0;
+    due->payment = rich4_game_event_bank_loan_payment(event);
+    due->until = now + 1500;
+    if (due->days == 3) {
+        rich4_bank_flow_begin_interaction(
+            session, GAME_COMMAND_BANK_APPLY_LOAN, NULL, now, 0, NULL);
+        session->presentation.bank_interaction.card_x = 440;
+        session->presentation.bank_interaction.stage = RICH4_BANK_PRESENT_DUE_GREETING;
+        bank_start_reminder_speech(&session->presentation.bank_interaction, 0, now);
+    }
+}
+
+int rich4_bank_flow_loan_reminder_click(
+    GameSession *session, int cancel, uint32_t now)
+{
+    GameBankInteractionPresentationState *bank;
+    if (!rich4_bank_flow_loan_reminder_active(session)) return 0;
+    bank = &session->presentation.bank_interaction;
+    /* 0x4365B4 ignores a second cancel during the final message. */
+    if (cancel && bank->stage >= RICH4_BANK_PRESENT_DUE_GOODBYE) return 1;
+    rich4_audio_event_emit(&session->audio_events,
+        cancel ? RICH4_AUDIO_EVENT_CANCEL : RICH4_AUDIO_EVENT_OK, 1, 0);
+    rich4_audio_event_emit(&session->audio_events, RICH4_AUDIO_EVENT_SPEECH_STOP, 1, 0);
+    if (cancel) bank->stage = RICH4_BANK_PRESENT_DUE_EXIT;
+    bank->speech_tick = now - 2000u;
+    return 1;
+}
+
+static int bank_update_loan_reminder(GameSession *session, uint32_t now)
+{
+    GameBankInteractionPresentationState *bank = &session->presentation.bank_interaction;
+    if (now - bank->anim_tick < 50u) return 1;
+    bank->anim_tick = now;
+    if (bank_finish_speech_if_ready(bank, now, 0)) {
+        if (bank->stage == RICH4_BANK_PRESENT_DUE_GREETING) {
+            bank->stage = RICH4_BANK_PRESENT_DUE_WARNING;
+            bank_start_reminder_speech(bank, 1, now);
+        } else if (bank->stage == RICH4_BANK_PRESENT_DUE_WARNING) {
+            bank->stage = RICH4_BANK_PRESENT_DUE_GOODBYE;
+            bank_start_reminder_speech(bank, 2, now);
+        } else {
+            session->presentation.bank_loan_due.active = 0;
+            bank->stage = RICH4_BANK_PRESENT_IDLE;
+            return 0;
+        }
+    }
+    /* 0x43624E..0x43625A skips both face animations on alternate ticks. */
+    bank->animation_page ^= 1;
+    if (bank->animation_page) return 1;
+    bank_update_teller_eyes(session, bank);
+    bank_update_teller_mouth(session, bank);
+    return 1;
+}
+
 int rich4_bank_flow_update(
     GameSession *session, uint32_t now, int speech_playing,
     Rich4AudioEventQueue *audio_events)
 {
     if (session == NULL) return 0;
+    if (rich4_bank_flow_loan_reminder_active(session))
+        return bank_update_loan_reminder(session, now);
     if (bank_is_loan_interaction(session)) {
         GameBankInteractionPresentationState *bank =
             &session->presentation.bank_interaction;

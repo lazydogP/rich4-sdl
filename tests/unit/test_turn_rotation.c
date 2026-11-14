@@ -184,7 +184,7 @@ static void test_loan_due_reminder_and_forced_payment(void)
     assert(forced == 1);
 }
 
-static void test_loan_due_bankruptcy_and_closed_day_shift(void)
+static void test_loan_due_bankruptcy_and_stored_deadline(void)
 {
     GameState state;
     TurnAdvanceResult result;
@@ -221,11 +221,12 @@ static void test_loan_due_bankruptcy_and_closed_day_shift(void)
     state.players[0].loan_due_date = 1;
     rich4_game_event_queue_reset(&events);
     assert(rich4_turn_advance_once_events(&state, &result, &events));
-    assert(state.players[0].loan == 1000 &&
-           state.players[0].loan_due_date == 2);
+    /* 0x436A5A honors a stored deadline, even on a closed day.  The
+     * ordinary borrowing helper already normalizes new deadlines. */
+    assert(state.players[0].loan == 0 &&
+           state.players[0].loan_due_date == 0);
 
-    /* The original shifts the stored date before computing reminders, not
-     * only after the closed deadline has already been reached. */
+    /* The reminder callback never rewrites an existing deadline. */
     setup_loan_day(&state, 1);
     state.turn_rotation_index = -1;
     state.calendar_start_year = 2000;
@@ -237,7 +238,60 @@ static void test_loan_due_bankruptcy_and_closed_day_shift(void)
     rich4_game_event_queue_reset(&events);
     assert(rich4_turn_advance_once_events(&state, &result, &events));
     assert(state.elapsed_days == 0 && state.players[0].loan == 1000 &&
-           state.players[0].loan_due_date == 2);
+           state.players[0].loan_due_date == 1);
+}
+
+static void test_loan_due_original_dispatch_boundaries(void)
+{
+    GameState state;
+    TurnAdvanceResult result;
+    GameEventQueue events;
+    GameEvent event;
+    int play_state;
+    for (play_state = 1; play_state <= 5; play_state++) {
+        int notices = 0;
+        setup_loan_day(&state, 3);
+        state.players[0].play_state = play_state;
+        state.players[0].loan = 1000;
+        state.players[0].loan_due_date = 4;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_turn_advance_once_events(&state, &result, &events));
+        while (rich4_game_event_queue_pop(&events, &event))
+            if (event.type == GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED)
+                notices++;
+        assert(notices == (play_state == 1));
+    }
+    setup_loan_day(&state, 3);
+    state.elapsed_days = 3;
+    state.players[0].bank = 2000;
+    state.players[0].loan = 1000;
+    state.players[0].loan_due_date = 1;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_turn_advance_once_events(&state, &result, &events));
+    assert(state.players[0].bank == 2000 && state.players[0].loan == 1000 &&
+           state.players[0].loan_due_date == 1);
+
+    setup_loan_day(&state, 3);
+    state.turn_rotation_index = 0;
+    state.players[0].play_state = 0x11;
+    state.players[0].loan = 1000;
+    state.players[0].loan_due_date = 3;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_turn_advance_once_events(&state, &result, &events));
+    while (rich4_game_event_queue_pop(&events, &event))
+        assert(event.type != GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED);
+    assert(state.players[0].loan == 1000 && state.elapsed_days == 0);
+
+    setup_loan_day(&state, 3);
+    state.players[0].bank = 300;
+    state.players[0].cash = 700;
+    state.players[0].loan = 1000;
+    state.players[0].loan_due_date = 1;
+    state.players[0].days_in_prison = 2;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_turn_advance_once_events(&state, &result, &events));
+    assert(state.players[0].play_state == 1 && state.players[0].bank == 0 &&
+           state.players[0].cash == 0 && state.players[0].loan == 0);
 }
 
 static void check_ai_cancel(void)
@@ -498,7 +552,8 @@ int main(void)
     test_special_auto_action();
     test_monthly_bank_settlement();
     test_loan_due_reminder_and_forced_payment();
-    test_loan_due_bankruptcy_and_closed_day_shift();
+    test_loan_due_bankruptcy_and_stored_deadline();
+    test_loan_due_original_dispatch_boundaries();
     puts("turn rotation 0x418EBD: ok");
     return 0;
 }

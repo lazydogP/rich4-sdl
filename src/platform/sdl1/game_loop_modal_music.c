@@ -14,9 +14,11 @@ int game_session_has_modal_music(const GameSession *session)
 {
     int bank_active;
     if (session == NULL) return 0;
-    bank_active = session->presentation.route_interaction.active &&
+    bank_active = (session->presentation.bank_loan_due.active &&
+                   session->presentation.bank_loan_due.days == 3) ||
+        (session->presentation.route_interaction.active &&
         session->presentation.route_interaction.accept.type ==
-            GAME_COMMAND_BANK_APPLY_LOAN;
+            GAME_COMMAND_BANK_APPLY_LOAN);
     return session->presentation.bank_settlement.active ||
         (session->presentation.periodic_finance.active &&
          session->presentation.periodic_finance.phase > 0) ||
@@ -129,9 +131,11 @@ void game_update_modal_music(GameModalMusicContext *context)
 {
     GameSession *session = context->session;
     Rich4Audio *audio = context->audio;
-    int bank_active = session->presentation.route_interaction.active &&
+    int bank_active = (session->presentation.bank_loan_due.active &&
+                       session->presentation.bank_loan_due.days == 3) ||
+        (session->presentation.route_interaction.active &&
         session->presentation.route_interaction.accept.type ==
-            GAME_COMMAND_BANK_APPLY_LOAN;
+            GAME_COMMAND_BANK_APPLY_LOAN);
     if (context->music_enabled && session->presentation.bank_settlement.active &&
         *context->bank_music_active != 2) {
         if (start_fixed_music(audio, context->music_dir, 9, "monthly settlement")) {

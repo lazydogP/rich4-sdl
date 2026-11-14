@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "app/dynamic_object_flow.h"
+#include "app/bank_flow.h"
+#include "app/bankruptcy_flow.h"
 #include "app/special_place_notice_flow.h"
 #include "app/turn_rotation_flow.h"
 #include "app/turn_movement_flow.h"
@@ -550,8 +552,147 @@ static void test_research_completion_during_turn_rotation(void)
     }
 }
 
+static void setup_loan_enforcement(GameSession *s, int count)
+{
+    int i;
+    setup_session(s);
+    s->state.player_count = count;
+    s->state.human_player_count = count;
+    s->state.turn_rotation_index = count - 1;
+    s->state.current_player = count - 1;
+    for (i = 0; i < count; i++) {
+        s->state.players[i].play_state = 1;
+        s->state.players[i].node = i + 1;
+        s->state.players[i].linked_player = -1;
+        s->state.players[i].attached_timed_bomb_slot = -1;
+    }
+    s->state.players[0].cash = 200;
+    s->state.players[0].bank = 100;
+    s->state.players[0].loan = 1000;
+    s->state.players[0].loan_due_date = 1;
+    s->state.land_count = 5;
+    for (i = 0; i < 5; i++) {
+        s->state.land_owner[i] = 0;
+        s->state.land_price[i] = 100;
+        s->state.land_value[i] = 100;
+    }
+}
+
+static void test_loan_enforcement_waits_for_notice_auctions_and_speech(void)
+{
+    static GameSession s;
+    GameEvent event;
+    unsigned int seen = 0;
+    int auctions = 0;
+    setup_loan_enforcement(&s, 3);
+    /* A hosted human remains a human for 0x40D020's auction gate. */
+    s.state.human_player_count = 2;
+    s.state.players[1].play_state = 5;
+    s.state.players[1].is_ai = 1;
+    s.state.players[2].play_state = 2;
+    s.state.players[2].is_ai = 1;
+    assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, NULL));
+    assert(s.state.players[0].play_state == 0);
+    assert(s.state.current_player == 0);
+    assert(s.presentation.bank_loan_due.active && s.presentation.bank_loan_due.forced);
+    assert(!s.presentation.bankruptcy.active && s.bankruptcy_auction_events.count == 0);
+    assert(s.pending_turn_events.count > 0);
+    assert(!rich4_app_resume_turn_events(&s, NULL, 2499));
+    assert(rich4_bank_flow_update(&s, 2499, 0, NULL));
+    assert(!rich4_bank_flow_update(&s, 2500, 0, NULL));
+    assert(rich4_app_resume_turn_events(&s, NULL, 2500));
+    assert(s.presentation.bankruptcy.active);
+    assert(s.bankruptcy_auction_events.count == 3);
+    assert(s.pending_turn_events.count > 0);
+    assert(!rich4_app_advance_turn_rotation(&s, NULL, 2600, NULL));
+    assert(rich4_bankruptcy_update(&s, 0, 100, 2500));
+    assert(rich4_bankruptcy_update(&s, 0, 100, 4500));
+    assert(s.presentation.bankruptcy.awaiting_auction);
+    while (rich4_game_event_queue_pop(&s.deferred_events, &event)) {
+        if (event.type == GAME_EVENT_AUCTION_REQUESTED) {
+            GameDomainRef property = rich4_game_event_auction_property(&event);
+            assert(property.kind == GAME_DOMAIN_LAND && property.id >= 0 && property.id < 5);
+            assert((seen & (1u << property.id)) == 0);
+            seen |= 1u << property.id;
+            assert(rich4_game_event_auction_seller(&event) == -1);
+            auctions++;
+        }
+    }
+    assert(auctions == 3);
+    assert(!rich4_app_resume_turn_events(&s, NULL, 4600));
+    rich4_bankruptcy_finish_auctions(&s, 5000);
+    assert(s.presentation.bankruptcy.active && s.presentation.speech.active);
+    s.presentation.speech.active = 0;
+    rich4_bankruptcy_finish_speech(&s);
+    assert(rich4_app_resume_turn_events(&s, NULL, 7000));
+    assert(s.state.current_player == 1 && s.state.elapsed_days == 1);
+    assert(!s.presentation.bankruptcy.active && s.pending_turn_events.count == 0);
+}
+
+static void test_loan_enforcement_terminal_and_monthly_order(void)
+{
+    static GameSession s;
+    setup_loan_enforcement(&s, 2);
+    assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, NULL));
+    assert(s.state.game_over && !s.presentation.ending.active);
+    assert(!rich4_bank_flow_update(&s, 2500, 0, NULL));
+    assert(rich4_app_resume_turn_events(&s, NULL, 2500));
+    assert(s.presentation.bankruptcy.active && s.bankruptcy_terminal_events.count == 1);
+    assert(!s.presentation.ending.active);
+    assert(rich4_bankruptcy_update(&s, 0, 100, 2500));
+    assert(rich4_bankruptcy_update(&s, 0, 100, 4500));
+    assert(s.presentation.bankruptcy.active && s.presentation.speech.active);
+    s.presentation.speech.active = 0;
+    rich4_bankruptcy_finish_speech(&s);
+    assert(s.lifecycle.code == RICH4_APP_LIFECYCLE_OUTER_MENU_AFTER_JUMP);
+
+    setup_loan_enforcement(&s, 3);
+    s.state.calendar_start_year = 2000;
+    s.state.calendar_start_month = 1;
+    s.state.calendar_start_day = 31;
+    assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, NULL));
+    assert(s.presentation.bank_settlement.active && !s.presentation.bank_loan_due.active);
+    assert(!s.presentation.bankruptcy.active && s.pending_turn_events.count > 0);
+    s.presentation.bank_settlement.active = 0;
+    assert(rich4_app_resume_turn_events(&s, NULL, 9000));
+    assert(s.presentation.bank_loan_due.active && s.presentation.bank_loan_due.until == 10500);
+    assert(!s.presentation.bankruptcy.active);
+    assert(!rich4_bank_flow_update(&s, 10500, 0, NULL));
+    assert(rich4_app_resume_turn_events(&s, NULL, 10500));
+    assert(s.presentation.bankruptcy.active && s.bankruptcy_auction_events.count == 3);
+}
+
+static void test_loan_reminder_precedes_player_status(void)
+{
+    static GameSession s;
+    setup_loan_enforcement(&s, 3);
+    s.state.players[0].cash = 1000;
+    s.state.players[0].days_in_prison = 2;
+    assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, NULL));
+    assert(s.state.players[0].play_state == 1 && s.state.players[0].cash == 100);
+    assert(s.state.players[0].days_in_prison == 2);
+    assert(!rich4_bank_flow_update(&s, 2500, 0, NULL));
+    assert(rich4_app_resume_turn_events(&s, NULL, 2500));
+    assert(s.state.players[0].days_in_prison == 1);
+    assert(s.state.current_player == 0 && s.pending_turn_events.count == 0);
+
+    setup_loan_enforcement(&s, 3);
+    s.state.players[0].loan_due_date = 4;
+    s.state.players[0].days_sleeping = 2;
+    assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, NULL));
+    assert(rich4_bank_flow_loan_reminder_active(&s));
+    assert(s.state.players[0].days_sleeping == 2);
+    assert(rich4_bank_flow_loan_reminder_click(&s, 1, 1010));
+    assert(!rich4_bank_flow_update(&s, 1050, 0, NULL));
+    assert(rich4_app_resume_turn_events(&s, NULL, 1050));
+    assert(s.state.players[0].days_sleeping == 1 && s.state.current_player == 0);
+}
+
 int main(void)
 {
+    test_loan_enforcement_waits_for_notice_auctions_and_speech();
+    test_loan_enforcement_terminal_and_monthly_order();
+    test_loan_reminder_precedes_player_status();
     test_research_completion_during_turn_rotation();
     test_holiday_animation_precedes_card_notice();
     test_calendar_defers_turn_status();

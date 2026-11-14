@@ -174,7 +174,7 @@ static void normal_finance_music_cannot_be_overridden(void)
     assert(map_start_count == 1 && main_active == 1);
 }
 
-static void bank_exit_restores_map_music(void)
+static void bank_exit_restores_map_music(int reminder)
 {
     int close_before_capture, enabled;
     for (close_before_capture = 0; close_before_capture <= 1; close_before_capture++) {
@@ -184,8 +184,10 @@ static void bank_exit_restores_map_music(void)
             int track = 3, main_active = 1;
             int confinement = GAME_CONFINEMENT_NONE;
             int bank = 0, lottery = 0, magic = 0, auction = 0, holiday = 0;
-            session.presentation.route_interaction.active = 1;
+            session.presentation.route_interaction.active = !reminder;
             session.presentation.route_interaction.accept.type = GAME_COMMAND_BANK_APPLY_LOAN;
+            session.presentation.bank_loan_due.active = reminder;
+            session.presentation.bank_loan_due.days = 3;
             map_start_count = fixed_start_count = stop_count = 0;
             game_capture_modal_music_context(
                 &context, &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, 1,
@@ -199,12 +201,16 @@ static void bank_exit_restores_map_music(void)
 
             /* Mouse release closes the panel before the preview update;
              * simulation can also close it after the context is captured. */
-            if (close_before_capture) session.presentation.route_interaction.active = 0;
+            if (close_before_capture) {
+                session.presentation.route_interaction.active = 0;
+                session.presentation.bank_loan_due.active = 0;
+            }
             game_capture_modal_music_context(
                 &context, &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, enabled,
                 &track, &main_active, &confinement, &bank, &lottery, &magic,
                 &auction, &holiday);
             session.presentation.route_interaction.active = 0;
+            session.presentation.bank_loan_due.active = 0;
             game_update_modal_music(&context);
             assert(bank == 0 && track == 3 && main_active == enabled);
             assert(map_start_count == enabled && stop_count == !enabled);
@@ -257,7 +263,8 @@ int main(void)
     assert(rich4_music_point_minigame_index(9) == -1);
     post_load_music_restarts_playlist();
     normal_finance_music_cannot_be_overridden();
-    bank_exit_restores_map_music();
+    bank_exit_restores_map_music(0);
+    bank_exit_restores_map_music(1);
     bank_exit_preserves_next_modal_music();
     puts("point minigame music mapping: ok");
     return 0;

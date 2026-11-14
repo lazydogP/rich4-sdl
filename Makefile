@@ -1087,6 +1087,7 @@ CORE_TESTS := \
 	test_victory
 
 SDL_TESTS := \
+	test_bank_loan_presentation \
 	test_ai_pixel_candidates \
 	test_ai_settings_input \
 	test_auction_presentation \
@@ -1310,6 +1311,8 @@ $(eval $(call RICH4_TEST_SUITE,test-auction-presentation,,test_auction_presentat
 $(eval $(call RICH4_TEST_SUITE,test-audio-loops,,test_audio_event test_magic_house_flow test_turn_movement_flow test_audio_loops))
 $(eval $(call RICH4_TEST_SUITE,test-music,,test_music))
 $(eval $(call RICH4_TEST_SUITE,test-bank,,test_bank))
+$(eval $(call RICH4_TEST_SUITE,test-bank-loan-enforcement,,test_bank test_ledger test_turn_rotation test_turn_rotation_flow test_bank_flow test_game_presentation test_app_input_flow test_game_update_flow))
+$(eval $(call RICH4_TEST_SUITE,test-bank-loan-presentation,,test_bank_loan_presentation))
 $(eval $(call RICH4_TEST_SUITE,test-card,,test_card))
 $(eval $(call RICH4_TEST_SUITE,test-hibernation,,test_sdl1_blit test_hibernation_sdl test_turn_start_flow test_turn_status_flow test_game_view_model test_app_input_flow))
 $(eval $(call RICH4_TEST_SUITE,test-dice-flow,,test_dice_flow))

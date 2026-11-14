@@ -4,6 +4,9 @@
 #include "app/monthly_finance_flow.h"
 #include "app/special_place_notice_flow.h"
 #include "app/tool_animation_flow.h"
+#include "app/bank_flow.h"
+#include "app/bankruptcy_flow.h"
+#include "app/special_actor_flow.h"
 
 #include <string.h>
 
@@ -94,6 +97,13 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                                 uint32_t now, GameEventQueue *events)
 {
     GameEvent event;
+    GameEventQueue resumed;
+
+    if (events == &session->pending_turn_events) {
+        resumed = *events;
+        rich4_game_event_queue_reset(events);
+        events = &resumed;
+    }
 
     while (rich4_game_event_queue_pop(events, &event)) {
         int holiday_notice =
@@ -106,14 +116,23 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                 &session->pending_turn_events, &event);
             continue;
         }
-        if ((session->presentation.periodic_finance.active ||
-             session->presentation.bank_settlement.active) &&
+        if (((session->presentation.periodic_finance.active ||
+              session->presentation.bank_settlement.active ||
+              session->presentation.bank_loan_due.active) &&
             (event.type == GAME_EVENT_STATUS_TICK_REQUESTED ||
              event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED ||
-             event.type == GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED)) {
+             event.type == GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED ||
+             event.type == GAME_EVENT_AUCTION_REQUESTED ||
+             event.type == GAME_EVENT_PLAYER_ELIMINATED ||
+             event.type == GAME_EVENT_GAME_ENDED)) ||
+            ((session->presentation.bankruptcy.active ||
+              session->presentation.bankruptcy.awaiting_auction) &&
+             (event.type == GAME_EVENT_STATUS_TICK_REQUESTED ||
+              event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED))) {
             (void)rich4_game_event_queue_push(&session->pending_turn_events, &event);
             continue;
         }
+        if (rich4_bankruptcy_capture_event(session, &event, now)) continue;
         if (event.type == GAME_EVENT_FULL_ROUND_COMPLETED) {
             rich4_app_update_win_candidate(session);
         } else if (event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED &&
@@ -190,20 +209,9 @@ static void consume_turn_events(GameSession *session, const MapData *map,
         } else if (event.type ==
                    GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED &&
                    event.player >= 0 && event.player < GAME_MAX_PLAYERS) {
-            session->presentation.bank_loan_due.active = 1;
-            session->presentation.bank_loan_due.player = event.player;
-            session->presentation.bank_loan_due.days =
-                rich4_game_event_bank_loan_days(&event);
-            session->presentation.bank_loan_due.principal =
-                rich4_game_event_bank_loan_principal(&event);
-            session->presentation.bank_loan_due.forced =
-                rich4_game_event_bank_loan_forced(&event) != 0;
-            session->presentation.bank_loan_due.payment =
-                rich4_game_event_bank_loan_payment(&event);
-            session->presentation.bank_loan_due.until =
-                session->presentation.bank_settlement.active
-                    ? session->presentation.bank_settlement.until + 1500
-                    : now + 1500;
+            rich4_bank_flow_begin_loan_due(session, &event, now);
+        } else if (event.type == GAME_EVENT_GAME_ENDED) {
+            rich4_app_capture_game_ended(session, &event);
         } else if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED) {
             int world_x = 0;
             int world_y = 0;
@@ -239,12 +247,24 @@ int rich4_app_resume_turn_events(GameSession *session, const MapData *map,
     if (session == NULL || session->pending_turn_events.count == 0 ||
         session->presentation.periodic_finance.active ||
         session->presentation.bank_settlement.active ||
+        session->presentation.bank_loan_due.active ||
         session->presentation.bankruptcy.active ||
+        session->presentation.bankruptcy.awaiting_auction ||
         session->presentation.auction.active) return 0;
-    if (session->state.game_over)
-        rich4_game_event_queue_reset(&session->pending_turn_events);
-    else
-        consume_turn_events(session, map, now, &session->pending_turn_events);
+    consume_turn_events(session, map, now, &session->pending_turn_events);
+    /* A loan can eliminate the newly selected actor inside 0x41C84F.
+     * Resume 0x418EBD only after its nested bankruptcy wait has returned. */
+    if (!session->state.game_over && session->pending_turn_events.count == 0 &&
+        !session->presentation.bankruptcy.active &&
+        !session->presentation.bankruptcy.awaiting_auction &&
+        session->state.current_player >= 0 &&
+        session->state.current_player < session->state.player_count &&
+        session->state.players[session->state.current_player].play_state == 0) {
+        Rich4AppTurnRotationResult result;
+        if (rich4_app_advance_turn_rotation(session, map, now, &result) &&
+            result.special_action_pending)
+            rich4_special_actor_begin(session, map, &result.special_action);
+    }
     return 1;
 }
 
@@ -257,7 +277,10 @@ int rich4_app_advance_turn_rotation(
 
     if (out_result != NULL) memset(out_result, 0, sizeof(*out_result));
     if (session == NULL || !session->state.active || session->state.game_over ||
-        session->state.player_count <= 0 || session->pending_turn_events.count > 0)
+        session->state.player_count <= 0 || session->pending_turn_events.count > 0 ||
+        session->presentation.bank_loan_due.active ||
+        session->presentation.bankruptcy.active ||
+        session->presentation.bankruptcy.awaiting_auction)
         return 0;
     /* 0x418EC2 clears the observation target on entry to the shared turn
      * rotation, before selecting an ordinary or special actor. */
@@ -289,6 +312,10 @@ int rich4_app_advance_turn_rotation(
             (void)rich4_app_reset_monthly_dynamic_objects_with_rng(
                 &session->presentation, map, &session->state.ai_rng_state);
         consume_turn_events(session, map, now, &events);
+        if (session->pending_turn_events.count > 0 ||
+            session->presentation.bank_loan_due.active ||
+            session->presentation.bankruptcy.active || session->state.game_over)
+            return 1;
         if (result.kind == TURN_SELECTION_SPECIAL) {
             int slot = result.selected_index - GAME_MAX_PLAYERS;
             TurnSpecialAutoActionResult special_action;
