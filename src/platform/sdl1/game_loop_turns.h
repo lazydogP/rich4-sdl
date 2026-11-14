@@ -126,6 +126,11 @@ int game_update_confinement_status_presentation(
 int game_update_ai_tool(GameSession *session, const GamePreviewAssets *assets,
                          const NewGameSettings *settings, Rich4Audio *audio,
                          Uint32 now);
+int game_begin_card_use(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, const GameCommand *command,
+    int show_notice, Uint32 now);
+int game_update_card_use(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, Rich4Audio *audio, Uint32 now);
 void game_run_ai_preactions(GameSession *session,
                             const GamePreviewAssets *assets,
                             const NewGameSettings *settings,

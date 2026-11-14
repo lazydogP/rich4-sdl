@@ -1,6 +1,27 @@
 #include "data/character_speech.h"
 #include <stddef.h>
 
+#include "data/card_speech.inc"
+
+const Rich4CharacterSpeech *rich4_character_card_speech(int character, int role, int card)
+{
+    return character >= 0 && character < 12 && role >= 0 && role < 3 &&
+        card >= 0 && card < 30 ? &card_speech[character][role][card] : NULL;
+}
+
+const Rich4CharacterSpeech *rich4_character_stock_card_speech(int character, int card)
+{
+    return character >= 0 && character < 12 && (card == 23 || card == 24)
+        ? &card_speech[character][0][card] : NULL;
+}
+
+const Rich4CharacterSpeech *rich4_character_card_destruction_speech(
+    int character, int card, int victim)
+{
+    return character >= 0 && character < 12 && (card == 10 || card == 11) &&
+        (victim == 0 || victim == 1)
+        ? &card_speech[character][victim ? 2 : 0][card] : NULL;
+}
 /* IDA: 0x444A1D, 0x444B5E and 0x444A4B. */
 static const Rich4CharacterSpeech insurance_card_speech[12][3] = {
     {{444, "\x23\x30\x34\x34\x34\xa9\xc8\xa7\x41\xa4\xa3\xa6\xa8\xa1\x49\xa1\x49\xa1\x49"}, {445, "\x23\x30\x34\x34\x35\xa6\xb3\xbf\xfa\xa4\x5d\xa4\xa3\xb5\xb9\xa7\x41\xa1\x49"}, {473, "\x23\x30\x34\x37\x33\xb3\xde\xa1\x49\x0a\xa6\xb3\xa8\x53\xa6\xb3\xb7\x64\xbf\xf9\xb0\xda\xa1\x48"}},
@@ -686,4 +707,24 @@ const Rich4CharacterSpeech *rich4_prison_rescued_special_speech(
 const Rich4CharacterSpeech *rich4_prison_insufficient_speech(void)
 {
     return &prison_insufficient_speech;
+}
+
+/* 0x444356 -> 0x48089E + character*108. */
+const Rich4CharacterSpeech *rich4_character_sleepwalking_speech(int character)
+{
+    static const Rich4CharacterSpeech rows[12] = {
+        {-1,"\x23\x31\x30\x37\x31\xa4\xa3\xad\x6e\xa7\x6e\xa1\xe3\xa1\xe3"},
+        {-1,"\x23\x31\x30\x39\x38\xa9\x49\xc2\x50\xa9\x49\xc2\x50\xa1\xe3"},
+        {-1,"\x23\x31\x31\x32\x35\x7a\x7a\x5a\x5a\x5a\x0a\xa3\x49\xa3\x49\xa3\x49\xa3\x49"},
+        {-1,"\x23\x31\x31\x35\x32\x7a\x7a\x5a\x5a\x5a\x5a\x0a\xa2\xe8\xa2\xe8\xa2\xe8"},
+        {-1,"\x23\x31\x31\x37\x39\xc2\x4d\xc2\x4d\xa1\xe3"},
+        {-1,"\x23\x31\x32\x30\x36\xa7\xda\xa4\xa3\xb5\x74\xa1\xe3"},
+        {-1,"\x23\x31\x32\x33\x33\x5a\x5a\x5a\xa1\x4b"},
+        {-1,"\x23\x31\x32\x36\x30\xa3\x49\xa3\x49\xa3\x49\xa3\x49\xa3\x49"},
+        {-1,"\x23\x31\x32\x38\x37\x7a\x7a\x7a\x7a\x7a\x7a\x0a\x5a\x5a\x5a\x5a\x5a\x5a"},
+        {-1,"\x23\x31\x33\x31\x34\xb6\xe2\xa1\xe3"},
+        {-1,"\x23\x31\x33\x34\x31\xa7\xda\xa4\xa3\xb2\xd6\xa1\xe3"},
+        {-1,"\x23\x31\x33\x36\x38\x40\x31\x38"},
+    };
+    return character >= 0 && character < 12 ? &rows[character] : NULL;
 }

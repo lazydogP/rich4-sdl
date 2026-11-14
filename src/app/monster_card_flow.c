@@ -3,7 +3,7 @@
 #include "app/game_speech_flow.h"
 
 int rich4_monster_card_flow_update(GameSession *session, int frame_count,
-                                   uint32_t now)
+                                   int frame_delay_ms, uint32_t now)
 {
     int speech_player;
 
@@ -12,7 +12,7 @@ int rich4_monster_card_flow_update(GameSession *session, int frame_count,
     if (session->presentation.monster_card.frame < frame_count) {
         if (rich4_animation_clock_step(
                 &session->presentation.animation_clock[RICH4_ANIMATION_MONSTER],
-                now, 80)) session->presentation.monster_card.frame++;
+                now, frame_delay_ms)) session->presentation.monster_card.frame++;
         session->presentation.monster_card.until = now + 500;
         return 1;
     }

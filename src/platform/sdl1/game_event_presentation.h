@@ -24,6 +24,10 @@ void draw_original_card_presentation(SDL_Surface *screen,
                                      const GamePreviewAssets *assets,
                                      int card,
                                      const char *title_big5);
+void draw_card_use_notice(SDL_Surface *screen,
+    const GamePreviewAssets *assets, int card);
+void draw_card_use_presentation(SDL_Surface *screen,
+    const GamePreviewAssets *assets, const GameCardUsePresentationState *use);
 
 void draw_special_reward_presentation(SDL_Surface *screen,
                                       const GamePreviewAssets *assets,

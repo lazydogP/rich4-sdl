@@ -75,7 +75,8 @@ typedef enum Rich4PropertyPresentationPhase {
     GAME_PROPERTY_PRESENT_INSURANCE_CARD_SPEECH,
     GAME_PROPERTY_PRESENT_INSURANCE_VICTIM_SPEECH,
     GAME_PROPERTY_PRESENT_INSURANCE_SUBSTITUTE,
-    GAME_PROPERTY_PRESENT_INSURANCE_SUBSTITUTE_NOTICE
+    GAME_PROPERTY_PRESENT_INSURANCE_SUBSTITUTE_NOTICE,
+    GAME_PROPERTY_PRESENT_CARD_FLASH
 } Rich4PropertyPresentationPhase;
 typedef struct Rich4PresentationActivity {
     int bank_settlement_active;
@@ -435,6 +436,73 @@ typedef struct GameAiToolPresentationState {
     int skip_requested;
 } GameAiToolPresentationState;
 
+typedef enum GameCardUsePhase {
+    GAME_CARD_USE_NONE = 0,
+    GAME_CARD_USE_NOTICE,
+    GAME_CARD_USE_CASTER_SPEECH,
+    GAME_CARD_USE_FLIGHT,
+    GAME_CARD_USE_COMMAND,
+    GAME_CARD_USE_EFFECTS,
+    GAME_CARD_USE_VICTIM_SPEECH,
+    GAME_CARD_USE_DONE,
+    GAME_CARD_USE_DEFENSE,
+    GAME_CARD_USE_TARGET_SPEECH,
+    GAME_CARD_USE_REVENGE,
+    GAME_CARD_USE_BEFORE_COMMAND_FLASH,
+    GAME_CARD_USE_SWAP_HOUSES,
+    GAME_CARD_USE_FINISH_HOLD
+} GameCardUsePhase;
+
+typedef struct GameCardDefenseState {
+    int phase; /* shared GAME_PROPERTY_PRESENT_INSURANCE_* phases */
+    int actor, card, target, hover;
+    int accepted;
+    uint32_t started;
+    int skip_requested;
+} GameCardDefenseState;
+
+/* Blocking 0x441BAA continuation. It cannot be saved while active. */
+typedef struct GameCardUsePresentationState {
+    GameCardUsePhase phase;
+    GameCommand command;
+    uint32_t started;
+    int skip_requested;
+    int sound_pending;
+    int accepted;
+    int resume_panel_phase;
+    int skip_caster;
+    int revenge_pending;
+    int revenge_committed;
+    int reaction_spoken;
+    int blocked;
+    int amount;
+    GameCardDefenseState defense;
+    int flash_pending;
+    int max_level_pending;
+    uint8_t highlight_land[GAME_MAX_MAP_PROPERTIES];
+    uint8_t highlight_facility[GAME_MAX_MAP_PROPERTIES];
+    uint8_t original_land_level[GAME_MAX_MAP_PROPERTIES];
+    uint8_t original_land_type[GAME_MAX_MAP_PROPERTIES];
+    int exchange_caster, exchange_victim;
+    int finish_hold_done;
+    int swap_from_x, swap_from_y;
+    int swap_steps, swap_step;
+    float swap_dx, swap_dy, swap_x, swap_y;
+    uint32_t swap_tick;
+    int flight_sprite_index, flight_sprite_chunk;
+    int has_target_position;
+    int target_x, target_y;
+    int victim_player;
+    int previous_building_type, previous_building_level;
+    int flight_initialized;
+    int flight_steps;
+    int flight_step;
+    int flight_from_x, flight_from_y;
+    int flight_to_x, flight_to_y;
+    float flight_x, flight_y, flight_dx, flight_dy;
+    uint32_t flight_tick;
+} GameCardUsePresentationState;
+
 typedef struct GamePresentationState {
     Rich4PresentationMode mode;
     Rich4PresentationMode previous_mode;
@@ -446,6 +514,7 @@ typedef struct GamePresentationState {
     GameDicePresentationState dice;
     GameSpeechPresentationState speech;
     GameAiToolPresentationState ai_tool;
+    GameCardUsePresentationState card_use;
     GamePropertyPresentationState property;
     GameActorPresentationState actors[GAME_MAX_PLAYERS];
     GameEngineeringAttackState engineering_attack;

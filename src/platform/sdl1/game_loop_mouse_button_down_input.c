@@ -76,7 +76,8 @@ int game_handle_mouse_button_down_input(
     }
     if (context->app_state != NULL && *context->app_state == RICH4_SCENE_GAME &&
         context->session != NULL &&
-        context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE) {
+        (context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
+         context->session->presentation.card_use.phase != GAME_CARD_USE_NONE)) {
         context->cursor->confirm_pressed = 0;
         context->cursor->confirm_pointer_pressed = 0;
         context->cursor->cancel_pressed = 0;

@@ -4,6 +4,7 @@
 #include "app/dice_flow.h"
 #include "app/app_command.h"
 #include "app/command_event_flow.h"
+#include "app/card_use_flow.h"
 #include "app/dynamic_object_flow.h"
 #include "app/game_command_flow.h"
 #include "app/game_save.h"
@@ -133,7 +134,7 @@ static void sync_dynamic_card_presentation(GameSession *session,
                 &session->presentation, &session->state,
                 command->player, (uint32_t)now))
             (void)rich4_app_detach_dynamic_god(
-                &session->presentation, command->player);
+                &session->presentation, &session->state, command->player);
     } else if (command->subject.id == 22 &&
                command->target.kind == GAME_DOMAIN_GOD) {
         /* 请神符 has already committed the same replacement attach in core;
@@ -147,7 +148,7 @@ static void sync_dynamic_card_presentation(GameSession *session,
     }
 }
 
-static void sync_ai_card_animation(
+static void sync_card_animation(
     GameSession *session, const GamePreviewAssets *assets,
     const GameCommand *command, int accepted, Uint32 now)
 {
@@ -157,28 +158,17 @@ static void sync_ai_card_animation(
     int frames;
 
     if (!accepted || session == NULL || assets == NULL || command == NULL ||
-        command->source != GAME_COMMAND_SOURCE_AI ||
         command->type != GAME_COMMAND_USE_CARD ||
         command->subject.kind != GAME_DOMAIN_CARD)
         return;
-    if (command->subject.id == 10 &&
-        command->target.kind == GAME_DOMAIN_LAND) {
-        resource = 557;
+    resource = rich4_card_use_animation_resource(
+        command->subject.id, command->target);
+    if (resource == 557) {
         if (game_asset_ready(assets, &assets->ui.has_monster_card_animation)) {
             data = assets->ui.monster_card_data;
             size = assets->ui.monster_card_size;
         }
-    } else if (command->subject.id == 10 &&
-               command->target.kind == GAME_DOMAIN_FACILITY) {
-        resource = 557;
-        if (game_asset_ready(assets, &assets->ui.has_monster_card_animation)) {
-            data = assets->ui.monster_card_data;
-            size = assets->ui.monster_card_size;
-        }
-    } else if (command->subject.id == 11 &&
-               (command->target.kind == GAME_DOMAIN_LAND ||
-               command->target.kind == GAME_DOMAIN_FACILITY)) {
-        resource = 529;
+    } else if (resource == 529) {
         if (game_asset_ready(assets, &assets->ui.has_demolish_card_animation)) {
             data = assets->ui.demolish_card_data;
             size = assets->ui.demolish_card_size;
@@ -188,8 +178,9 @@ static void sync_ai_card_animation(
     }
     frames = data != NULL ? game_graph_frame_count_data(data, size) : 0;
     if (frames <= 0) return;
-    rich4_app_sync_ai_card_animation(
-        session, command, accepted, resource, frames, (uint32_t)now);
+    rich4_app_sync_card_animation(
+        session, command, accepted, resource, frames,
+        game_graph_frame_delay_ms_data(data, size), (uint32_t)now);
 }
 
 /* R10.1d: command-to-event presentation bridge, moved verbatim out of
@@ -258,7 +249,7 @@ static int game_session_apply_command_internal(
             }
         }
     }
-    sync_ai_card_animation(session, assets, command, accepted, now);
+    sync_card_animation(session, assets, command, accepted, now);
     return accepted;
 }
 

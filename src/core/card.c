@@ -1,3 +1,4 @@
+#include "core/facility.h"
 #include "core/card.h"
 #include "core/auction.h"
 #include "core/card_internal.h"
@@ -391,6 +392,20 @@ void rich4_card_add_relation_balance(GameState *state, int source, int target,
         value > INT_MAX ? INT_MAX : (int)value;
 }
 
+void rich4_card_prepare_defense(GameState *state, GameCommand *command)
+{
+    int card = command->subject.id, target = command->target.id;
+    if ((command->flags & GAME_CARD_FLAG_DEFENSE_PREPARED) ||
+        command->target.kind != GAME_DOMAIN_PLAYER || !valid_player(state,target)) return;
+    if ((card == 15 && !state->players[target].days_sleeping) || card == 16)
+        rich4_card_add_relation_balance(state, target, command->player,
+            (int64_t)150 * state->price_index);
+    else if (card == 25)
+        rich4_card_add_relation_balance(state, target, command->player,
+            state->players[target].cash > 0 ? state->players[target].cash / 5 / 100 : 0);
+    command->flags |= GAME_CARD_FLAG_DEFENSE_PREPARED;
+}
+
 static int apply_attack_status(GameState *state, int victim,
                                GameCardAttackKind kind, int days)
 {
@@ -399,8 +414,7 @@ static int apply_attack_status(GameState *state, int victim,
     player = &state->players[victim];
     if (kind == GAME_CARD_ATTACK_SLEEP_WALK) {
         if (player->days_sleeping != 0) return 0;
-        player->days_sleep_walking = 5;
-        player->total_confinement_days = (uint8_t)(player->total_confinement_days + 5);
+        player->days_sleep_walking = days;
         player->saved_traffic_method = player->traffic_method;
         player->saved_ndices = player->ndices;
         if (player->traffic_method == 2 && player->tool_inventory[4] < 255)
@@ -425,7 +439,7 @@ static int apply_attack_status(GameState *state, int victim,
 
 static int card_resolve_attack(GameState *state, int actor, int target,
                               GameCardAttackKind kind, int redirect_target,
-                              GameEventQueue *events, int defer_confinement)
+                              GameEventQueue *events, int defer_confinement, int defer_revenge)
 {
     GameState next;
     GameEventQueue staged;
@@ -456,7 +470,7 @@ static int card_resolve_attack(GameState *state, int actor, int target,
                     redirect_target, next.card_amount[18], 0)) return 0;
             victim = redirect_target;
         }
-        days = kind == GAME_CARD_ATTACK_FRAME && victim == actor ? 4 : 5;
+        days = victim == actor ? 4 : 5;
         if ((deferred ? rich4_confinement_request_enter(&next, victim,
                 GAME_CONFINEMENT_PRISON, days, &staged) != GAME_CONFINEMENT_APPLIED :
                 !apply_attack_status(&next, victim, kind, days)) ||
@@ -471,21 +485,15 @@ static int card_resolve_attack(GameState *state, int actor, int target,
                  &next, victim, days, GAME_INSURANCE_CLAIM_PRISON,
                  NULL, &staged)))
             return 0;
-        if (victim == target && rich4_card_inventory_has(&next, target, 17)) {
-            if (!rich4_card_consume(&next, target, 17) ||
-                (deferred ? rich4_confinement_request_enter(&next, actor,
-                    GAME_CONFINEMENT_PRISON, 5, &staged) != GAME_CONFINEMENT_APPLIED :
-                    !apply_attack_status(&next, actor, kind, 5)) ||
-                !rich4_game_event_emit_typed_domain(
-                    &staged, rich4_game_event_card_used_from_fields, target,
-                    rich4_game_domain_ref(GAME_DOMAIN_CARD, 17),
-                    rich4_game_domain_ref(GAME_DOMAIN_PLAYER, actor), actor,
-                    next.card_amount[17], 0) ||
-                (!deferred && kind == GAME_CARD_ATTACK_FRAME &&
-                 !rich4_insurance_claim_for_days(
-                     &next, actor, 5, GAME_INSURANCE_CLAIM_PRISON,
-                     NULL, &staged))) return 0;
-        }
+        /* 0x444372 adds five only for the main sleepwalking victim.
+         * 0x444405..0x444492 applies revenge without another +0x42 write. */
+        if (kind == GAME_CARD_ATTACK_SLEEP_WALK)
+            next.players[victim].total_confinement_days =
+                (uint8_t)(next.players[victim].total_confinement_days + 5);
+        if (!defer_revenge && victim == target &&
+            rich4_card_inventory_has(&next, target, 17) &&
+            !rich4_card_resolve_revenge(&next, target, actor, kind, &staged,
+                defer_confinement)) return 0;
     }
     if (!rich4_card_append_events(events, &staged)) return 0;
     *state = next;
@@ -495,13 +503,49 @@ static int card_resolve_attack(GameState *state, int actor, int target,
 int rich4_card_resolve_attack(GameState *state, int actor, int target,
     GameCardAttackKind kind, int redirect_target, GameEventQueue *events)
 {
-    return card_resolve_attack(state, actor, target, kind, redirect_target, events, 0);
+    return card_resolve_attack(state, actor, target, kind, redirect_target, events, 0, 0);
 }
 
 int rich4_card_resolve_attack_deferred_confinement(GameState *state, int actor,
     int target, GameCardAttackKind kind, int redirect_target, GameEventQueue *events)
 {
-    return card_resolve_attack(state, actor, target, kind, redirect_target, events, 1);
+    return card_resolve_attack(state, actor, target, kind, redirect_target, events, 1, 0);
+}
+
+/* 0x444405/0x444626: a separate continuation after the main victim. */
+int rich4_card_resolve_revenge(GameState *state, int defender, int attacker,
+    GameCardAttackKind kind, GameEventQueue *events, int defer_confinement)
+{
+    GameState next;
+    GameEventQueue staged;
+    int deferred = defer_confinement && kind == GAME_CARD_ATTACK_FRAME;
+    if (!valid_player(state, defender) || !valid_player(state, attacker) ||
+        events == NULL) return 0;
+    next = *state;
+    rich4_game_event_queue_reset(&staged);
+    if (!rich4_card_consume(&next, defender, 17) ||
+        (deferred ? rich4_confinement_request_enter(&next, attacker,
+            GAME_CONFINEMENT_PRISON, 5, &staged) != GAME_CONFINEMENT_APPLIED :
+            !apply_attack_status(&next, attacker, kind, 5)) ||
+        !rich4_game_event_emit_typed_domain(&staged,
+            rich4_game_event_card_used_from_fields, defender,
+            rich4_game_domain_ref(GAME_DOMAIN_CARD, 17),
+            rich4_game_domain_ref(GAME_DOMAIN_PLAYER, attacker), attacker,
+            next.card_amount[17], 0) ||
+        (!deferred && kind == GAME_CARD_ATTACK_FRAME &&
+         !rich4_insurance_claim_for_days(&next, attacker, 5,
+             GAME_INSURANCE_CLAIM_PRISON, NULL, &staged))) return 0;
+    if (!rich4_card_append_events(events, &staged)) return 0;
+    *state = next;
+    return 1;
+}
+
+int rich4_card_resolve_attack_primary(GameState *state, int actor, int target,
+    GameCardAttackKind kind, int redirect_target, GameEventQueue *events,
+    int defer_confinement)
+{
+    return card_resolve_attack(state, actor, target, kind, redirect_target,
+        events, defer_confinement, 1);
 }
 
 int rich4_card_resolve_charge(GameState *state, int payer, int payee,
@@ -646,17 +690,17 @@ int rich4_card_apply_property_card(GameState *state, const GameCommand *command,
         if (facility) state->facility_owner[id] = actor;
         else state->land_owner[id] = actor;
     } else if (card == 3 || card == 4) {
-        if (source < 0 || facility != source_facility) return 0;
+        if (source < 0 || source == id || facility != source_facility) return 0;
         if (facility) {
             int t;
             if (source >= state->facility_count) return 0;
             if (card == 3) { t=state->facility_owner[source]; state->facility_owner[source]=state->facility_owner[id]; state->facility_owner[id]=t; }
-            else { t=state->facility_level[source]; state->facility_level[source]=state->facility_level[id]; state->facility_level[id]=t; t=state->facility_variant[source]; state->facility_variant[source]=state->facility_variant[id]; state->facility_variant[id]=t; }
+            else { t=state->facility_level[source]; state->facility_level[source]=state->facility_level[id]; state->facility_level[id]=t; t=state->facility_type[source]; state->facility_type[source]=state->facility_type[id]; state->facility_type[id]=t; }
         } else {
             int t;
-            if (source >= state->land_count || state->land_type[source] != state->land_type[id]) return 0;
+            if (source >= state->land_count) return 0;
             if (card == 3) { t=state->land_owner[source]; state->land_owner[source]=state->land_owner[id]; state->land_owner[id]=t; }
-            else { t=state->land_level[source]; state->land_level[source]=state->land_level[id]; state->land_level[id]=t; }
+            else { t=state->land_level[source]; state->land_level[source]=state->land_level[id]; state->land_level[id]=t; t=state->land_type[source]; state->land_type[source]=state->land_type[id]; state->land_type[id]=t; }
         }
     } else if (card == 6) {
         if (facility) {
@@ -689,12 +733,34 @@ int rich4_card_apply_property_card(GameState *state, const GameCommand *command,
     } else if (card == 8 || card == 9) {
         int group = facility ? -1 : state->land_group[id];
         for (i = 0; i < (facility ? state->facility_count : state->land_count); i++) {
-            if (!facility && (state->land_type[i] != 0 || state->land_group[i] != group)) continue;
+            int level, type, owner;
+            if (!facility && state->land_group[i] != group) continue;
             if (facility && i != id) continue;
-            if (facility) state->facility_level[i] = card == 8 ?
-                (state->facility_level[i] < 5 ? state->facility_level[i] + 1 : 5) : 0;
-            else state->land_level[i] = card == 8 ?
-                (state->land_level[i] < 5 ? state->land_level[i] + 1 : 5) : 0;
+            level = facility ? state->facility_level[i] : state->land_level[i];
+            type = facility ? state->facility_type[i] : state->land_type[i];
+            owner = facility ? state->facility_owner[i] : state->land_owner[i];
+            if (card == 9) {
+                rich4_card_add_relation_balance(state, owner, actor,
+                    (int64_t)30 * level * state->price_index);
+                type = level = 0;
+            } else if (facility) {
+                /* 0x4436AF -> 0x40B110: subtype-specific level cap. */
+                if (level == 0) {
+                    type = command->value2;
+                    if (command->source == GAME_COMMAND_SOURCE_AI && owner == actor) {
+                        Rich4Rng rng = {state->ai_rng_state};
+                        type = rich4_rng_original_state_range(&rng, 4) + 1;
+                        state->ai_rng_state = rng.state;
+                    }
+                }
+                if (level < rich4_facility_max_level[type >= 0 && type < 5 ? type : 0]) level++;
+            } else if (level < 5) {
+                /* 0x4435B9: nonresidential buildings only build from zero. */
+                if (!type) level++;
+                else if (!level) level = 1;
+            }
+            if (facility) { state->facility_level[i] = level; state->facility_type[i] = type; }
+            else { state->land_level[i] = level; state->land_type[i] = type; }
         }
     } else if (card == 10) {
         int owner = facility ? state->facility_owner[id] : state->land_owner[id];

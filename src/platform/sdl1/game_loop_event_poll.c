@@ -31,6 +31,7 @@ static int ai_cancel_main_callback(const GameKeyDownInputContext *input)
         p->save_load.mode == GAME_SAVE_LOAD_PANEL_CLOSED &&
         !p->route_interaction.active &&
         p->ai_tool.phase == GAME_AI_TOOL_NONE &&
+        p->card_use.phase == GAME_CARD_USE_NONE &&
         !rich4_app_stock_interaction_is_active(s) &&
         !rich4_app_sale_interaction_is_active(s) &&
         !(input->small_map_panel && input->small_map_panel->active) &&

@@ -1,4 +1,5 @@
 #include "app/card_panel_flow.h"
+#include "app/card_use_flow.h"
 
 #include <string.h>
 
@@ -251,7 +252,7 @@ void rich4_card_panel_begin_effect(
     panel->selected_card = card;
     panel->effect_precedes_handler = precedes_handler != 0;
     panel->effect_started = now;
-    panel->effect_until = now + 1500;
+    panel->effect_until = now + RICH4_CARD_NOTICE_MS;
 }
 
 static Rich4CardPanelAction rich4_card_panel_action(
@@ -301,6 +302,7 @@ static Rich4CardPanelAction rich4_card_panel_pointer_action_internal(
     if (panel == NULL || session == NULL ||
         panel->phase == CARD_PANEL_CLOSED ||
         panel->phase == CARD_PANEL_EFFECT ||
+        panel->phase == CARD_PANEL_WAIT_HANDLER ||
         panel->phase == CARD_PANEL_MONSTER_ANIMATION ||
         panel->phase == CARD_PANEL_DEMOLISH_ANIMATION)
         return rich4_card_panel_action(
@@ -490,6 +492,13 @@ Rich4CardPanelAction rich4_card_panel_resume_pre_effect(
     }
     if (panel->selected_card == 6) {
         target = rich4_card_panel_current_property_ref(session);
+        /* 0x4430E9/0x443174: an unbuilt lot returns before speech/choice. */
+        if ((target.kind == GAME_DOMAIN_LAND && session->state.land_level[target.id] == 0) ||
+            (target.kind == GAME_DOMAIN_FACILITY && session->state.facility_level[target.id] == 0)) {
+            rich4_card_panel_command_rejected(panel);
+            return rich4_card_panel_action(RICH4_CARD_PANEL_ACTION_INVALID_SELECTION,
+                RICH4_CARD_PANEL_SOUND_INVALID);
+        }
         if (target.kind == GAME_DOMAIN_FACILITY) {
             panel->primary_target = target.id;
             panel->primary_kind = target.kind;

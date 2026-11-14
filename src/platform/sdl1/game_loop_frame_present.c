@@ -6,6 +6,8 @@
 #include "platform/sdl1/audio/audio_sdl_mixer.h"
 #include "platform/sdl1/runtime_trace.h"
 #include "app/property_flow.h"
+#include "app/card_use_flow.h"
+#include "app/special_presentation_flow.h"
 
 static void request_animation_wakeup(const VirtualCursorPresentationContext *c)
 {
@@ -16,6 +18,19 @@ static void request_animation_wakeup(const VirtualCursorPresentationContext *c)
         rich4_sdl1_wake_at(c->settings->last_anim_tick +
                           (c->settings->transition_active ? 50u : 100u));
     if (p == NULL || c->app_state != RICH4_SCENE_GAME) return;
+    if (p->card_use.phase == GAME_CARD_USE_NOTICE)
+        rich4_sdl1_wake_at(p->card_use.started + RICH4_CARD_NOTICE_MS);
+    if (p->card_use.phase == GAME_CARD_USE_FLIGHT && p->card_use.flight_steps > 0)
+        rich4_sdl1_wake_at(p->card_use.flight_step <= p->card_use.flight_steps
+            ? p->card_use.flight_tick + 24u : p->card_use.started +
+                (p->card_use.command.subject.id == 22 ? 0u : 100u));
+    if (p->card_use.phase == GAME_CARD_USE_SWAP_HOUSES)
+        rich4_sdl1_wake_at(p->card_use.swap_tick + 24u);
+    if (p->card_use.phase == GAME_CARD_USE_FINISH_HOLD)
+        rich4_sdl1_wake_at(p->card_use.started + 500u);
+    if (p->card_use.defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_CARD ||
+        p->card_use.defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_REDIRECT_NOTICE)
+        rich4_sdl1_wake_at(p->card_use.defense.started + 1500u);
     if (p->point_minigame.active && !p->point_minigame.automatic &&
         p->point_minigame.phase != RICH4_POINT_MINIGAME_RESULT) {
         if (p->point_minigame.phase != RICH4_POINT_MINIGAME_INTRO)
@@ -44,6 +59,7 @@ void game_present_runtime_frame(VirtualCursorPresentationContext *cursor)
     runtime_profile_detail(PROFILE_PRESENT_CURSOR, started);
     rich4_sdl1_present(cursor->screen);
     rich4_property_flash_frame_presented(cursor->session, rich4_sdl1_ticks());
+    rich4_special_event_flash_frame_presented(cursor->session, rich4_sdl1_ticks());
     request_animation_wakeup(cursor);
     started = runtime_profile_now();
     rich4_audio_present_visual_frame(cursor->audio);

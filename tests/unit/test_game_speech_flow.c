@@ -7,7 +7,6 @@
 #include "data/character_speech.h"
 
 #ifdef main
-#undef main
 #endif
 
 static void test_speech_camera(void)

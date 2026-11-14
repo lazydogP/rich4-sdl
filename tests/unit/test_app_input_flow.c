@@ -42,6 +42,12 @@ static void test_gates(void)
         RICH4_APP_COMMAND_POINTER_MOVE, 123, 234, 0);
     memset(&settings, 0, sizeof(settings));
     memset(&session, 0, sizeof(session));
+    session.presentation.card_use.phase = GAME_CARD_USE_NOTICE;
+    assert(!rich4_app_input_ui_active(RICH4_SCENE_GAME, NULL, &session, 0));
+    assert(!rich4_app_input_apply_pointer(
+        RICH4_SCENE_GAME, NULL, &session, 0, &cursor, &pointer));
+    assert(cursor.x == 7 && cursor.y == 9);
+    session.presentation.card_use.phase = GAME_CARD_USE_NONE;
     rich4_app_input_set_top_button_pressed(&session, 5);
     assert(rich4_app_input_take_top_button_pressed(&session) == 5 &&
            rich4_app_input_take_top_button_pressed(&session) == -1);

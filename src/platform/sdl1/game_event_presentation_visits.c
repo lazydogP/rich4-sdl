@@ -311,8 +311,8 @@ static void draw_passive_charge(SDL_Surface *screen, const GamePreviewAssets *as
     if (!p->insurance_active || snapshot->presentation->speech.active) return;
     if (p->phase == GAME_PROPERTY_PRESENT_INSURANCE_CARD) {
         if (p->insurance_card == 19) snprintf(message, sizeof(message), "\xa8\xcf\xa5\xce%s", game_card_big5_name(19));
-        else snprintf(message, sizeof(message), "%s\n\n\xb6\xf9\xba\xd7\xa5\x64\xa5\xcd\xae\xc4\xa1\x49",
-            new_game_character_name(state->players[p->actor].character));
+        else snprintf(message, sizeof(message), "%s\n\n%s\xa5\xcd\xae\xc4\xa1\x49",
+            new_game_character_name(state->players[p->actor].character), game_card_big5_name(p->insurance_card));
         draw_original_card_presentation(screen, assets, p->insurance_card, message);
         return;
     }
@@ -382,7 +382,18 @@ void draw_insurance_charge(SDL_Surface *screen, const GamePreviewAssets *assets,
                            const Rich4GameEventPresentationSnapshot *snapshot)
 {
     if (snapshot == NULL || snapshot->presentation == NULL) return;
+    const GameCardDefenseState *d = &snapshot->presentation->card_use.defense;
     draw_passive_charge(screen,assets,snapshot,&snapshot->presentation->property);
+    if (d->phase) {
+        GamePropertyPresentationState p;
+        memset(&p,0,sizeof(p));
+        p.insurance_active = 1;
+        p.actor = d->actor;
+        p.insurance_card = d->card;
+        p.insurance_target = d->phase == GAME_PROPERTY_PRESENT_INSURANCE_TARGET ? d->hover : d->target;
+        p.phase = (Rich4PropertyPresentationPhase)d->phase;
+        draw_passive_charge(screen,assets,snapshot,&p);
+    }
 }
 
 void draw_fortune_passive_choice(SDL_Surface *screen, const GamePreviewAssets *assets,
@@ -500,6 +511,7 @@ void draw_magic_house(
         !session->presentation->magic_house.active)
         return;
     magic = &session->presentation->magic_house;
+    if (magic->phase == RICH4_MAGIC_HOUSE_EFFECTS) return;
     if (magic->phase == RICH4_MAGIC_HOUSE_AI_NOTICE) {
         Rich4SprSmpChunk background;
         char message[256];

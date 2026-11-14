@@ -8,6 +8,8 @@
 #include <SDL/SDL.h>
 
 #include "app/card_panel_flow.h"
+#include "app/card_use_flow.h"
+#include "platform/sdl1/game_loop_turns.h"
 #include "app/card_panel_state.h"
 #include "app/dynamic_object_flow.h"
 #include "app/game_session.h"
@@ -86,37 +88,41 @@ static void card_panel_apply_action(
     const Rich4CardPanelAction *action, Uint32 now, Rich4Audio *audio)
 {
     int speech_player = -1;
-    uint32_t animation_duration = 0;
     Rich4CardPanelCommandResult result;
 
-    if (action == NULL || action->kind != RICH4_CARD_PANEL_ACTION_SUBMIT)
+    if (action != NULL && action->kind == RICH4_CARD_PANEL_ACTION_STOCK_TARGET) {
+        (void)rich4_card_use_begin_stock_selection(
+            session, panel->player, panel->selected_card, now);
         return;
+    }
+    if (action != NULL &&
+        (action->kind == RICH4_CARD_PANEL_ACTION_ROBBERY_TARGET ||
+         (panel->selected_card == 6 && panel->phase == CARD_PANEL_FACILITY_CHOICE && panel->effect_precedes_handler != 2))) {
+        int background = settings->stage * GAME_MAPS_PER_STAGE + settings->map;
+        const MapData *map = background >= 0 && background < GAME_BACKGROUND_COUNT ?
+            &assets->map.maps[background] : NULL;
+        GameDomainRef target = rich4_game_domain_ref(panel->primary_kind, panel->primary_target);
+        if (panel->selected_card == 12) target = rich4_game_domain_ref(GAME_DOMAIN_PLAYER, panel->primary_target);
+        (void)rich4_card_use_begin_selection(session, panel->player, panel->selected_card,
+            target, map, panel->phase, now);
+        return;
+    }
+    if (action == NULL || action->kind != RICH4_CARD_PANEL_ACTION_SUBMIT) return;
+    if (game_begin_card_use(session, assets, settings, &action->command, 0, now)) {
+        panel->phase = CARD_PANEL_WAIT_HANDLER;
+        return;
+    }
     if (!game_session_apply_command(
             session, assets, settings, &action->command, now)) {
         rich4_card_panel_command_rejected(panel);
         rich4_audio_play_invalid(audio);
         return;
     }
-    if (panel->selected_card == 10 &&
-        game_asset_ready(assets, &assets->ui.has_monster_card_animation)) {
-        int frames = game_asset_graph_frames(assets, &assets->ui.monster_card_data, assets->ui.monster_card_size);
-        animation_duration = (uint32_t)((frames > 0 ? frames : 1) * 80 + 500);
-    } else if (panel->selected_card == 11 &&
-               (action->target.kind == GAME_DOMAIN_LAND ||
-                action->target.kind == GAME_DOMAIN_FACILITY) &&
-               game_asset_ready(assets, &assets->ui.has_demolish_card_animation)) {
-        int frames = game_asset_graph_frames(assets, &assets->ui.demolish_card_data, assets->ui.demolish_card_size);
-        animation_duration = (uint32_t)((frames > 0 ? frames : 1) * 80 + 500);
-    }
     result = rich4_card_panel_finish_command(
-        panel, session, action->target, now, animation_duration,
+        panel, session, action->target, now, 0,
         &speech_player);
     if (result == RICH4_CARD_PANEL_COMMAND_EFFECT)
         rich4_audio_play_card(audio);
-    else if (result == RICH4_CARD_PANEL_COMMAND_MONSTER_ANIMATION)
-        rich4_audio_play_card_animation(audio, 80);
-    else if (result == RICH4_CARD_PANEL_COMMAND_DEMOLISH_ANIMATION)
-        rich4_audio_play_card_animation(audio, 97);
     else if (speech_player >= 0)
         game_start_monster_victim_speech(session, speech_player, now);
 }
@@ -142,10 +148,8 @@ void game_update_card_panel_timed_effect(
         action = rich4_card_panel_resume_pre_effect(panel, session);
         if (action.kind != RICH4_CARD_PANEL_ACTION_NONE)
             card_panel_play_sound(audio, action.sound);
-        if (action.kind == RICH4_CARD_PANEL_ACTION_SUBMIT) {
-            card_panel_apply_action(
-                session, assets, settings, panel, &action, now, audio);
-        }
+        card_panel_apply_action(
+            session, assets, settings, panel, &action, now, audio);
     } else if (timed == RICH4_CARD_PANEL_TIMED_MONSTER_SPEECH &&
                speech_player >= 0) {
         game_start_monster_victim_speech(session, speech_player, now);
@@ -350,8 +354,6 @@ void game_card_panel_resume_pre_effect(
     action = rich4_card_panel_resume_pre_effect(panel, session);
     if (action.kind != RICH4_CARD_PANEL_ACTION_NONE)
         card_panel_play_sound(audio, action.sound);
-    if (action.kind == RICH4_CARD_PANEL_ACTION_SUBMIT) {
-        card_panel_apply_action(
-            session, assets, settings, panel, &action, now, audio);
-    }
+    card_panel_apply_action(
+        session, assets, settings, panel, &action, now, audio);
 }

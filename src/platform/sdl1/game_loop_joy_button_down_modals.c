@@ -6,6 +6,12 @@
 int game_handle_joy_button_down_modals(
     GameJoyButtonDownModalsContext *context)
 {
+    if (context->app_state == RICH4_SCENE_GAME &&
+        context->session->presentation.card_use.phase != GAME_CARD_USE_NONE) {
+        context->cursor->confirm_pressed = 0;
+        context->cursor->cancel_pressed = 0;
+        return 1;
+    }
     if (context->small_map_panel->active) {
         /* The original callback has no joystick messages. */
         context->cursor->confirm_pressed = 0;

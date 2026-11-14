@@ -771,8 +771,11 @@ static void map_info_flash_mask(unsigned char *selection,
     for (i = 0; i < count; i++) {
         MapInfoMask mask;
         int land = visible[i].object_id - 2001;
+        int facility = visible[i].object_id - 4001;
         unsigned char selected = land >= 0 && land < view->land_count
-            ? (unsigned char)view->lands[land].flash_selected : 0;
+            ? (unsigned char)view->lands[land].flash_selected
+            : (facility >= 0 && facility < view->facility_count
+                ? (unsigned char)view->facilities[facility].flash_selected : 0);
         if (map_info_generic_mask(assets, map, view, &visible[i], &mask) > 0)
             map_info_stamp(selection, &mask, selected);
         if (map_info_actual_mask(assets, view, &visible[i], &mask) > 0)

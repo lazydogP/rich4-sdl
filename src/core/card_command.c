@@ -29,6 +29,7 @@ static GameCardUseResult card_apply_command(GameState *state,
 {
     GameCardUseResult inspected;
     GameState next;
+    GameCommand prepared;
     GameEventQueue staged;
     int card, target = -1;
     int card_consumed = 0;
@@ -38,6 +39,11 @@ static GameCardUseResult card_apply_command(GameState *state,
     next = *state;
     rich4_game_event_queue_reset(&staged);
     card = command->subject.id;
+    if (card == 15 || card == 16 || card == 25) {
+        prepared = *command;
+        rich4_card_prepare_defense(&next, &prepared);
+        command = &prepared;
+    }
     if (card == 0) {
         if (!rich4_card_apply_average_cash(&next, command->player, &staged))
             return GAME_CARD_USE_INVALID;
@@ -92,8 +98,17 @@ static GameCardUseResult card_apply_command(GameState *state,
             return GAME_CARD_USE_INVALID;
     } else if (card == 14) {
         for (target = 0; target < next.player_count; target++) {
+            int node = next.players[target].node;
+            /* 0x444147..0x4441A1 requires a nonzero map X and skips
+             * all four +0x32..+0x35 absence states before adding bad days. */
             if (target == command->player ||
-                (next.players[target].play_state & 0xff) == 0) continue;
+                (next.players[target].play_state & 0xff) == 0 ||
+                node <= 0 || node >= next.tool_route_node_count ||
+                next.tool_route_x[node] == 0 ||
+                next.players[target].delayed_status_block != 0 ||
+                next.players[target].days_disappearing != 0 ||
+                next.players[target].days_in_prison != 0 ||
+                next.players[target].days_in_hospital != 0) continue;
             next.players[target].days_sleeping = 5;
             next.players[target].total_confinement_days =
                 (uint8_t)(next.players[target].total_confinement_days + 5);
@@ -112,6 +127,11 @@ static GameCardUseResult card_apply_command(GameState *state,
             next.special_player_status[target][card == 15 ? 1 : 2] = 5;
             if (!rich4_card_emit_effect(&staged, command->player, command->subject,
                              command->target, 5, 0)) return GAME_CARD_USE_INVALID;
+        } else if (command->flags & GAME_CARD_FLAG_DEFER_REVENGE) {
+            if (!rich4_card_resolve_attack_primary(&next, command->player, target,
+                card == 15 ? GAME_CARD_ATTACK_SLEEP_WALK : GAME_CARD_ATTACK_FRAME,
+                (command->flags & GAME_CARD_FLAG_USE_MISDIRECT) ? command->value : -1,
+                &staged, defer_confinement)) return GAME_CARD_USE_INVALID;
         } else if (!(defer_confinement ? rich4_card_resolve_attack_deferred_confinement :
                     rich4_card_resolve_attack)(&next, command->player, target,
                     card == 15 ? GAME_CARD_ATTACK_SLEEP_WALK : GAME_CARD_ATTACK_FRAME,

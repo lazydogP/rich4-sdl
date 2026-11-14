@@ -300,8 +300,8 @@ void draw_game_map_objects(SDL_Surface *screen,
             inputs[input_count].object_id = 0x7d1 + i;
             inputs[input_count].owner = style.palette_owner;
             inputs[input_count].variant = style.variant;
-            inputs[input_count].world_x = record->x;
-            inputs[input_count].world_y = record->y;
+            inputs[input_count].world_x = record->x + view->lands[i].offset_x;
+            inputs[input_count].world_y = record->y + view->lands[i].offset_y;
             inputs[input_count].drawable = sprite == GAME_MAP_OBJECT_SPRITE_COMMON_25
                 ? assets->map.has_map_common_graph[1]
                 : assets->map.has_map_object_sprite[sprite];
@@ -333,8 +333,8 @@ void draw_game_map_objects(SDL_Surface *screen,
             inputs[input_count].object_id = 0xfa1 + i;
             inputs[input_count].owner = style.palette_owner;
             inputs[input_count].variant = style.variant;
-            inputs[input_count].world_x = record->x;
-            inputs[input_count].world_y = record->y;
+            inputs[input_count].world_x = record->x + view->facilities[i].offset_x;
+            inputs[input_count].world_y = record->y + view->facilities[i].offset_y;
             inputs[input_count].drawable = sprite == GAME_MAP_OBJECT_SPRITE_COMMON_25
                 ? assets->map.has_map_common_graph[1]
                 : assets->map.has_map_object_sprite[sprite];

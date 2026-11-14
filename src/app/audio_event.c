@@ -171,6 +171,9 @@ void rich4_app_collect_session_audio_events(
             session->presentation.god_acquisition.god_type);
         session->presentation.god_acquisition.sound_pending--;
     }
+    if (session->presentation.card_use.sound_pending &&
+        rich4_audio_event_emit(audio_events, RICH4_AUDIO_EVENT_CARD, 1, 0))
+        session->presentation.card_use.sound_pending = 0;
     if (session->presentation.monster_card.sound_resource != 0) {
         rich4_audio_event_emit(
             audio_events, RICH4_AUDIO_EVENT_CARD_ANIMATION, 1,

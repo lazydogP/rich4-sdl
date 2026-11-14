@@ -65,7 +65,8 @@ int rich4_app_input_ui_active(
         (session->presentation.engineering_attack.active ||
          session->presentation.engineering_attack.pending_return)) return 0;
     if (app_state == RICH4_SCENE_GAME && session != NULL &&
-        session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE) return 0;
+        (session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
+         session->presentation.card_use.phase != GAME_CARD_USE_NONE)) return 0;
     /* 0x418C55 enables the pointer only for 0x40C912's human-input result;
      * prison/hospital reactions and the 1500 ms notice return zero. */
     if (app_state == RICH4_SCENE_GAME && session != NULL &&

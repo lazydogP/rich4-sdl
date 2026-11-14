@@ -6,8 +6,8 @@
 #include "app/game_session.h"
 
 /* Advances the app-owned monster-card presentation. The platform supplies
- * only the decoded animation frame count and current clock. */
+ * only the decoded animation frame count, header delay and current clock. */
 int rich4_monster_card_flow_update(GameSession *session, int frame_count,
-                                   uint32_t now);
+                                   int frame_delay_ms, uint32_t now);
 
 #endif

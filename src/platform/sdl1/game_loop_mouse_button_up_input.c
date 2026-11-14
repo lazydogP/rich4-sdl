@@ -30,6 +30,15 @@ int game_handle_mouse_button_up_input(
         context->cursor == NULL)
         return 0;
     if (context->app_state == RICH4_SCENE_GAME &&
+        context->session->presentation.card_use.defense.phase &&
+        game_handle_insurance_charge_input(context->session,context->assets,context->button,
+            context->cursor->x,context->cursor->y,rich4_sdl1_ticks())) {
+        if (context->mouse_left_down) *context->mouse_left_down = 0;
+        context->cursor->confirm_pressed = context->cursor->cancel_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
+        return 1;
+    }
+    if (context->app_state == RICH4_SCENE_GAME &&
         game_handle_fortune_choice_input(context->session,context->assets,
             context->button,context->cursor->x,context->cursor->y,rich4_sdl1_ticks())) {
         if (context->mouse_left_down) *context->mouse_left_down = 0;
@@ -112,7 +121,8 @@ int game_handle_mouse_button_up_input(
          (context->session->presentation.special_reward.active &&
           (context->session->presentation.special_reward.action == 14 ||
            context->session->presentation.special_reward.action == 15)) ||
-         context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE)) {
+         context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
+         context->session->presentation.card_use.phase != GAME_CARD_USE_NONE)) {
         game_handle_mouse_button_up_modals(context->app_state,
             context->session, context->audio, context->button);
         if (context->button == SDL_BUTTON_LEFT &&

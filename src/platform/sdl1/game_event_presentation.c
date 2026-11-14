@@ -1,4 +1,5 @@
 #include "platform/sdl1/game_lazy_assets.h"
+#include "app/card_use_flow.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -69,6 +70,44 @@ void draw_original_card_presentation(
     draw_chunk_topleft(
         screen, assets->ui.card_effect_data[card], &art, 138, 200, 0);
 }
+void draw_card_use_notice(SDL_Surface *screen,
+    const GamePreviewAssets *assets, int card)
+{
+    char title[64];
+    snprintf(title, sizeof(title), "\xa8\xcf\xa5\xce%s", game_card_big5_name(card));
+    draw_original_card_presentation(screen, assets, card, title);
+}
+
+void draw_card_use_presentation(SDL_Surface *screen,
+    const GamePreviewAssets *assets, const GameCardUsePresentationState *use)
+{
+    Rich4SprSmpChunk chunk;
+    int x, y, index;
+    if (screen == NULL || assets == NULL || use == NULL) return;
+    if (use->phase == GAME_CARD_USE_NOTICE) {
+        draw_card_use_notice(screen, assets, use->command.subject.id);
+        return;
+    }
+    index = use->flight_sprite_index;
+    if (use->phase != GAME_CARD_USE_FLIGHT || !use->flight_initialized ||
+        use->flight_steps <= 0 || index < 0 || index >= GAME_DATA_MAP_STATUS_RESOURCE_COUNT ||
+        !assets->map.has_data_map_status[index]) return;
+    /* 0x4080B2 -> 0x496930[19] == 0x49697C: Data.mkf[415], chunk 0.
+     * 0x40E669(a1=0) uses its stored hotspot, with no added sound. */
+    x = (int)use->flight_x;
+    y = (int)use->flight_y;
+    if (rich4_spr_smp_get_chunk(assets->map.data_map_status_data[index],
+            assets->map.data_map_status_size[index], &assets->map.data_map_status_spr[index],
+            (size_t)use->flight_sprite_chunk, &chunk) == RICH4_SPR_SMP_OK) {
+        if (memcmp(assets->map.data_map_status_spr[index].signature, "SPR", 4) == 0)
+            draw_spr_chunk_at(screen, assets->map.data_map_status_data[index],
+                assets->map.data_map_status_size[index], &assets->map.data_map_status_spr[index],
+                &chunk, x, y, 1);
+        else
+            draw_chunk_at(screen, assets->map.data_map_status_data[index], &chunk, x, y, 1);
+    }
+}
+
 void draw_special_reward_presentation(
     SDL_Surface *screen, const GamePreviewAssets *assets,
     const Rich4GameEventPresentationSnapshot *session)

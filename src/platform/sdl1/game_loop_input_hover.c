@@ -1,3 +1,4 @@
+#include "app/card_defense_flow.h"
 /* R10.1d: post-event virtual-cursor hover/selection synchronization moved
  * verbatim out of runtime_main.c. It updates only transient UI hover state
  * and the same selection sounds the original pass emitted. */
@@ -106,6 +107,15 @@ void game_update_input_hovers(GameInputHoverContext *context)
         rich4_special_event_choice_hover(session,
             game_fortune_choice_at(session,context->assets,cursor->x,cursor->y)))
         return;
+    if (context->app_state == RICH4_SCENE_GAME &&
+        session->presentation.card_use.defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_TARGET) {
+        GameCardDefenseState *d = &session->presentation.card_use.defense;
+        int target = game_insurance_target_at(context->assets, &session->state,
+            d->actor, cursor->x, cursor->y);
+        if (target != d->hover && target >= 0) rich4_audio_play_select(context->audio);
+        (void)rich4_card_defense_hover(session, target);
+        return;
+    }
     if (context->app_state == RICH4_SCENE_GAME &&
         session->presentation.property.insurance_active &&
         session->presentation.property.phase == GAME_PROPERTY_PRESENT_INSURANCE_TARGET) {

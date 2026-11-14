@@ -60,7 +60,10 @@ enum {
     GAME_CARD_FLAG_SECONDARY_FACILITY = 1u << 0,
     GAME_CARD_FLAG_USE_MISDIRECT = 1u << 1,
     GAME_CARD_FLAG_ACCEPT_FREE = 1u << 2,
-    GAME_CARD_FLAG_ROB_TOOL = 1u << 3
+    GAME_CARD_FLAG_ROB_TOOL = 1u << 3,
+    /* App continuation presents revenge only after the primary punishment. */
+    GAME_CARD_FLAG_DEFER_REVENGE = 1u << 4,
+    GAME_CARD_FLAG_DEFENSE_PREPARED = 1u << 5
 };
 
 typedef enum GameCardAttackKind {
@@ -76,6 +79,13 @@ GameCardUseResult rich4_card_apply_command_deferred_confinement(GameState *state
 int rich4_card_resolve_attack(GameState *state, int actor, int target,
                               GameCardAttackKind kind, int redirect_target,
                               GameEventQueue *events);
+int rich4_card_resolve_attack_primary(GameState *state, int actor, int target,
+    GameCardAttackKind kind, int redirect_target, GameEventQueue *events,
+    int defer_confinement);
+int rich4_card_resolve_revenge(GameState *state, int defender, int attacker,
+    GameCardAttackKind kind, GameEventQueue *events, int defer_confinement);
+/* 0x4442EA/0x4445C1/0x4452F3: before choosing a passive target. */
+void rich4_card_prepare_defense(GameState *state, GameCommand *command);
 int rich4_card_resolve_landing_charge(GameState *state, int payer, int payee,
     int amount, int allow_free, int accept_free, int redirect_target,
     int *out_payer, int *out_amount, GameEventQueue *events);

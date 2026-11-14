@@ -363,7 +363,8 @@ void game_update_preview_frame(GamePreviewFrameContext *context)
     }
     if (context->trace_count != NULL && *context->trace_count < 3)
         trace_game_start("preview: update begin");
-    if (context->card_panel->phase == CARD_PANEL_CLOSED &&
+    if ((context->card_panel->phase == CARD_PANEL_CLOSED ||
+         context->card_panel->phase == CARD_PANEL_WAIT_HANDLER) &&
         context->tool_panel->phase == TOOL_PANEL_CLOSED &&
         !rich4_app_stock_interaction_is_active(context->session) &&
         !rich4_app_sale_interaction_is_active(context->session))

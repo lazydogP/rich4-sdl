@@ -587,6 +587,7 @@ int rich4_property_skip_wait(GameSession *session, uint32_t now)
     if (session == NULL) return 0;
     property = &session->presentation.property;
     switch (property->phase) {
+    case GAME_PROPERTY_PRESENT_CARD_FLASH:
     case GAME_PROPERTY_PRESENT_FLASH:
         {
             Rich4AnimationClock *clock = &session->presentation.animation_clock[
@@ -622,7 +623,8 @@ void rich4_property_flash_frame_presented(GameSession *session, uint32_t now)
     Rich4AnimationClock *clock;
     if (session == NULL) return;
     property = &session->presentation.property;
-    if (property->phase != GAME_PROPERTY_PRESENT_FLASH || property->flash_frame >= 16 ||
+    if ((property->phase != GAME_PROPERTY_PRESENT_FLASH &&
+         property->phase != GAME_PROPERTY_PRESENT_CARD_FLASH) || property->flash_frame >= 16 ||
         property->flash_presented_frame == property->flash_frame) return;
     property->flash_presented_frame = property->flash_frame;
     clock = &session->presentation.animation_clock[RICH4_ANIMATION_PROPERTY_FLASH];
@@ -643,6 +645,7 @@ int rich4_property_update_charge_presentation(
     switch (property->phase) {
     case GAME_PROPERTY_PRESENT_NONE:
         return 0;
+    case GAME_PROPERTY_PRESENT_CARD_FLASH:
     case GAME_PROPERTY_PRESENT_FLASH:
         {
             Rich4AnimationClock *clock = &session->presentation.animation_clock[
@@ -659,7 +662,8 @@ int rich4_property_update_charge_presentation(
             if (!rich4_animation_clock_step(clock, now, 400)) return 1;
             rich4_animation_clock_reset(clock);
             property->flash_adjust = 0;
-            property->phase = GAME_PROPERTY_PRESENT_AMOUNT;
+            property->phase = property->phase == GAME_PROPERTY_PRESENT_CARD_FLASH ?
+                GAME_PROPERTY_PRESENT_NONE : GAME_PROPERTY_PRESENT_AMOUNT;
             property->tick = now;
             return 1;
         }

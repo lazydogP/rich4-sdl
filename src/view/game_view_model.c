@@ -222,6 +222,26 @@ int rich4_game_actor_action_part(const GamePlayerState *player,
     return part >= 0 && part < GAME_CHARACTER_MODEL_RESOURCES ? part : 2;
 }
 
+static int property_flash_contains(const GameState *state,
+    const GameViewModelInput *input, GameDomainKind kind, int index)
+{
+    GameDomainRef target = input->property_flash_target;
+    if (!input->property_flash_active) return 0;
+    if (input->card_flash_land_mask != NULL && input->card_flash_facility_mask != NULL)
+        return kind == GAME_DOMAIN_LAND ? input->card_flash_land_mask[index] :
+            kind == GAME_DOMAIN_FACILITY ? input->card_flash_facility_mask[index] : 0;
+    if (target.kind == GAME_DOMAIN_NONE)
+        return kind == GAME_DOMAIN_LAND && rich4_property_toll_flash_contains(
+            state, input->property_presentation_land, index);
+    if (target.kind != kind) return 0;
+    if (target.id == index) return 1;
+    /* 0x44A823: the residential name group ignores owner and level. */
+    return kind == GAME_DOMAIN_LAND && input->property_flash_same_name &&
+        target.id >= 0 && target.id < state->land_count &&
+        state->land_group[target.id] >= 0 &&
+        state->land_group[index] == state->land_group[target.id];
+}
+
 int rich4_game_view_model_build(const GameState *state,
                                 const GameViewModelInput *input,
                                 const MapData *map,
@@ -474,7 +494,10 @@ int rich4_game_view_model_build(const GameState *state,
     model.hud.top_button_hover = input->top_button_hover;
     model.hud.minimap_rotate_pressed = input->minimap_rotate_pressed;
     if (state->player_count > 0) {
-        int current = wrap_index_view(state->current_player, state->player_count);
+        int current = input->presentation_player > 0 &&
+            input->presentation_player <= state->player_count
+            ? input->presentation_player - 1
+            : wrap_index_view(state->current_player, state->player_count);
         const GamePlayerState *player = &state->players[current];
         int property;
         model.hud.current_player = current;
@@ -560,9 +583,23 @@ int rich4_game_view_model_build(const GameState *state,
     if (model.land_count > GAME_MAX_MAP_PROPERTIES)
         model.land_count = GAME_MAX_MAP_PROPERTIES;
     for (i = 0; i < model.land_count; i++) {
+        if (input->card_swap_kind == GAME_DOMAIN_LAND) {
+            if (i == input->card_swap_source) {
+                model.lands[i].offset_x = input->card_swap_x;
+                model.lands[i].offset_y = input->card_swap_y;
+            } else if (i == input->card_swap_target) {
+                model.lands[i].offset_x = input->card_swap_target_x;
+                model.lands[i].offset_y = input->card_swap_target_y;
+            }
+        }
         model.lands[i].owner = state->land_owner[i];
         model.lands[i].type = state->land_type[i];
         model.lands[i].level = state->land_level[i];
+        if (input->card_previous_land_level != NULL && input->card_previous_land_type != NULL &&
+            input->card_flash_land_mask != NULL && input->card_flash_land_mask[i]) {
+            model.lands[i].level = input->card_previous_land_level[i];
+            model.lands[i].type = input->card_previous_land_type[i];
+        }
         if (input->demon_previous_building_target.kind == GAME_DOMAIN_LAND &&
             input->demon_previous_building_target.id == i) {
             model.lands[i].type = input->demon_previous_building_type;
@@ -578,9 +615,7 @@ int rich4_game_view_model_build(const GameState *state,
             model.lands[i].level--;
         model.lands[i].group = state->land_group[i];
         model.lands[i].price_status = state->land_price_status[i];
-        if (input->property_flash_active &&
-            rich4_property_toll_flash_contains(
-                state, input->property_presentation_land, i)) {
+        if (property_flash_contains(state, input, GAME_DOMAIN_LAND, i)) {
             model.lands[i].flash_selected = 1;
             model.lands[i].flash_adjust = input->property_flash_adjust;
         }
@@ -590,6 +625,15 @@ int rich4_game_view_model_build(const GameState *state,
     if (model.facility_count > GAME_MAX_MAP_PROPERTIES)
         model.facility_count = GAME_MAX_MAP_PROPERTIES;
     for (i = 0; i < model.facility_count; i++) {
+        if (input->card_swap_kind == GAME_DOMAIN_FACILITY) {
+            if (i == input->card_swap_source) {
+                model.facilities[i].offset_x = input->card_swap_x;
+                model.facilities[i].offset_y = input->card_swap_y;
+            } else if (i == input->card_swap_target) {
+                model.facilities[i].offset_x = input->card_swap_target_x;
+                model.facilities[i].offset_y = input->card_swap_target_y;
+            }
+        }
         model.facilities[i].owner = state->facility_owner[i];
         model.facilities[i].type = state->facility_type[i];
         model.facilities[i].level = state->facility_level[i];
@@ -608,6 +652,8 @@ int rich4_game_view_model_build(const GameState *state,
             state->facility_research_selection[i];
         model.facilities[i].research_turns = state->facility_research_turns[i];
         model.facilities[i].price_status = state->facility_price_status[i];
+        model.facilities[i].flash_selected =
+            property_flash_contains(state, input, GAME_DOMAIN_FACILITY, i);
     }
     model.company_count = state->company_count;
     if (model.company_count < 0) model.company_count = 0;

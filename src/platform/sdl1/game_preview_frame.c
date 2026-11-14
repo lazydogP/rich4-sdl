@@ -247,6 +247,7 @@ void draw_game_preview_frame(SDL_Surface *screen,
     game_draw_player_info_panel(screen, assets, session);
     game_draw_ai_settings_panel(screen, assets, session, ai_settings_panel);
     game_draw_card_panel(screen, assets, session, card_panel);
+    draw_card_use_presentation(screen, assets, &session->presentation.card_use);
     {
         GameOverlayRenderView overlay_view;
         if (build_game_overlay_render_view(assets, settings, session, &overlay_view)) {

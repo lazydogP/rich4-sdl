@@ -26,14 +26,15 @@ int rich4_app_apply_game_command(GameSession *session,
                                  const GameCommand *command,
                                  GameEventQueue *events);
 
-/* Starts the app-owned presentation state for an AI card command after the
+/* Starts the shared presentation state for a card command after the
  * platform adapter has verified that the corresponding Data.MKF animation
  * exists.  The resource/frame values are data, not SDL handles. */
-void rich4_app_sync_ai_card_animation(GameSession *session,
+void rich4_app_sync_card_animation(GameSession *session,
                                       const GameCommand *command,
                                       int accepted,
                                       int resource,
                                       int frame_count,
+                                      int frame_delay_ms,
                                       uint32_t now);
 
 #endif

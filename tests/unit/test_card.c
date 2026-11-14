@@ -30,12 +30,70 @@ static GameCommand use_card(int player, int card, GameDomainRef target,
         rich4_game_domain_ref(GAME_DOMAIN_CARD, card), target, 0);
 }
 
+static void hibernation_bad_days(void)
+{
+    GameState state, before;
+    GameEventQueue events;
+    GameCommand command = use_card(0, 14, none(), GAME_COMMAND_SOURCE_HUMAN);
+    /* 0x444147..0x4441A1: any raw +0x32..+0x35 byte excludes the
+     * target, including a pending 0x80 status. Existing sleep is refreshed. */
+    for (int field = 0; field < 4; ++field) for (int pending = 0; pending < 2; ++pending) {
+        int *blocked;
+        setup(&state);
+        state.player_count = 4;
+        state.players[2].play_state = 1;
+        for (int i = 0; i < 4; ++i) {
+            state.players[i].node = i + 1;
+            state.tool_route_x[i + 1] = (int16_t)(100 * (i + 1));
+        }
+        state.tool_route_node_count = 5;
+        state.players[0].card_inventory[0] = 15;
+        state.players[1].total_confinement_days = 254;
+        state.players[1].days_sleeping = 2;
+        state.players[1].days_sleep_walking = 3;
+        state.players[2].total_confinement_days = 17;
+        state.players[2].days_sleep_walking = 2;
+        blocked = field == 0 ? &state.players[2].delayed_status_block :
+                  field == 1 ? &state.players[2].days_disappearing :
+                  field == 2 ? &state.players[2].days_in_prison :
+                               &state.players[2].days_in_hospital;
+        *blocked = pending ? 0x80 : 3;
+        before = state;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_card_apply_command(&state, &command, &events) == GAME_CARD_USE_APPLIED);
+        assert(state.players[0].total_confinement_days == 0 && state.players[0].days_sleeping == 0);
+        assert(state.players[1].total_confinement_days == 3 && state.players[1].days_sleeping == 5 &&
+               state.players[1].days_sleep_walking == 0);
+        assert(state.players[2].total_confinement_days == 17 && state.players[2].days_sleeping == 0 &&
+               state.players[2].days_sleep_walking == 2 && *blocked == (pending ? 0x80 : 3));
+        assert(state.players[3].total_confinement_days == 0 && state.players[3].days_sleeping == 0);
+        state = before;
+        events.count = GAME_EVENT_QUEUE_CAPACITY;
+        assert(rich4_card_apply_command(&state, &command, &events) == GAME_CARD_USE_INVALID);
+        assert(memcmp(&state, &before, sizeof(state)) == 0);
+    }
+    /* 0x44415D also rejects an actor without a nonzero map X. */
+    for (int on_map = 0; on_map < 2; ++on_map) {
+        setup(&state);
+        state.tool_route_node_count = 3;
+        state.players[0].node = 1;
+        state.tool_route_x[1] = 100;
+        state.players[1].node = on_map ? 2 : 0;
+        state.players[1].total_confinement_days = 17;
+        state.players[0].card_inventory[0] = 15;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_card_apply_command(&state, &command, &events) == GAME_CARD_USE_APPLIED);
+        assert(state.players[1].days_sleeping == 0 && state.players[1].total_confinement_days == 17);
+    }
+}
+
 int main(void)
 {
     GameState state, before;
     GameEventQueue events;
     GameCommand command;
     int i;
+    hibernation_bad_days();
     for (i = 0; i < GAME_CARD_COUNT; i++) {
         const GameCardInfo *info = rich4_card_info(i);
         assert(info != NULL && info->original_id == i + 1 &&
@@ -347,6 +405,8 @@ int main(void)
     setup(&state);
     state.players[0].card_inventory[0] = 16; /* 梦游 */
     state.players[1].card_inventory[0] = 18; /* 复仇 */
+    state.players[0].total_confinement_days = 7;
+    state.players[1].total_confinement_days = 254;
     command = use_card(0, 15,
         rich4_game_domain_ref(GAME_DOMAIN_PLAYER, 1), GAME_COMMAND_SOURCE_HUMAN);
     rich4_game_event_queue_reset(&events);
@@ -354,6 +414,10 @@ int main(void)
            GAME_CARD_USE_APPLIED);
     assert(state.players[0].days_sleep_walking == 5 &&
            state.players[1].days_sleep_walking == 5);
+    /* 0x444372 adds five for the primary victim; the revenge block at
+     * 0x444405..0x444492 never writes the caster's monthly bad-day byte. */
+    assert(state.players[0].total_confinement_days == 7 &&
+           state.players[1].total_confinement_days == 3);
 
     setup(&state);
     state.players[0].card_inventory[0] = 20; /* 免费 */

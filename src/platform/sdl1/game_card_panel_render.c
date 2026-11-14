@@ -34,18 +34,9 @@ void game_draw_card_panel(SDL_Surface *screen,
 {
     int i;
     if (screen == NULL || assets == NULL || session == NULL || panel == NULL ||
-        panel->phase == CARD_PANEL_CLOSED) return;
+        panel->phase == CARD_PANEL_CLOSED || panel->phase == CARD_PANEL_WAIT_HANDLER) return;
     if (panel->phase == CARD_PANEL_EFFECT) {
-        int card = panel->selected_card;
-        if (card >= 0 && card < GAME_CARD_COUNT && game_asset_ready(assets, &assets->ui.has_card_effect[card])) {
-            {
-                char title[64];
-                snprintf(title, sizeof(title), "\xa8\xcf\xa5\xce%s",
-                         game_card_big5_name(card));
-                draw_original_card_presentation(
-                    screen, assets, card, title);
-            }
-        }
+        draw_card_use_notice(screen, assets, panel->selected_card);
         return;
     }
     if (panel->phase == CARD_PANEL_MONSTER_ANIMATION ||
@@ -71,8 +62,7 @@ void game_draw_card_panel(SDL_Surface *screen,
             if (frame >= header.frame_count) frame = header.frame_count - 1;
             draw_game_graph_frame_data(
                 screen, animation_data, animation_size,
-                frame, (SCREEN_W - header.width) / 2,
-                (SCREEN_H - header.height) / 2);
+                frame, 0, 40);
         }
         return;
     }

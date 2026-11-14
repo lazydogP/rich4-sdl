@@ -86,6 +86,8 @@ int rich4_app_apply_command(GameSession *session,
          * handler. Restoring it must not replay that pending command. */
         memset(&session->presentation.ai_tool, 0,
                sizeof(session->presentation.ai_tool));
+        memset(&session->presentation.card_use, 0,
+               sizeof(session->presentation.card_use));
         memset(session->presentation.tool_animation, 0,
                sizeof(session->presentation.tool_animation));
         session->presentation.tool_animation_head = 0;
@@ -143,17 +145,17 @@ int rich4_app_apply_game_command(GameSession *session,
     return rich4_app_apply_command(session, &app_command, events);
 }
 
-void rich4_app_sync_ai_card_animation(GameSession *session,
+void rich4_app_sync_card_animation(GameSession *session,
                                       const GameCommand *command,
                                       int accepted,
                                       int resource,
                                       int frame_count,
+                                      int frame_delay_ms,
                                       uint32_t now)
 {
     int speech_player = -1;
 
     if (!accepted || session == NULL || command == NULL ||
-        command->source != GAME_COMMAND_SOURCE_AI ||
         command->type != GAME_COMMAND_USE_CARD ||
         command->subject.kind != GAME_DOMAIN_CARD || frame_count <= 0 ||
         session->presentation.monster_card.active)
@@ -188,8 +190,9 @@ void rich4_app_sync_ai_card_animation(GameSession *session,
     rich4_animation_clock_reset(&session->presentation.animation_clock[RICH4_ANIMATION_MONSTER]);
     session->presentation.monster_card.frame = 0;
     session->presentation.monster_card.speech_player =
-        resource == 557 ? speech_player : -1;
+        resource == 557 && session->presentation.card_use.phase == GAME_CARD_USE_NONE
+            ? speech_player : -1;
     session->presentation.monster_card.started = now;
     session->presentation.monster_card.until =
-        now + (uint32_t)(frame_count * 80 + 500);
+        now + (uint32_t)(frame_count * (frame_delay_ms > 0 ? frame_delay_ms : 1) + 500);
 }

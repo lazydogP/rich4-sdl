@@ -77,6 +77,12 @@ int build_game_session_render_view_for_state(
     }
     memcpy(out_view->dynamic_objects, session->presentation.dynamic_objects,
            sizeof(out_view->dynamic_objects));
+    if (session->presentation.card_use.phase == GAME_CARD_USE_FLIGHT &&
+        session->presentation.card_use.command.subject.id == 22) {
+        int slot = session->presentation.card_use.command.target.id;
+        if (slot >= 0 && slot < GAME_MAP_DYNAMIC_OBJECT_COUNT)
+            out_view->dynamic_objects[slot].node = 0;
+    }
     /* The on-foot FLC rebuilds the original arrival background on its
      * third frame. Before that refresh the old dog is still in the image. */
     if (view_input.tool_effect_resource == 532 &&

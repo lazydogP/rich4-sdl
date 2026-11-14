@@ -324,8 +324,8 @@ int main(void)
             GAME_COMMAND_USE_CARD, GAME_COMMAND_SOURCE_AI, 1,
             rich4_game_domain_ref(GAME_DOMAIN_CARD, 10),
             rich4_game_domain_ref(GAME_DOMAIN_LAND, 0), 0);
-        rich4_app_sync_ai_card_animation(
-            &session, &animation_command, 1, 557, 3, 1000);
+        rich4_app_sync_card_animation(
+            &session, &animation_command, 1, 557, 3, 80, 1000);
         assert(session.presentation.monster_card.active == 1 &&
                session.presentation.monster_card.resource == 557 &&
                session.presentation.monster_card.sound_resource == 80 &&
@@ -333,14 +333,14 @@ int main(void)
                session.presentation.monster_card.speech_player == 1 &&
                session.presentation.monster_card.started == 1000 &&
                session.presentation.monster_card.until == 1740);
-        rich4_app_sync_ai_card_animation(
-            &session, &animation_command, 1, 529, 2, 2000);
+        rich4_app_sync_card_animation(
+            &session, &animation_command, 1, 529, 2, 80, 2000);
         assert(session.presentation.monster_card.resource == 557 &&
                session.presentation.monster_card.until == 1740);
         session.presentation.monster_card.active = 0;
         animation_command.subject.id = 11;
-        rich4_app_sync_ai_card_animation(
-            &session, &animation_command, 1, 529, 2, 2000);
+        rich4_app_sync_card_animation(
+            &session, &animation_command, 1, 529, 2, 80, 2000);
         assert(session.presentation.monster_card.active == 1 &&
                session.presentation.monster_card.resource == 529 &&
                session.presentation.monster_card.sound_resource == 97 &&

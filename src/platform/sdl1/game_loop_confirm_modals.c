@@ -13,7 +13,9 @@
 
 int game_handle_confirm_modals(GameConfirmModalsContext *context)
 {
-    if (context->app_state == RICH4_SCENE_GAME && context->session->presentation.property.insurance_active) {
+    if (context->app_state == RICH4_SCENE_GAME &&
+        (context->session->presentation.property.insurance_active ||
+         context->session->presentation.card_use.defense.phase)) {
         if (!context->cursor->confirm_pointer_pressed)
             (void)game_handle_insurance_charge_input(context->session, context->assets, SDL_BUTTON_LEFT,
                 -1, -1, rich4_sdl1_ticks());

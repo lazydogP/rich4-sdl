@@ -4,6 +4,7 @@
 #include "app/audio_event.h"
 #include "app/bankruptcy_flow.h"
 #include "app/bank_flow.h"
+#include "app/card_use_flow.h"
 #include "app/dice_flow.h"
 #include "app/game_speech_flow.h"
 #include "app/insurance_flow.h"
@@ -63,6 +64,12 @@ Rich4CommandEventEffect rich4_app_command_event_effect(
         effect.kind = RICH4_COMMAND_EVENT_EFFECT_STATUS_SYNC;
         return effect;
     case GAME_EVENT_PROPERTY_LEVEL_CHANGED:
+        /* 0x443A81/0x443C10 update the property inside their dedicated
+         * animation, without the normal construction sound/end delay. */
+        if (command != NULL && command->type == GAME_COMMAND_USE_CARD &&
+            (rich4_card_use_animation_resource(command->subject.id, command->target) ||
+             command->subject.id == 8 || command->subject.id == 9))
+            return effect;
         if (command != NULL && command->type == GAME_COMMAND_USE_TOOL &&
             command->subject.id == 8)
             return effect;

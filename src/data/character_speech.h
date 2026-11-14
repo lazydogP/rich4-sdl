@@ -73,6 +73,14 @@ const Rich4CharacterSpeech *rich4_character_victory_speech(int character);
 const Rich4CharacterSpeech *rich4_character_bankruptcy_speech(int character);
 const Rich4CharacterSpeech *rich4_character_monster_victim_speech(
     int character);
+/* Card 11/12, caster/victim columns of the original _card_strings table. */
+const Rich4CharacterSpeech *rich4_character_card_destruction_speech(
+    int character, int card, int victim);
+/* 0x481296/0x48129A + character*360, before red/black card targeting. */
+const Rich4CharacterSpeech *rich4_character_stock_card_speech(int character, int card);
+/* _card_strings at 0x48123A; role 0=use, 1=self/success, 2=victim. */
+const Rich4CharacterSpeech *rich4_character_sleepwalking_speech(int character);
+const Rich4CharacterSpeech *rich4_character_card_speech(int character, int role, int card);
 /* _tool_strings[character][tool] at 0x480D5A.  tool is zero-based here. */
 const Rich4CharacterSpeech *rich4_character_tool_use_speech(
     int character, int tool);

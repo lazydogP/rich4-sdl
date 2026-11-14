@@ -1,9 +1,12 @@
+#include <string.h>
 /* SDL input adapter for the app-owned company-issue flow. */
 
 #include "platform/sdl1/game_loop_confirm_company_issue.h"
 
 #include "app/special_presentation_flow.h"
 #include "app/property_flow.h"
+#include "app/card_defense_flow.h"
+#include "app/card_use_flow.h"
 #include "app/stock_interaction_flow.h"
 #include "app/game_speech_flow.h"
 #include "platform/sdl1/game_event_presentation.h"
@@ -88,24 +91,39 @@ int game_fortune_choice_press(GameSession *session, const GamePreviewAssets *ass
 int game_handle_insurance_charge_input(GameSession *session,
     const GamePreviewAssets *assets, int button, int x, int y, uint32_t now)
 {
-    GamePropertyPresentationState *p;
+    GamePropertyPresentationState *p, view;
+    int card_defense;
     int target = -1, count = 0, i;
     Rich4ConfirmDialogHit hit = RICH4_CONFIRM_DIALOG_ACCEPT;
-    if (session == NULL || !session->presentation.property.insurance_active) return 0;
-    p = &session->presentation.property;
+    if (session == NULL) return 0;
+    card_defense = session->presentation.card_use.defense.phase != GAME_PROPERTY_PRESENT_NONE;
+    if (card_defense) {
+        const GameCardDefenseState *d = &session->presentation.card_use.defense;
+        memset(&view, 0, sizeof(view));
+        view.actor = d->actor;
+        view.phase = (Rich4PropertyPresentationPhase)d->phase;
+        view.insurance_target = d->hover;
+        p = &view;
+    } else {
+        if (!session->presentation.property.insurance_active) return 0;
+        p = &session->presentation.property;
+    }
     if (session->presentation.speech.active) { rich4_speech_request_skip(session); return 1; }
     if (p->phase != GAME_PROPERTY_PRESENT_INSURANCE_FREE_CONFIRM &&
         p->phase != GAME_PROPERTY_PRESENT_INSURANCE_TARGET) {
-        (void)rich4_property_skip_wait(session, now); return 1;
+        if (card_defense) (void)rich4_card_use_skip_notice(session, now);
+        else (void)rich4_property_skip_wait(session, now);
+        return 1;
     }
+    if (button != SDL_BUTTON_LEFT && button != SDL_BUTTON_RIGHT) return 1;
     if (button == SDL_BUTTON_RIGHT) {
-        (void)rich4_property_insurance_choose(session, -1, now); return 1;
+        (void)(card_defense ? rich4_card_defense_choose : rich4_property_insurance_choose)(session, -1, now); return 1;
     }
     for (i = 0; i < session->state.player_count; i++)
         if (i != p->actor && (session->state.players[i].play_state & 0xff)) { count++; target = i; }
     if (p->phase == GAME_PROPERTY_PRESENT_INSURANCE_TARGET && count > 1) {
         target = x < 0 ? p->insurance_target : game_insurance_target_at(assets, &session->state, p->actor, x, y);
-        if (target >= 0) (void)rich4_property_insurance_choose(session, target, now);
+        if (target >= 0) (void)(card_defense ? rich4_card_defense_choose : rich4_property_insurance_choose)(session, target, now);
     } else {
         if (x >= 0) {
             int left, top, width, height;
@@ -113,7 +131,7 @@ int game_handle_insurance_charge_input(GameSession *session,
                 rich4_sdl1_confirm_dialog_hit(x, y, left, top, width, height) : RICH4_CONFIRM_DIALOG_NONE;
         }
         if (hit != RICH4_CONFIRM_DIALOG_NONE)
-            (void)rich4_property_insurance_choose(session, hit == RICH4_CONFIRM_DIALOG_ACCEPT ?
+            (void)(card_defense ? rich4_card_defense_choose : rich4_property_insurance_choose)(session, hit == RICH4_CONFIRM_DIALOG_ACCEPT ?
                 (p->phase == GAME_PROPERTY_PRESENT_INSURANCE_FREE_CONFIRM ? p->actor : target) : -1, now);
     }
     return 1;

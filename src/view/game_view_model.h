@@ -180,6 +180,8 @@ typedef struct GameViewModelInput {
     int minimap_rotate_pressed;
     int top_button_hover;
     GameViewActorInput actors[GAME_MAX_PLAYERS];
+    /* Zero keeps the turn owner; otherwise the temporary magic recipient + 1. */
+    int presentation_player;
     GameViewSpecialActorInput special_actor;
     int tool_robot_started;
     int tool_robot_arrived;
@@ -202,9 +204,21 @@ typedef struct GameViewModelInput {
     int property_presentation_land;
     int property_flash_adjust;
     int property_flash_active;
+    /* Explicit news target; NONE retains the toll's ownership filter. */
+    GameDomainRef property_flash_target;
+    int property_flash_same_name;
+    const uint8_t *card_flash_land_mask;
+    const uint8_t *card_flash_facility_mask;
+    GameDomainKind card_swap_kind;
+    int card_swap_source, card_swap_target;
+    int card_swap_x, card_swap_y;
+    int card_swap_target_x, card_swap_target_y;
+    const uint8_t *card_previous_land_level;
+    const uint8_t *card_previous_land_type;
 } GameViewModelInput;
 
 typedef struct GameLandView {
+    int offset_x, offset_y;
     int owner;
     int type;
     int level;
@@ -216,12 +230,14 @@ typedef struct GameLandView {
 } GameLandView;
 
 typedef struct GameFacilityView {
+    int offset_x, offset_y;
     int owner;
     int type;
     int level;
     int research_selection;
     int research_turns;
     int price_status;
+    int flash_selected;
 } GameFacilityView;
 
 typedef struct GameCompanyView {

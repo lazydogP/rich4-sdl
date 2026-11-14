@@ -24,15 +24,18 @@
 #include "platform/sdl1/runtime_bootstrap.h"
 #include "platform/sdl1/game_monthly_finance.h"
 
-static int game_card_animation_frame_count(
-    const GamePreviewAssets *assets, int resource)
+static void game_card_animation_timing(
+    const GamePreviewAssets *assets, int resource, int *frames, int *delay)
 {
-    if (assets == NULL) return 0;
-    if (resource == 529 && game_asset_ready(assets, &assets->ui.has_demolish_card_animation))
-        return game_asset_graph_frames(assets, &assets->ui.demolish_card_data, assets->ui.demolish_card_size);
-    if (resource == 557 && game_asset_ready(assets, &assets->ui.has_monster_card_animation))
-        return game_asset_graph_frames(assets, &assets->ui.monster_card_data, assets->ui.monster_card_size);
-    return 0;
+    *frames = 0; *delay = 1;
+    if (assets == NULL) return;
+    if (resource == 529 && game_asset_ready(assets, &assets->ui.has_demolish_card_animation)) {
+        *frames = game_asset_graph_frames(assets, &assets->ui.demolish_card_data, assets->ui.demolish_card_size);
+        *delay = game_asset_graph_delay(assets, &assets->ui.demolish_card_data, assets->ui.demolish_card_size);
+    } else if (resource == 557 && game_asset_ready(assets, &assets->ui.has_monster_card_animation)) {
+        *frames = game_asset_graph_frames(assets, &assets->ui.monster_card_data, assets->ui.monster_card_size);
+        *delay = game_asset_graph_delay(assets, &assets->ui.monster_card_data, assets->ui.monster_card_size);
+    }
 }
 
 static int game_active_human_count(const GameSession *session)
@@ -146,11 +149,12 @@ static int game_update_presentation_handler(
     case RICH4_PRESENTATION_HANDLER_PROPERTY_SPEECH:
         return game_update_property_speech(session, audio, now);
     case RICH4_PRESENTATION_HANDLER_MONSTER_CARD:
-        return rich4_monster_card_flow_update(
-            session,
-            game_card_animation_frame_count(
-                assets, session->presentation.monster_card.resource),
-            now);
+        {
+            int frames, delay;
+            game_card_animation_timing(assets,
+                session->presentation.monster_card.resource, &frames, &delay);
+            return rich4_monster_card_flow_update(session, frames, delay, now);
+        }
     case RICH4_PRESENTATION_HANDLER_SPECIAL_REWARD:
         return game_update_special_reward_presentation(
             session, assets, audio, now);
@@ -205,6 +209,7 @@ int game_update_presentation_dispatch(
 
     game_limit_god_detachment(session, assets, settings);
     if (game_update_god_detachment(session, audio, now)) return 1;
+    if (game_update_card_use(session, assets, settings, audio, now)) return 1;
     if (game_update_ai_tool(session, assets, settings, audio, now)) return 1;
 
     /* 0x40EC99 waits for each payer's bankruptcy/auction before charging
@@ -300,8 +305,9 @@ int game_update_presentation_dispatch(
     rich4_presentation_transition(
         &session->presentation,
         rich4_presentation_mode_resolve(&activity), NULL);
-    return game_update_presentation_handler(
+    if (game_update_presentation_handler(
         session, assets, settings, config, audio, now, cursor_x,
         rich4_presentation_handler_for_mode(
-            &session->presentation, session->presentation.mode));
+            &session->presentation, session->presentation.mode))) return 1;
+    return session->presentation.card_use.phase != GAME_CARD_USE_NONE;
 }

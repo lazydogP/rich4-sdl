@@ -90,6 +90,7 @@ int rich4_app_game_update(
     /* A god's transfer loop can be suspended between bankruptcy and its
      * queued auction/speech. Do not resume the outer turn in that gap. */
     if (session->presentation.god_acquisition.active) return 1;
+    if (session->presentation.card_use.phase != GAME_CARD_USE_NONE) return 1;
     if (session->state.game_over &&
         !has_post_terminal_presentation_work(session))
         return 0;

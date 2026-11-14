@@ -291,8 +291,16 @@ int main(void)
     assert(model.special_actors[0].overlay_chunk == -1);
     assert(model.special_actors[0].visual_direction == 0);
     state.turn_rotation_index = GAME_MAX_PLAYERS;
+    state.special_player_play_state[0] = 0;
+    state.special_player_actor_type[0] = 0x81;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.current_actor == GAME_MAX_PLAYERS);
+    assert(model.hud.special_portrait_character == state.players[0].character);
+    state.special_player_play_state[0] = 1;
+    state.player_count = 2;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.hud.special_portrait_character == state.players[1].character);
+    state.player_count = 1;
     state.special_player_status[0][1] = 5;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.special_actors[0].resource_part == 0 &&
@@ -442,6 +450,25 @@ int main(void)
     assert(model.facilities[0].price_status == 0x31);
     assert(model.lands[0].flash_adjust == 8 && model.lands[1].flash_adjust == 8 &&
            model.lands[2].flash_adjust == 0);
+    /* 0x44A823 uses the name group without the toll owner/alliance filter.
+     * An unowned level-zero target still selects its ground footprint. */
+    flow.property_flash_target = rich4_game_domain_ref(GAME_DOMAIN_LAND, 0);
+    flow.property_flash_same_name = 1;
+    state.land_owner[0] = -1;
+    state.land_level[0] = 0;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.lands[0].flash_selected && model.lands[1].flash_selected &&
+           model.lands[2].flash_selected);
+    flow.property_flash_same_name = 0; /* 0x44AA9F: flood selects one lot. */
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.lands[0].flash_selected && !model.lands[1].flash_selected &&
+           !model.lands[2].flash_selected);
+    flow.property_flash_target = rich4_game_domain_ref(GAME_DOMAIN_FACILITY, 0);
+    state.facility_owner[0] = -1;
+    state.facility_level[0] = 0;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.facilities[0].flash_selected && !model.lands[0].flash_selected &&
+           !model.lands[1].flash_selected && !model.lands[2].flash_selected);
     state.land_price_status[0] = state.land_price_status[1] = 0;
     state.facility_price_status[0] = 0;
     flow.property_flash_active = 0;
@@ -449,6 +476,7 @@ int main(void)
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.lands[0].price_status == 0 && model.lands[1].price_status == 0 &&
            model.facilities[0].price_status == 0 && model.lands[1].flash_adjust == 0);
+    assert(!model.facilities[0].flash_selected);
     puts("game view model: ok");
     return 0;
 }

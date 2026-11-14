@@ -5,6 +5,10 @@
 #include <SDL/SDL.h>
 
 #include "app/ai_flow.h"
+#include "app/card_use_flow.h"
+#include "app/command_event_flow.h"
+#include "app/card_panel_flow.h"
+#include "core/card.h"
 #include "app/game_speech_flow.h"
 #include "core/tool.h"
 #include "platform/sdl1/game_loop_turns.h"
@@ -67,6 +71,10 @@ static int game_ai_submit_command(Rich4AiCommandSink *sink,
                                   uint32_t now)
 {
     GameAiCommandAdapter *adapter = (GameAiCommandAdapter *)sink;
+    if (command->type == GAME_COMMAND_USE_CARD)
+        return game_begin_card_use(adapter->session, adapter->assets,
+            adapter->settings, command, 1, now)
+            ? RICH4_AI_COMMAND_DEFERRED : 0;
     if (command->type == GAME_COMMAND_USE_TOOL) {
         if (rich4_tool_inspect(&adapter->session->state, command) !=
                 GAME_TOOL_USE_APPLIED ||
@@ -228,6 +236,85 @@ void game_run_ai_preactions(GameSession *session,
     rich4_ai_run_preactions_with_projection(
         session, current_property, player_on_map, &target_context,
         global_projection_ptr, player, now, &adapter.sink);
+}
+
+int game_begin_card_use(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, const GameCommand *command,
+    int show_notice, Uint32 now)
+{
+    int background = settings != NULL
+        ? settings->stage * GAME_MAPS_PER_STAGE + settings->map : -1;
+    const MapData *map = assets != NULL && background >= 0 &&
+        background < GAME_BACKGROUND_COUNT ? &assets->map.maps[background] : NULL;
+    return rich4_card_use_begin(session, command, map, show_notice, now);
+}
+
+int game_update_card_use(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, Rich4Audio *audio, Uint32 now)
+{
+    GameCardUsePresentationState *use;
+    GameViewModelInput input;
+    GameViewportModel viewport;
+    Rich4CardUseStep step;
+    GameCommand command;
+    int player, ai;
+    int background = settings != NULL
+        ? settings->stage * GAME_MAPS_PER_STAGE + settings->map : -1;
+    const MapData *map = assets != NULL && background >= 0 &&
+        background < GAME_BACKGROUND_COUNT ? &assets->map.maps[background] : NULL;
+    if (session == NULL) return 0;
+    use = &session->presentation.card_use;
+    if (use->phase == GAME_CARD_USE_NONE) return 0;
+    if (use->phase != GAME_CARD_USE_EFFECTS &&
+        session->presentation.speech.active &&
+        game_update_property_speech(session, audio, now)) return 1;
+    rich4_sdl1_game_view_model_input_build(
+        &session->flow, &session->presentation, &input);
+    rich4_game_viewport_build(&session->state, &input, map, &viewport);
+    step = rich4_card_use_update(session, &viewport, now);
+    if (step == RICH4_CARD_USE_DISPATCH_EFFECTS) return 0;
+    if (step == RICH4_CARD_USE_COMMAND) {
+        command = use->command;
+        rich4_card_use_command_completed(session, game_session_apply_command(
+            session, assets, settings, &command, now), now);
+    } else if (step == RICH4_CARD_USE_MAX_LEVEL) {
+        if (!session->presentation.property.max_level_active)
+            (void)game_property_start_max_level_animation(session, assets, now);
+        if (!game_property_update_max_level_animation(session, assets, now))
+            use->max_level_pending = 0;
+    } else if (step == RICH4_CARD_USE_REVENGE_COMMAND) {
+        GameEventQueue events;
+        GameEvent event;
+        command = use->command;
+        rich4_game_event_queue_reset(&events);
+        (void)rich4_card_resolve_revenge(&session->state, command.target.id,
+            command.player, command.subject.id == 15 ? GAME_CARD_ATTACK_SLEEP_WALK :
+                GAME_CARD_ATTACK_FRAME, &events, 1);
+        while (rich4_game_event_queue_pop(&events, &event)) {
+            Rich4CommandEventResult result = rich4_app_apply_command_event(
+                session, &command, &event, now);
+            if (result == RICH4_COMMAND_EVENT_PLATFORM_FOLLOWUP &&
+                event.type == GAME_EVENT_STATUS_CHANGED)
+                game_sync_confinement_event(session, assets, settings, &event);
+        }
+        use->revenge_committed = 1;
+        use->phase = GAME_CARD_USE_EFFECTS;
+    } else if (step == RICH4_CARD_USE_FINISHED) {
+        player = use->command.player;
+        ai = use->command.source == GAME_COMMAND_SOURCE_AI;
+        if (!ai && !use->resume_panel_phase) {
+            if (use->accepted) rich4_card_panel_reset(&session->presentation.card_panel);
+            else rich4_card_panel_command_rejected(&session->presentation.card_panel);
+        }
+        memset(use, 0, sizeof(*use));
+        if (ai && !session->state.game_over) {
+            if (rich4_ai_prepare_move(session, player, &command))
+                (void)game_session_apply_command(session, assets, settings, &command, now);
+            command = rich4_game_command_roll_dice(GAME_COMMAND_SOURCE_AI, player);
+            (void)game_session_apply_command(session, assets, settings, &command, now);
+        }
+    }
+    return 1;
 }
 
 int game_update_ai_tool(GameSession *session, const GamePreviewAssets *assets,

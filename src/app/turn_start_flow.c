@@ -42,6 +42,7 @@ Rich4TurnStartAction rich4_turn_start_prepare(GameSession *session,
         session->presentation.bank_settlement.active ||
         session->flow.turn_flow_active || session->flow.steps_remaining > 0 ||
         session->presentation.dice.popup_active ||
+        session->presentation.card_use.phase != GAME_CARD_USE_NONE ||
         session->presentation.god_detachment.active ||
         session->presentation.god_detachment.speech_pending)
         return RICH4_TURN_START_NONE;

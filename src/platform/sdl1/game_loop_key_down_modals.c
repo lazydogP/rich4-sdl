@@ -56,9 +56,19 @@ int game_handle_key_down_modals(GameKeyDownModalsContext *context)
         return 1;
     }
     if (context->app_state == RICH4_SCENE_GAME &&
-        context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE) {
+        (context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
+         context->session->presentation.card_use.phase != GAME_CARD_USE_NONE)) {
         context->cursor->confirm_pressed = 0;
         context->cursor->cancel_pressed = 0;
+        if (context->session->presentation.card_use.defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_FREE_CONFIRM ||
+            context->session->presentation.card_use.defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_TARGET) {
+            int vk = rich4_sdl1_original_hotkey(context->key);
+            int mod = context->key_modifiers & KMOD_CTRL ? 0x11 : 0;
+            if (context->config && vk && context->config->hotkeys[8].key == vk && context->config->hotkeys[8].mod == mod)
+                context->cursor->confirm_pressed = 1;
+            if (context->config && vk && context->config->hotkeys[9].key == vk && context->config->hotkeys[9].mod == mod)
+                context->cursor->cancel_pressed = 1;
+        }
         return 1;
     }
     if (context->app_state == RICH4_SCENE_GAME &&

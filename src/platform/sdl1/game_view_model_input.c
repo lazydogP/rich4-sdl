@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "core/game_constants.h"
+#include "app/magic_house_flow.h"
+#include "core/special_event.h"
 
 void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
                                             const GamePresentationState *presentation,
@@ -45,6 +47,16 @@ void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
                 out_input->demon_previous_building_type = presentation->property.god_previous_building_type;
                 out_input->demon_previous_building_level = presentation->property.god_previous_building_level;
             }
+        }
+        /* 0x450DD7 -> 0x4511FF/0x4512BF: BYTE2(flags) is the
+         * one-based decoded frame at which the map background refreshes. */
+        if (presentation->monster_card.active &&
+            presentation->card_use.phase == GAME_CARD_USE_EFFECTS &&
+            ((presentation->monster_card.resource == 557 && presentation->monster_card.frame < 15) ||
+             (presentation->monster_card.resource == 529 && presentation->monster_card.frame < 37))) {
+            out_input->demon_previous_building_target = presentation->card_use.command.target;
+            out_input->demon_previous_building_type = presentation->card_use.previous_building_type;
+            out_input->demon_previous_building_level = presentation->card_use.previous_building_level;
         }
         out_input->tool_robot_started = presentation->tool_robot_motion.initialized;
         out_input->tool_robot_arrived = presentation->tool_robot_motion.arrived;
@@ -95,6 +107,8 @@ void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
         out_input->active_info_tab = presentation->active_info_tab;
         out_input->minimap_rotate_pressed = presentation->minimap_rotate_pressed;
         out_input->top_button_hover = presentation->top_button_hover;
+        out_input->presentation_player =
+            rich4_magic_house_presentation_player(presentation) + 1;
     }
     for (i = 0; i < GAME_MAX_PLAYERS; i++) {
         if (presentation == NULL) continue;
@@ -142,5 +156,41 @@ void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
         out_input->property_flash_adjust = presentation->property.flash_adjust;
         out_input->property_flash_active =
             presentation->property.phase == GAME_PROPERTY_PRESENT_FLASH;
+        if (presentation->card_use.phase == GAME_CARD_USE_SWAP_HOUSES) {
+            const GameCardUsePresentationState *use = &presentation->card_use;
+            out_input->card_swap_kind = use->command.target.kind;
+            out_input->card_swap_source = use->command.value;
+            out_input->card_swap_target = use->command.target.id;
+            out_input->card_swap_x = (int)(use->swap_from_x + use->swap_x) - use->swap_from_x;
+            out_input->card_swap_y = (int)(use->swap_from_y + use->swap_y) - use->swap_from_y;
+            out_input->card_swap_target_x = (int)(use->target_x - use->swap_x) - use->target_x;
+            out_input->card_swap_target_y = (int)(use->target_y - use->swap_y) - use->target_y;
+        }
+        if (presentation->property.phase == GAME_PROPERTY_PRESENT_CARD_FLASH) {
+            out_input->property_flash_active = 1;
+            out_input->card_flash_land_mask = presentation->card_use.highlight_land;
+            out_input->card_flash_facility_mask = presentation->card_use.highlight_facility;
+        }
+        /* 0x4435CB/0x4437F8 write the records before the marker/flash;
+         * the map background is refreshed only after 0x451985 returns. */
+        if (presentation->card_use.accepted &&
+            presentation->card_use.command.target.kind == GAME_DOMAIN_LAND &&
+            (presentation->card_use.command.subject.id == 8 ||
+             presentation->card_use.command.subject.id == 9) &&
+            (presentation->card_use.phase == GAME_CARD_USE_FLIGHT ||
+             presentation->property.phase == GAME_PROPERTY_PRESENT_CARD_FLASH)) {
+            out_input->card_flash_land_mask = presentation->card_use.highlight_land;
+            out_input->card_previous_land_level = presentation->card_use.original_land_level;
+            out_input->card_previous_land_type = presentation->card_use.original_land_type;
+        }
+        if (presentation->special_event.active &&
+            presentation->special_event.phase == RICH4_SPECIAL_PRESENT_PROPERTY_FLASH) {
+            const GameSpecialEventPresentationState *s = &presentation->special_event;
+            out_input->property_flash_active = 1;
+            out_input->property_flash_adjust = s->flash_adjust;
+            out_input->property_flash_same_name = s->resolved_id == 18;
+            (void)rich4_special_event_decode_property_target(
+                &s->pre_state, s->target_mask, &out_input->property_flash_target);
+        }
     }
 }

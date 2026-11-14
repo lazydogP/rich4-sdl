@@ -9,6 +9,7 @@
 #include "app/special_place_notice_flow.h"
 #include "app/god_money_flow.h"
 #include "app/game_speech_flow.h"
+#include "app/card_use_flow.h"
 #include "app/insurance_flow.h"
 #include "app/property_flow.h"
 #include "platform/sdl1/game_loop_turns.h"
@@ -28,6 +29,8 @@ static void god_release_input(GameSession *session)
 
 void game_handle_key_up_modals(GameKeyUpModalsContext *context)
 {
+    if (context->app_state == RICH4_SCENE_GAME &&
+        rich4_card_use_skip_notice(context->session, rich4_sdl1_ticks())) return;
     if (context->app_state == RICH4_SCENE_GAME &&
         rich4_company_issue_skip_notice(context->session, rich4_sdl1_ticks())) return;
     if (context->app_state == RICH4_SCENE_GAME &&
@@ -70,6 +73,8 @@ void game_handle_mouse_button_up_modals(
     if (session == NULL ||
         (button != SDL_BUTTON_LEFT && button != SDL_BUTTON_RIGHT))
         return;
+    if (app_state == RICH4_SCENE_GAME &&
+        rich4_card_use_skip_notice(session, rich4_sdl1_ticks())) return;
     if (app_state == RICH4_SCENE_GAME &&
         rich4_company_issue_skip_notice(session, rich4_sdl1_ticks())) return;
     if (app_state == RICH4_SCENE_GAME &&
