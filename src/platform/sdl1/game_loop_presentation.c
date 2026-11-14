@@ -118,9 +118,10 @@ int game_update_bankruptcy_presentation(
         return 1;
     }
     {
-        now = rich4_sdl1_ticks();
-        int active = rich4_bankruptcy_update(session, frame_count, delay_ms, now);
         Rich4AudioEventQueue *events = rich4_app_session_audio_borrow(session);
+        int active;
+        now = rich4_sdl1_ticks();
+        active = rich4_bankruptcy_update(session, frame_count, delay_ms, now);
         rich4_app_surrender_followup(session, now, events);
         game_session_audio_flush(session, audio);
         return active;

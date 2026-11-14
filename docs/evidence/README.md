@@ -32,6 +32,8 @@
 
 | 地址 | 记录 | 当前置信度 |
 |---|---|---|
+| `0x441BAA`、`0x441F73`、`0x40E669`、`0x443917`、`0x443B0F` | [卡片共同提示、被动反制与收尾](441f73-card-use-presentation.md) | `confirmed`（提示、反制、台词、目标效果、背景切换及等待顺序）；完整录屏逐帧对照 `partial` |
+| `0x43BDE5`、`0x43A2DD`、`0x44EC30`、`0x44EE18`、`0x449735` | [拍卖台词、动画、金额与新闻返回链](43a2dd-auction-presentation-lifecycle.md)；[拍卖规则与资源](43bde5-auction-system.md) | `partial`（IDA 控制流、完整 Big5 字符串及资源字段已复核；完整逐帧/嵌套回合对照待建） |
 | `0x448B81`、`0x448BE2`、`0x44B6DF`、36 项 callback、`0x40A45C` | [新闻抽取与目标选择](news-selection.md) | `confirmed`（抽取/候选、经营者防御、税款与破产、即时股价、地价字宽和动态对象；ID 15 保留避错兼容例外，逐帧边界见正文） |
 | `0x44BA63`、`0x41D2C6`、四类天数补偿及11项金额命运 | [保险理赔与 SDL 分层对应](insurance-claims.md) | `partial`（资金、保期、继续流程有回归；完整事件选择与旅行 FLC 见记录边界） |
 | `0x418C55`、30张卡、13种道具、股票/资金/落地/被动链 | [AI 原版策略与 SDL 逐项对应](ai-strategy-alignment.md) | `partial`（已列策略条件有证据和回归；整局随机流、完整像素对象来源及非法raw兼容见边界） |

@@ -14,6 +14,7 @@
 #include "app/property_flow.h"
 #include "app/card_panel_flow.h"
 #include "app/dice_flow.h"
+#include "app/bankruptcy_flow.h"
 #include "core/game_event_payload.h"
 #include "core/special_event.h"
 #include "platform/sdl1/game_asset_api.h"
@@ -188,6 +189,57 @@ static void test_audio(SDL_Surface *screen)
     puts("QA_FLC_AUDIO_PASS effect_waits_for_first_present=1 replaces_previous_effect=1");
 }
 
+static void test_bankruptcy_audio(GamePreviewAssets *assets, SDL_Surface *screen,
+    Rich4Mkf *effect)
+{
+    GameSession *session = calloc(1, sizeof(*session));
+    Rich4Audio *audio = NULL;
+    GameEvent eliminated = rich4_game_event_player_eliminated_from_fields(
+        (Rich4GameEventFields){0, 0, 0, 0, 0,
+            {GAME_DOMAIN_NONE, -1}, {GAME_DOMAIN_NONE, -1}});
+    int channel;
+    assert(session && effect && rich4_audio_init(&audio));
+    assert(rich4_audio_load_bankruptcy_sound(audio, effect));
+    assert(audio->bankruptcy != NULL && audio->bankruptcy->alen > 0);
+    session->state.player_count = 3;
+    assert(rich4_bankruptcy_capture_event(session, &eliminated, SDL_GetTicks()));
+    assert(session->audio_events.count == 0); /* Wait for animation loading. */
+    rich4_audio_begin_visual_frame(audio);
+    assert(game_update_bankruptcy_presentation(session, assets, audio, SDL_GetTicks()));
+    assert(session->presentation.bankruptcy.frame == 0);
+    assert(audio->prepared_flc_effect == audio->bankruptcy);
+    assert(Mix_Playing(-1) == 0);
+    assert(SDL_Flip(screen) == 0);
+    rich4_audio_present_visual_frame(audio);
+    channel = audio->flc_effect_channel;
+    assert(channel >= 0 && Mix_Playing(channel));
+    assert(Mix_GetChunk(channel) == audio->bankruptcy);
+    Mix_HaltChannel(channel);
+    /* Neither later animation frames nor the two-second hold retrigger it. */
+    rich4_audio_begin_visual_frame(audio);
+    assert(game_update_bankruptcy_presentation(session, assets, audio, SDL_GetTicks()));
+    rich4_audio_present_visual_frame(audio);
+    assert(Mix_Playing(-1) == 0 && audio->prepared_flc_effect == NULL);
+    session->presentation.bankruptcy.phase = RICH4_BANKRUPTCY_PHASE_HOLD;
+    session->presentation.bankruptcy.until = SDL_GetTicks() + 2000;
+    assert(game_update_bankruptcy_presentation(session, assets, audio, SDL_GetTicks()));
+    assert(Mix_Playing(-1) == 0);
+    /* A separate bankruptcy gets its own one-shot, and respects mute. */
+    assert(rich4_bankruptcy_capture_event(session, &eliminated, SDL_GetTicks()));
+    rich4_audio_set_effects_enabled(audio, 0);
+    assert(game_update_bankruptcy_presentation(session, assets, audio, SDL_GetTicks()));
+    assert(Mix_Playing(-1) == 0);
+    rich4_audio_set_effects_enabled(audio, 1);
+    assert(rich4_bankruptcy_capture_event(session, &eliminated, SDL_GetTicks()));
+    rich4_audio_begin_visual_frame(audio);
+    assert(game_update_bankruptcy_presentation(session, assets, audio, SDL_GetTicks()));
+    rich4_audio_present_visual_frame(audio);
+    assert(Mix_Playing(-1) == 1);
+    rich4_audio_shutdown(audio);
+    free(session);
+    puts("QA_BANKRUPTCY_AUDIO_PASS resource=100 first_present=1 one_shot=1 mute=1");
+}
+
 static void test_resources(GamePreviewAssets *a, SDL_Surface *screen)
 {
     ResourceStore *store = rich4_resource_store_create();
@@ -232,6 +284,13 @@ static void test_resources(GamePreviewAssets *a, SDL_Surface *screen)
     assert(game_asset_ready(a, &a->character.has_first_landing_graph[0]));
     assert(a->character.first_landing_data[0] == same && reads == 0);
     puts("QA_FLC_LOADING_PASS event_reads=1 unrelated_reads=0 timing_draw_same_lease=1");
+    {
+        static const char *const names[] = {"Effect.mkf", "EFFECT.MKF", "effect.mkf"};
+        char path[512];
+        Rich4Mkf *effect = game_open_named_mkf_from_data_dir(store,
+            options.data_dir, names, 3, path, sizeof(path));
+        test_bankruptcy_audio(a, screen, effect);
+    }
 
     /* Every FLC in the shipped Data/Jump/Panel archives is decoded forward,
      * retaining palette/index/delta state, including all monthly/intro films. */

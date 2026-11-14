@@ -49,8 +49,7 @@ void draw_game_monster_card_animation(
     if (frame >= header.frame_count) frame = header.frame_count - 1;
     draw_game_graph_frame_data(
         screen, animation_data, animation_size,
-        frame, (SCREEN_W - header.width) / 2,
-        (SCREEN_H - header.height) / 2);
+        frame, 0, 40);
 }
 
 void draw_game_tool_robot(SDL_Surface *screen,

@@ -2,7 +2,6 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL/SDL.h>
-#undef main
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,6 +68,12 @@ static void upgrade(int facility, int old_level, int direction)
     frames = game_graph_frame_count_data(data, size);
     delay = game_graph_frame_delay_ms_data(data, size);
     assert(frames > 44 && delay > 0);
+    /* 0x45144F displays each frame for its own interval. A late update
+     * advances once, so drive every decoded frame before checking #44. */
+    assert(rich4_tool_animation_update(&session, frames, delay, 1000, NULL, &completion));
+    for (i = 1; i < 43; ++i)
+        assert(rich4_tool_animation_update(&session, frames, delay,
+            1000 + i * delay, NULL, &completion));
     assert(rich4_tool_animation_update(&session, frames, delay,
         1000 + 43 * delay - 1, NULL, &completion));
     check_level(facility, old_level);
@@ -77,8 +82,9 @@ static void upgrade(int facility, int old_level, int direction)
     check_level(facility, old_level + 1);
     assert((facility ? session.state.facility_level[0] :
                        session.state.land_level[0]) == old_level + 1);
-    (void)rich4_tool_animation_update(&session, frames, delay,
-        1000 + frames * delay, NULL, &completion);
+    for (i = 44; i <= frames; ++i)
+        (void)rich4_tool_animation_update(&session, frames, delay,
+            1000 + i * delay, NULL, &completion);
     if (old_level == 4) {
         uint32_t start = 1001 + frames * delay;
         assert(session.presentation.has_view_override);
@@ -89,6 +95,9 @@ static void upgrade(int facility, int old_level, int direction)
                                                 assets.tool.property_max_level_size);
         assert(rich4_tool_animation_update(&session, frames, delay, start, NULL, &completion));
         check_level(facility, 5);
+        for (i = 1; i < frames; ++i)
+            assert(rich4_tool_animation_update(&session, frames, delay,
+                start + i * delay, NULL, &completion));
         assert(!rich4_tool_animation_update(&session, frames, delay,
             start + frames * delay, NULL, &completion));
     }

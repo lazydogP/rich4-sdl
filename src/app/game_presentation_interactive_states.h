@@ -273,7 +273,7 @@ typedef struct GameMonsterCardPresentationState {
     int active;
     /* Data.MKF resource: 557 for 怪兽卡, 529 for 拆除卡. */
     int resource;
-    /* Effect.MKF resource to emit once when an AI animation starts. */
+    /* Effect.MKF resource to emit once when the card animation starts. */
     int sound_resource;
     int frame;
     int speech_player;
