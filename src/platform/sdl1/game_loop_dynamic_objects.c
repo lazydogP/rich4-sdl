@@ -91,7 +91,8 @@ int game_update_god_detachment(GameSession *session, Rich4Audio *audio, Uint32 n
         return 0;
     }
     if (!d->active) return 0;
-    if (rich4_app_update_dynamic_god_detachment(&session->presentation, now)) return 1;
+    if (rich4_app_update_dynamic_god_detachment(
+            &session->presentation, &session->state, now)) return 1;
     if ((d->god_type == 5 || d->god_type == 6 || d->god_type == 7 ||
          d->god_type == 8 || d->god_type == 15) && d->player >= 0 &&
         d->player < session->state.player_count) {

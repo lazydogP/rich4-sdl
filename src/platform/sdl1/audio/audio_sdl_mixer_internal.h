@@ -32,6 +32,7 @@ struct Rich4Audio {
     Mix_Chunk *property_upgrade;
     Mix_Chunk *property_toll;
     Mix_Chunk *property_max_level;
+    Mix_Chunk *bankruptcy;
     Mix_Chunk *card;
     Mix_Chunk *card_monster_animation;
     Mix_Chunk *card_demolish_animation;

@@ -24,6 +24,8 @@ int rich4_audio_load_door_sound(Rich4Audio *audio, Rich4Mkf *mkf)
 { (void)audio; (void)mkf; return 0; }
 int rich4_audio_load_property_sounds(Rich4Audio *audio, Rich4Mkf *mkf)
 { (void)audio; (void)mkf; return 0; }
+int rich4_audio_load_bankruptcy_sound(Rich4Audio *audio, Rich4Mkf *mkf)
+{ (void)audio; (void)mkf; return 0; }
 int rich4_audio_load_card_sound(Rich4Audio *audio, Rich4Mkf *mkf)
 { (void)audio; (void)mkf; return 0; }
 int rich4_audio_load_god_effect_sounds(Rich4Audio *audio, Rich4Mkf *mkf)

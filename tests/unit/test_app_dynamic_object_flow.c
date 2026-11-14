@@ -8,12 +8,146 @@
 #include "core/god.h"
 #include "core/rng.h"
 
+static void god_departure_replenishes_pool(void)
+{
+    static GameState state;
+    static GamePresentationState presentation;
+    GameEventQueue events;
+    int cycle;
+    int slot = 8;
+    int node;
+
+    memset(&state, 0, sizeof(state));
+    memset(&presentation, 0, sizeof(presentation));
+    rich4_app_init_dynamic_object_pool(&presentation);
+    state.active = 1;
+    state.player_count = 2;
+    state.players[0].play_state = 1;
+    state.players[1].play_state = 1;
+    state.players[1].node = 4;
+    state.tool_route_node_count = 20;
+    state.ai_rng_state = 123;
+    for (node = 1; node < state.tool_route_node_count; node++) {
+        state.tool_route_x[node] = (int16_t)(node * 500);
+        state.tool_route_next[node][0] = (uint16_t)(node == 19 ? 1 : node + 1);
+    }
+    state.tool_route_x[3] = 1100; /* Within 300 of the departure node. */
+    state.special_player_node[0] = 5;
+    state.tool_placed_objects[0].node = 6;
+    state.tool_placed_objects[0].kind = 16;
+    state.tool_placed_objects[0].attached_player = 0xff;
+    presentation.dynamic_objects[12].node = 7;
+    state.tool_route_flags[8] = 0x10000;
+    state.tool_route_next[9][0] = 0;
+    state.tool_route_next[9][1] = 10;
+    presentation.dynamic_objects[slot].node = 1;
+    for (cycle = 0; cycle < 64; cycle++) {
+        GameMapDynamicObjectState *god = &presentation.dynamic_objects[slot];
+        uint32_t before;
+        state.players[0].node = god->node;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_god_attach(&state, 0, slot + 1, god->type, &events) ==
+               GAME_GOD_APPLIED);
+        assert(rich4_app_sync_dynamic_god_attachment(
+            &presentation, &state, 0, slot));
+        /* 0x40E3D4 replaces the acquisition node with the owner's current
+         * node before 0x40E604 -> 0x40E14D chooses the distant replacement. */
+        state.players[0].node = 2;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_god_expire(&state, 0, &events) == GAME_GOD_APPLIED);
+        before = state.ai_rng_state;
+        assert(rich4_app_begin_dynamic_god_detach(
+            &presentation, &state, 0, 100));
+        assert(presentation.dynamic_objects[slot].node == 0);
+        assert(presentation.dynamic_objects[slot ^ 1].node == 0);
+        assert(state.ai_rng_state == before);
+        assert(!rich4_app_update_dynamic_god_detachment(
+            &presentation, &state, 100 + 24 * 60));
+        slot ^= 1;
+        assert(presentation.dynamic_objects[slot].node > 0);
+        node = presentation.dynamic_objects[slot].node;
+        assert(node == 1 || node >= 10);
+        assert(presentation.dynamic_objects[slot].attached_player == 0);
+        assert(state.ai_rng_state != before);
+        before = state.ai_rng_state;
+        assert(!rich4_app_update_dynamic_god_detachment(
+            &presentation, &state, 100 + 25 * 60));
+        assert(state.ai_rng_state == before);
+    }
+
+    /* 0x40E361 has no ascent for +50..+53; 0x40CE40 (bankruptcy)
+     * also uses the immediate remover. Each must retain the singleton pair. */
+    for (cycle = 0; cycle < 6; cycle++) {
+        uint32_t before = state.ai_rng_state;
+        rich4_app_init_dynamic_object_pool(&presentation);
+        presentation.dynamic_objects[slot].node = 1;
+        presentation.dynamic_objects[slot].attached_player = 1;
+        state.players[0].delayed_status_block = cycle == 0;
+        state.players[0].days_disappearing = cycle == 1;
+        state.players[0].days_in_prison = cycle == 2;
+        state.players[0].days_in_hospital = cycle == 3;
+        if (cycle < 4) {
+            assert(rich4_app_begin_dynamic_god_detach(
+                &presentation, &state, 0, 100));
+        } else if (cycle == 4) {
+            assert(rich4_app_detach_dynamic_god(&presentation, &state, 0));
+        } else {
+            assert(rich4_app_begin_dynamic_god_detach(
+                &presentation, &state, 0, 100));
+            presentation.god_detachment.frame_count = 0;
+            assert(state.ai_rng_state == before);
+            assert(!rich4_app_update_dynamic_god_detachment(
+                &presentation, &state, 100));
+        }
+        assert(!presentation.god_detachment.active);
+        assert(presentation.dynamic_objects[slot].node == 0);
+        assert(presentation.dynamic_objects[slot ^ 1].node > 0);
+        assert(state.ai_rng_state != before);
+    }
+    /* 土地公 returns the type-11 dog. Death has no paired replacement. */
+    for (slot = 11; slot <= 14; slot += 3) {
+        uint32_t before = state.ai_rng_state;
+        rich4_app_init_dynamic_object_pool(&presentation);
+        presentation.dynamic_objects[slot].node = 1;
+        presentation.dynamic_objects[slot].attached_player = 1;
+        assert(rich4_app_begin_dynamic_god_detach(
+            &presentation, &state, 0, 100));
+        assert(!rich4_app_update_dynamic_god_detachment(
+            &presentation, &state, 1540));
+        assert(presentation.dynamic_objects[slot].node == 0);
+        if (slot == 11) {
+            assert(presentation.dynamic_objects[10].node > 0);
+            assert(state.ai_rng_state != before);
+        } else {
+            assert(presentation.dynamic_objects[15].node == 0);
+            assert(state.ai_rng_state == before);
+        }
+    }
+    /* Replacing an attached god with its occupied pair must preserve the
+     * new attachment rather than overwrite it with a new ground object. */
+    rich4_app_init_dynamic_object_pool(&presentation);
+    presentation.dynamic_objects[8].node = 1;
+    presentation.dynamic_objects[8].attached_player = 1;
+    assert(rich4_app_begin_dynamic_god_detach(
+        &presentation, &state, 0, 100));
+    state.players[0].god_info = 10;
+    state.players[0].god_type = 10;
+    assert(rich4_app_sync_dynamic_god_attachment(
+        &presentation, &state, 0, 9));
+    assert(!rich4_app_update_dynamic_god_detachment(
+        &presentation, &state, 1540));
+    assert(presentation.dynamic_objects[9].attached_player == 1);
+    assert(presentation.dynamic_objects[9].node == 2);
+}
+
 int main(void)
 {
     GameState state;
     GamePresentationState presentation;
     GameViewportModel viewport;
     GameMapDynamicObjectState *object;
+
+    god_departure_replenishes_pool();
 
     assert(sizeof(GameMapDynamicObjectState) == 24);
     assert(offsetof(GameMapDynamicObjectState, type) == 0);
@@ -264,7 +398,7 @@ int main(void)
         /* Detaching a god must not clear an attached tool in slots 16..45. */
         presentation.dynamic_objects[16].attached_player = 1;
         presentation.dynamic_objects[16].node = 9;
-        assert(rich4_app_detach_dynamic_god(&presentation, 0));
+        assert(rich4_app_detach_dynamic_god(&presentation, &state, 0));
         assert(presentation.dynamic_objects[0].node == 0 &&
                presentation.dynamic_objects[16].attached_player == 1);
     }
@@ -301,13 +435,13 @@ int main(void)
         assert(presentation.dynamic_objects[0].node == 0 &&
                presentation.dynamic_objects[0].attached_player == 0);
         assert(rich4_app_update_dynamic_god_detachment(
-                   &presentation, 1059));
+                   &presentation, &detach_state, 1059));
         assert(presentation.god_detachment.frame == 0);
         assert(rich4_app_update_dynamic_god_detachment(
-                   &presentation, 1060));
+                   &presentation, &detach_state, 1060));
         assert(presentation.god_detachment.frame == 1);
         assert(!rich4_app_update_dynamic_god_detachment(
-                    &presentation, 1000 + 24 * 60));
+                    &presentation, &detach_state, 1000 + 24 * 60));
         assert(!presentation.god_detachment.active);
         /* While moving, use the current interpolated actor coordinates,
          * not either the acquisition node or the committed route node. */

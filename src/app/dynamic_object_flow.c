@@ -1,6 +1,5 @@
-/* App-owned dynamic-object presentation tick.  It mutates only the bounded
- * app presentation objects, borrows the immutable viewport, and has no SDL
- * or resource ownership. */
+/* App-owned dynamic-object lifecycle and presentation. Borrows map facts,
+ * uses the session's saved RNG for placement, and owns no SDL resources. */
 
 #include "app/dynamic_object_flow.h"
 
@@ -65,7 +64,8 @@ static int choose_dynamic_node(const GamePresentationState *presentation,
             for (object_id = 0;
                  object_id < GAME_MAP_DYNAMIC_OBJECT_COUNT; object_id++) {
                 if (object_id == ignore_object_id) continue;
-                if (presentation->dynamic_objects[object_id].node == node) {
+                if (presentation->dynamic_objects[object_id].node == node &&
+                    presentation->dynamic_objects[object_id].attached_player == 0) {
                     occupied = 1;
                     break;
                 }
@@ -209,14 +209,30 @@ void rich4_app_initialize_dynamic_map_objects_with_rng(
     }
 }
 
+static void replace_removed_dynamic_object_with_rng(
+    GamePresentationState *presentation, const MapData *map,
+    int object_id, int old_node, uint32_t *rng_state)
+{
+    int paired_type;
+    int new_node;
+
+    /* 0x40E278..0x40E297 alternates singleton slots 1/2 through 11/12.
+     * Gifts/chests and Death do not take this replacement path. */
+    if (object_id < 0 || object_id >= 12) return;
+    paired_type = (object_id & 1) != 0 ? object_id : object_id + 2;
+    new_node = choose_dynamic_node(
+        presentation, map, old_node, object_id, rng_state);
+    if (new_node > 0)
+        initialize_dynamic_object_at_node(
+            presentation, map, paired_type, new_node);
+}
+
 int rich4_app_remove_dynamic_object_with_rng(
     GamePresentationState *presentation, const MapData *map, int object_id, uint32_t *rng_state)
 {
     GameMapDynamicObjectState *object;
     int old_type;
     int old_node;
-    int paired_type;
-    int new_node;
 
     if (presentation == NULL || object_id < 0 ||
         object_id >= GAME_MAP_DYNAMIC_OBJECT_COUNT)
@@ -229,15 +245,8 @@ int rich4_app_remove_dynamic_object_with_rng(
     /* 0x40E14D clears instance fields but the fixed pool type byte remains. */
     clear_dynamic_object_instance(presentation, object_id);
 
-    /* The original generic remover only replaces the first twelve singleton
-     * slots.  Type 13/14 are reset by the month-rollover path instead. */
-    if (object_id >= 12) return 1;
-    paired_type = (object_id & 1) != 0 ? object_id : object_id + 2;
-    new_node = choose_dynamic_node(
-        presentation, map, old_node, object_id, rng_state);
-    if (new_node > 0)
-        initialize_dynamic_object_at_node(
-            presentation, map, paired_type, new_node);
+    replace_removed_dynamic_object_with_rng(
+        presentation, map, object_id, old_node, rng_state);
     return 1;
 }
 
@@ -293,8 +302,59 @@ int rich4_app_reset_monthly_dynamic_objects_with_rng(
     return 1;
 }
 
+/* Detachment callers already own the saved route geometry. Reconstruct only
+ * the map facts used by 0x40AA6C/0x40E033; no resource or SDL dependency. */
+static void replace_removed_god(GamePresentationState *presentation,
+                                GameState *state, int slot, int source_node)
+{
+    MapData map;
+    MapRouteNode routes[GAME_MAX_MAP_ROUTE_NODES];
+    int node, i;
+
+    if (state == NULL || slot < 0 || slot >= 12 ||
+        state->tool_route_node_count <= 1 ||
+        state->tool_route_node_count > GAME_MAX_MAP_ROUTE_NODES)
+        return;
+    memset(&map, 0, sizeof(map));
+    memset(routes, 0, sizeof(routes));
+    map.routes = routes;
+    map.route_count = (size_t)state->tool_route_node_count;
+    for (node = 1; node < state->tool_route_node_count; node++) {
+        routes[node].x = state->tool_route_x[node];
+        routes[node].y = state->tool_route_y[node];
+        routes[node].flags = state->tool_route_flags[node];
+        memcpy(routes[node].next, state->tool_route_next[node],
+               sizeof(routes[node].next));
+    }
+    /* 0x40AA6C excludes the live actor/tool occupancy in route +0x24. */
+    for (i = 0; i < state->player_count && i < GAME_MAX_PLAYERS; i++) {
+        const GamePlayerState *player = &state->players[i];
+        node = player->node;
+        if (node > 0 && node < state->tool_route_node_count &&
+            player->play_state && !player->delayed_status_block &&
+            !player->days_disappearing && !player->days_in_prison &&
+            !player->days_in_hospital)
+            routes[node].flags |= 0x100u << i;
+    }
+    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++) {
+        node = state->special_player_node[i];
+        if (node > 0 && node < state->tool_route_node_count &&
+            state->special_player_f10[i] == 0)
+            routes[node].flags |= 0x1000u << i;
+    }
+    for (i = 0; i < GAME_TOOL_PLACED_OBJECT_COUNT; i++) {
+        node = state->tool_placed_objects[i].node;
+        if (node > 0 && node < state->tool_route_node_count &&
+            state->tool_placed_objects[i].kind &&
+            state->tool_placed_objects[i].attached_player == 0xff)
+            routes[node].flags |= 0x10000u;
+    }
+    replace_removed_dynamic_object_with_rng(
+        presentation, &map, slot, source_node, &state->ai_rng_state);
+}
+
 int rich4_app_sync_dynamic_god_attachment(
-    GamePresentationState *presentation, const GameState *state,
+    GamePresentationState *presentation, GameState *state,
     int player, int object_id)
 {
     GameMapDynamicObjectState *object;
@@ -323,8 +383,11 @@ int rich4_app_sync_dynamic_god_attachment(
             &presentation->dynamic_objects[i];
         if (i != object_id &&
             rich4_god_is_road_type(other->type) &&
-            other->attached_player == owner)
+            other->attached_player == owner) {
+            int old_node = other->node;
             clear_dynamic_object_instance(presentation, i);
+            replace_removed_god(presentation, state, i, old_node);
+        }
     }
 
     object->node = state->players[player].node > 0
@@ -338,7 +401,7 @@ int rich4_app_sync_dynamic_god_attachment(
 }
 
 int rich4_app_begin_dynamic_god_detach(
-    GamePresentationState *presentation, const GameState *state,
+    GamePresentationState *presentation, GameState *state,
     int player, uint32_t now)
 {
     GameGodDetachmentPresentationState *detachment;
@@ -364,7 +427,9 @@ int rich4_app_begin_dynamic_god_detach(
         if (state->players[player].delayed_status_block ||
             state->players[player].days_disappearing ||
             state->players[player].days_in_prison || state->players[player].days_in_hospital) {
+            int old_node = object->node;
             clear_dynamic_object_instance(presentation, i);
+            replace_removed_god(presentation, state, i, old_node);
             return 1;
         }
         detachment->active = 1;
@@ -405,7 +470,7 @@ int rich4_app_begin_dynamic_god_detach(
 }
 
 int rich4_app_detach_dynamic_god(
-    GamePresentationState *presentation, int player)
+    GamePresentationState *presentation, GameState *state, int player)
 {
     int owner;
     int detached = 0;
@@ -419,7 +484,9 @@ int rich4_app_detach_dynamic_god(
             &presentation->dynamic_objects[i];
         if (rich4_god_is_road_type(object->type) &&
             object->attached_player == owner) {
+            int old_node = object->node;
             clear_dynamic_object_instance(presentation, i);
+            replace_removed_god(presentation, state, i, old_node);
             detached = 1;
         }
     }
@@ -772,7 +839,7 @@ void rich4_app_update_dynamic_objects(
 }
 
 int rich4_app_update_dynamic_god_detachment(
-    GamePresentationState *presentation, uint32_t now)
+    GamePresentationState *presentation, GameState *state, uint32_t now)
 {
     GameGodDetachmentPresentationState *detachment;
     uint32_t elapsed;
@@ -783,6 +850,10 @@ int rich4_app_update_dynamic_god_detachment(
     if (!detachment->active) return 0;
     if (detachment->frame_count <= 0 || detachment->frame_delay_ms <= 0) {
         detachment->active = 0;
+        if (state != NULL && detachment->player >= 0 &&
+            detachment->player < state->player_count)
+            replace_removed_god(presentation, state, detachment->object_slot,
+                                state->players[detachment->player].node);
         return 0;
     }
     if (!detachment->started) {
@@ -796,6 +867,12 @@ int rich4_app_update_dynamic_god_detachment(
     if (advance >= (uint32_t)(detachment->frame_count - detachment->frame)) {
         detachment->frame = detachment->frame_count;
         detachment->active = 0;
+        /* 0x40E3D4 records the owner's current node; 0x40E604 removes
+         * the old god and replenishes its pair after the ascent finishes. */
+        if (state != NULL && detachment->player >= 0 &&
+            detachment->player < state->player_count)
+            replace_removed_god(presentation, state, detachment->object_slot,
+                                state->players[detachment->player].node);
         detachment->frame_tick += advance *
             (uint32_t)detachment->frame_delay_ms;
         return 0;

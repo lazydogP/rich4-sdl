@@ -34,6 +34,9 @@ void game_init_runtime_audio(RuntimeAudioBootstrapContext *context)
             !rich4_audio_load_property_sounds(audio, context->effect_mkf)) {
             printf("property sounds not available from Effect.mkf\n");
         }
+        if (!rich4_audio_load_bankruptcy_sound(audio, context->effect_mkf)) {
+            printf("bankruptcy sound not available from Effect.mkf resource 100\n");
+        }
         if (context->effect_mkf == NULL ||
             !rich4_audio_load_card_sound(audio, context->effect_mkf)) {
             printf("card sound not available from Effect.mkf resource 62\n");

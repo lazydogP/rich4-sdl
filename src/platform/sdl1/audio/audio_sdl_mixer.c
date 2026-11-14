@@ -107,6 +107,7 @@ void rich4_audio_shutdown(Rich4Audio *audio)
     if (audio->property_toll != NULL) Mix_FreeChunk(audio->property_toll);
     if (audio->property_max_level != NULL)
         Mix_FreeChunk(audio->property_max_level);
+    if (audio->bankruptcy != NULL) Mix_FreeChunk(audio->bankruptcy);
     if (audio->card != NULL) Mix_FreeChunk(audio->card);
     if (audio->card_monster_animation != NULL)
         Mix_FreeChunk(audio->card_monster_animation);
@@ -368,6 +369,16 @@ int rich4_audio_load_property_sounds(Rich4Audio *audio, Rich4Mkf *effect_mkf)
     audio->property_max_level = load_effect_resource(effect_mkf, 90);
     return audio->property_purchase != NULL || audio->property_upgrade != NULL ||
            audio->property_toll != NULL || audio->property_max_level != NULL;
+}
+
+int rich4_audio_load_bankruptcy_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf)
+{
+    if (audio == NULL || !audio->ready || effect_mkf == NULL) return 0;
+    if (audio->bankruptcy != NULL) Mix_FreeChunk(audio->bankruptcy);
+    /* 0x40CD87: 0x45144F(Data[555], 0, 40, 1, 100).
+     * 0x454304 reads that last argument via the Effect handle 0x48A058. */
+    audio->bankruptcy = load_effect_resource(effect_mkf, 100);
+    return audio->bankruptcy != NULL;
 }
 
 int rich4_audio_load_card_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf)

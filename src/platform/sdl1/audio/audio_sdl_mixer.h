@@ -16,6 +16,7 @@ int rich4_audio_load_dice_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_jump_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_door_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_property_sounds(Rich4Audio *audio, Rich4Mkf *effect_mkf);
+int rich4_audio_load_bankruptcy_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_card_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_god_effect_sounds(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_special_place_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);

@@ -65,6 +65,8 @@ typedef enum Rich4AudioEventType {
     RICH4_AUDIO_EVENT_SPECIAL_PLACE_ENTRY,
     /* 0x41B1AD/0x41B32B: separate reward FLC sound, value=98/99. */
     RICH4_AUDIO_EVENT_SPECIAL_REWARD_ANIMATION,
+    /* 0x40CD87: Data.mkf[555] with Effect.mkf[100]. */
+    RICH4_AUDIO_EVENT_BANKRUPTCY,
     RICH4_AUDIO_EVENT_COUNT
 } Rich4AudioEventType;
 

@@ -33,15 +33,16 @@ int rich4_app_reset_monthly_dynamic_objects(
 /* Presentation half of the common 0x40EAD7 attach path.  object_id is a
  * zero-based presentation slot; GameState god_info remains one-based. */
 int rich4_app_sync_dynamic_god_attachment(
-    GamePresentationState *presentation, const GameState *state,
+    GamePresentationState *presentation, GameState *state,
     int player, int object_id);
 /* 0x40E32C: retain the old god's resource long enough to play its
- * presentation-only release animation, then clear the map-object slot. */
+ * release animation, then replenish the paired singleton through 0x40E14D.
+ * The four blocking statuses skip the animation and replenish immediately. */
 int rich4_app_begin_dynamic_god_detach(
-    GamePresentationState *presentation, const GameState *state,
+    GamePresentationState *presentation, GameState *state,
     int player, uint32_t now);
 int rich4_app_detach_dynamic_god(
-    GamePresentationState *presentation, int player);
+    GamePresentationState *presentation, GameState *state, int player);
 /* Collect the first unowned road god at the player's current node.  Returns
  * its one-based original slot, or zero when no god was collected. */
 int rich4_app_collect_dynamic_god(
@@ -75,7 +76,7 @@ int rich4_app_robot_clear_dynamic_object(
     GamePresentationState *presentation, const MapData *map,
     int node, int previous_node);
 int rich4_app_update_dynamic_god_detachment(
-    GamePresentationState *presentation, uint32_t now);
+    GamePresentationState *presentation, GameState *state, uint32_t now);
 void rich4_app_clear_dynamic_object(
     GamePresentationState *presentation, int object_id);
 

@@ -652,6 +652,11 @@ void rich4_audio_consume_event(Rich4Audio *audio, const Rich4AudioEvent *event)
     case RICH4_AUDIO_EVENT_AUCTION_EFFECT:
         rich4_audio_play_auction_effect(audio, event->value);
         break;
+    case RICH4_AUDIO_EVENT_BANKRUPTCY:
+        if (audio != NULL && audio->ready && audio->effects_enabled &&
+            audio->bankruptcy != NULL)
+            play_flc_effect(audio, audio->bankruptcy);
+        break;
     case RICH4_AUDIO_EVENT_BANK_KEY:
         rich4_audio_play_bank_key(audio);
         break;

@@ -1,7 +1,7 @@
 #include "app/bankruptcy_flow.h"
+#include "app/dynamic_object_flow.h"
 
 #include "app/game_speech_flow.h"
-#include "core/god.h"
 #include "core/game_event_payload.h"
 #include "data/character_speech.h"
 
@@ -22,22 +22,11 @@ static void mark_eliminated_actor(GameSession *session, int player)
 
 static void detach_dynamic_god_presentation(GameSession *session, int player)
 {
-    int object_id;
-    int owner;
     if (session == NULL || player < 0 || player >= GAME_MAX_PLAYERS)
         return;
-    owner = player + 1;
-    for (object_id = 0; object_id < GAME_MAP_DYNAMIC_OBJECT_COUNT;
-         object_id++) {
-        GameMapDynamicObjectState *object =
-            &session->presentation.dynamic_objects[object_id];
-        int type = object->type;
-        if (!rich4_god_is_road_type(type) ||
-            object->attached_player != owner)
-            continue;
-        memset(object, 0, sizeof(*object));
-        object->type = (uint8_t)type;
-    }
+    /* 0x40CE40 calls the same remover as expiry and the send-god card. */
+    (void)rich4_app_detach_dynamic_god(
+        &session->presentation, &session->state, player);
 }
 
 static void restore_current_player(GameSession *session)
@@ -405,6 +394,12 @@ int rich4_bankruptcy_update(GameSession *session, int frame_count,
     bankruptcy->frame_delay_ms = delay_ms;
 
     if (bankruptcy->phase == RICH4_BANKRUPTCY_PHASE_ANIMATION) {
+        /* 0x40CD87 passes Effect[100] to 0x45144F. Prepare it once,
+         * when the first animation frame is ready, before the clock starts. */
+        if (frame_count > 0 &&
+            !session->presentation.animation_clock[RICH4_ANIMATION_BANKRUPTCY].started)
+            rich4_audio_event_emit(&session->audio_events,
+                RICH4_AUDIO_EVENT_BANKRUPTCY, 1, 100);
         if (frame_count > 0 && rich4_animation_clock_step(
                 &session->presentation.animation_clock[RICH4_ANIMATION_BANKRUPTCY],
                 now, delay_ms)) bankruptcy->frame++;
