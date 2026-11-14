@@ -174,6 +174,80 @@ static void normal_finance_music_cannot_be_overridden(void)
     assert(map_start_count == 1 && main_active == 1);
 }
 
+static void bank_exit_restores_map_music(void)
+{
+    int close_before_capture, enabled;
+    for (close_before_capture = 0; close_before_capture <= 1; close_before_capture++) {
+        for (enabled = 0; enabled <= 1; enabled++) {
+            GameSession session = {0};
+            GameModalMusicContext context;
+            int track = 3, main_active = 1;
+            int confinement = GAME_CONFINEMENT_NONE;
+            int bank = 0, lottery = 0, magic = 0, auction = 0, holiday = 0;
+            session.presentation.route_interaction.active = 1;
+            session.presentation.route_interaction.accept.type = GAME_COMMAND_BANK_APPLY_LOAN;
+            map_start_count = fixed_start_count = stop_count = 0;
+            game_capture_modal_music_context(
+                &context, &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, 1,
+                &track, &main_active, &confinement, &bank, &lottery, &magic,
+                &auction, &holiday);
+            game_update_modal_music(&context);
+            assert(bank == 1 && main_active == 0);
+            assert(fixed_start_count == 1 && fixed_track == 4);
+            game_update_modal_music(&context);
+            assert(fixed_start_count == 1 && map_start_count == 0);
+
+            /* Mouse release closes the panel before the preview update;
+             * simulation can also close it after the context is captured. */
+            if (close_before_capture) session.presentation.route_interaction.active = 0;
+            game_capture_modal_music_context(
+                &context, &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, enabled,
+                &track, &main_active, &confinement, &bank, &lottery, &magic,
+                &auction, &holiday);
+            session.presentation.route_interaction.active = 0;
+            game_update_modal_music(&context);
+            assert(bank == 0 && track == 3 && main_active == enabled);
+            assert(map_start_count == enabled && stop_count == !enabled);
+            if (enabled)
+                assert(started_track == 3 && started_bank == RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY);
+            game_update_modal_music(&context);
+            assert(map_start_count == enabled && stop_count == !enabled);
+        }
+    }
+}
+
+static void bank_exit_preserves_next_modal_music(void)
+{
+    GameSession session = {0};
+    GameModalMusicContext context;
+    int track = 3, main_active = 0;
+    int confinement = GAME_CONFINEMENT_NONE;
+    int bank = 1, lottery = 0, magic = 0, auction = 0, holiday = 0;
+    /* The bank closed during input; a lottery window now owns the music. */
+    session.presentation.lottery.active = 1;
+    map_start_count = fixed_start_count = 0;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(bank == 0 && lottery == 1 && main_active == 0);
+    assert(map_start_count == 0 && fixed_start_count == 1 && fixed_track == 6);
+
+    session.presentation.lottery.active = 0;
+    session.presentation.bank_settlement.active = 1;
+    bank = 1;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(bank == 2 && map_start_count == 0 && main_active == 0);
+    assert(fixed_track == 9);
+    game_update_modal_music(&context);
+    assert(bank == 2 && map_start_count == 0);
+}
+
 int main(void)
 {
     assert(rich4_music_point_minigame_index(6) == 12);
@@ -183,6 +257,8 @@ int main(void)
     assert(rich4_music_point_minigame_index(9) == -1);
     post_load_music_restarts_playlist();
     normal_finance_music_cannot_be_overridden();
+    bank_exit_restores_map_music();
+    bank_exit_preserves_next_modal_music();
     puts("point minigame music mapping: ok");
     return 0;
 }

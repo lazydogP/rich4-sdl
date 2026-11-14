@@ -77,10 +77,6 @@ void game_capture_modal_music_context(
     context->point_minigame_was_active = session->presentation.point_minigame.active;
     context->point_minigame_music_was_started =
         session->presentation.point_minigame.music_started;
-    context->bank_was_active =
-        session->presentation.route_interaction.active &&
-        session->presentation.route_interaction.accept.type ==
-            GAME_COMMAND_BANK_APPLY_LOAN;
     context->lottery_was_active = session->presentation.lottery.active;
     context->magic_house_was_active = session->presentation.magic_house.active;
     context->finance_was_active = session->presentation.periodic_finance.active &&
@@ -265,10 +261,11 @@ void game_update_modal_music(GameModalMusicContext *context)
          * return, just like the other modal activities. */
         game_restore_main_map_music(context);
     }
-    if (context->bank_was_active && !bank_active &&
-        *context->bank_music_active) {
+    if (!bank_active && *context->bank_music_active == 1) {
         /* sub_436668 restores the saved map playlist after the bank modal
-         * callback returns. */
+         * callback returns. Input can close the panel before this frame's
+         * context is captured; the playing bank track owns the restore.
+         * Value 2 belongs to monthly settlement, which has its own exit. */
         *context->bank_music_active = 0;
         game_restore_main_map_music(context);
     }

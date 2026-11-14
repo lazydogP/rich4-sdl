@@ -26,7 +26,6 @@ typedef struct GameModalMusicContext {
     int shop_music_was_started;
     int point_minigame_was_active;
     int point_minigame_music_was_started;
-    int bank_was_active;
     int lottery_was_active;
     int magic_house_was_active;
     int finance_was_active;
