@@ -12,6 +12,9 @@
 int rich4_auction_action_at(int x, int y);
 void rich4_auction_flow_set_pressed(GameSession *session, int action);
 int rich4_auction_flow_is_human_turn(const GameSession *session);
+/* 0x43BB27 calls 0x44EE18(1) before checking the bid controls. */
+void rich4_auction_flow_skip_speech(
+    GameSession *session, Rich4AudioEventQueue *audio_events);
 
 /* Starts immediately when idle and otherwise preserves request order. */
 int rich4_auction_flow_enqueue(

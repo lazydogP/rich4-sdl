@@ -58,6 +58,16 @@ typedef struct GameAuctionPresentationState {
     int pressed_action;
     int speech_resource;
     int speech_pending;
+    int speech_visible;
+    int speech_clock_started;
+    int speech_skipped;
+    uint32_t speech_until;
+    int animation_clock_started;
+    uint32_t animation_tick;
+    int mouth_ticks;
+    int mouth_drawn;
+    int expression_kind;
+    int expression_frame;
     int action_tick;
     uint32_t action_until;
     uint32_t action_started;

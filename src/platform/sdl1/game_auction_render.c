@@ -8,6 +8,7 @@
 #include "platform/sdl1/render/game_panel_render.h"
 #include "platform/sdl1/runtime_render_api.h"
 #include "view/view_constants.h"
+#include "view/map_renderer.h"
 
 static int auction_property_chunk(const GameState *state, GameDomainRef target)
 {
@@ -80,25 +81,74 @@ static const char *auction_status_text(int status)
     return status >= 1 && status <= 7 ? text[status] : "";
 }
 
-static void draw_auction_property_name(
-    SDL_Surface *screen, const GamePreviewAssets *assets,
-    const GameState *state, GameDomainRef target)
+/* Raw NUL-terminated Big5 at 0x465038/7D/98/63 and 0x475B54. */
+static void draw_auction_speech(SDL_Surface *screen,
+    const GamePreviewAssets *assets, const GameAuctionPresentationState *a)
 {
-    const unsigned char *source = NULL;
-    char name[21];
-    int background = state->stage * GAME_MAPS_PER_STAGE + state->map;
-    if (background < 0 || background >= GAME_BACKGROUND_COUNT) return;
-    if (target.kind == GAME_DOMAIN_LAND && target.id >= 0 &&
-        (size_t)(target.id + 1) < assets->map.maps[background].land_count)
-        source = assets->map.maps[background].lands[target.id + 1].raw + 4;
-    else if (target.kind == GAME_DOMAIN_FACILITY && target.id >= 0 &&
-             (size_t)(target.id + 1) <
-                 assets->map.maps[background].facility_count)
-        source = assets->map.maps[background].facilities[target.id + 1].raw + 4;
-    if (source == NULL) return;
-    memset(name, 0, sizeof(name));
-    memcpy(name, source, 20);
-    draw_big5_text(screen, 182, 242, name, 16, 0xffff, 0, 0, 0);
+    static const char *buyer[12] = {
+        "\xae\xa5\xb3\xdf\xac\xf9\xbf\xab\xb3\xec\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xa8\x46\xb6\xa9\xa4\xda\xb4\xb5\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xa7\xd4\xa4\xd3\xad\xa6\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xbf\xfa\xa4\xd2\xa4\x48\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xaa\xfc\xa4\x67\xa7\x42\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xb2\xef\xa9\xd4\xa4\xbd\xa5\x44\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xae\x63\xa5\xbb\xc4\x5f\xc2\xc3\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xbf\x7d\xbf\x7d\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xaf\x51\xab\x7d\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xae\x5d\xa4\x70\xac\xfc\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xa4\x70\xa4\xa6\xa5\xa7\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49",
+        "\xae\xa5\xb3\xdf\xaa\xf7\xa8\xa9\xa8\xa9\xc1\xca\xb1\x6f\xa6\xb9\xa6\x61\xa1\x49"
+    };
+    const char *text = NULL;
+    char message[128];
+    if (!a->speech_visible) return;
+    switch (a->speech_resource) {
+    case 131: text = "\xa4\xbd\xb6\x7d\xa9\xe7\xbd\xe6\xa4\x67\xa6\x61\xa4\x40\xb3\x42\xa1\x43"; break;
+    case 132:
+        snprintf(message, sizeof(message), "\xa9\xb3\xbb\xf9\x25\x64\xa4\xb8\x0a\xbd\xd0\xb7\x4e\xaa\xcc\xa5\x58\xbb\xf9\xa1\x43", a->bidding.reserve_price);
+        text = message; break;
+    case 135:
+        snprintf(message, sizeof(message), "\x25\x64\xa4\xb8\xa6\xa8\xa5\xe6", a->bidding.current_price);
+        text = message; break;
+    case 148: text = "\xb5\x4c\xa4\x48\xa5\x58\xbb\xf9\xa1\x41\xab\xc5\xa7\x47\xac\x79\xbc\xd0\xa1\x43"; break;
+    default:
+        if (a->speech_resource >= 136 && a->speech_resource <= 147)
+            text = buyer[a->speech_resource - 136];
+        break;
+    }
+    if (text == NULL) return;
+    draw_confinement_panel_chunk(screen, assets, 26, 2, 410, 60);
+    draw_big5_text(screen, 410, 60, text, 20, RICH4_FONT_DARK, 0, 2, 4);
+}
+
+static void draw_auctioneer(SDL_Surface *screen,
+    const GamePreviewAssets *assets, const GameAuctionPresentationState *a)
+{
+    static const int upper[] = {26, 27, 26};
+    static const int lower[] = {18, 19, 18};
+    int sold = a->stage == RICH4_AUCTION_PRESENT_SOLD_CALL;
+    if (a->expression_frame >= 0 && a->expression_frame < 3) {
+        if (a->expression_kind == 1 && !sold)
+            draw_confinement_panel_chunk(screen, assets, 26,
+                upper[a->expression_frame], 163, 45);
+        else if (a->expression_kind == 2)
+            draw_game_panel_chunk(screen, assets, 26,
+                lower[a->expression_frame], 127, 90, 0);
+    }
+    if (a->mouth_drawn) {
+        Rich4SprSmpChunk base;
+        int x = sold ? 183 : 163, y = sold ? 65 : 60;
+        /* 0x43BA78/0x43BAA2 and 0x43B8FF/0x43B928:
+         * actual push/ESP operands are Rect.left/top, not right/bottom.
+         * Restore the opaque Panel[26] chunk-0 crop, then transparent mouth. */
+        if (rich4_spr_smp_get_chunk(assets->ui.panel_data[26],
+                assets->ui.panel_size[26], &assets->ui.panel_spr[26],
+                0, &base) == RICH4_SPR_SMP_OK)
+            draw_chunk_crop_topleft(screen, assets->ui.panel_data[26], &base,
+                x, y, sold ? 40 : 30, sold ? 30 : 25, x, y, 0);
+        draw_confinement_panel_chunk(screen, assets, 26,
+            (sold ? 22 : 28) + (a->mouth_ticks > 0), x, y);
+    }
 }
 
 static void draw_auction_participant(
@@ -137,24 +187,26 @@ static void draw_auction_participant(
                assets->ui.panel_spr[resource].num_chunks > 1 &&
                auction->action_tick <
                    (int)assets->ui.panel_spr[resource].num_chunks) {
-        chunk = (size_t)(auction->action_tick - 1);
+        chunk = (size_t)auction->action_tick;
     }
     /* 0x45663E: Panel[27 + 3*character + pose] is indexed SPR,
      * with a palette and hotspot, unlike the Panel[26] SMP furniture. */
     draw_game_panel_chunk_at(
         screen, assets, resource, chunk, 590, row, 1);
     if (status >= 1 && status <= 7)
-        draw_big5_text(screen, 590, row + 14, auction_status_text(status),
-                       16, 0xffff, 0, 0, 0);
-    else if ((auction->bidder_mask & (1u << player)) == 0 ||
-             auction->bidding.leader == player) {
-        snprintf(cash, sizeof(cash), "%d",
-                 auction->bidding.leader == player &&
-                         (auction->bidder_mask & (1u << player)) != 0
-                     ? auction->bidding.current_price
-                     : snapshot->state->players[player].cash);
-        draw_big5_text(screen, 620, row + 14, cash, 18, 0xffff,
-                       RICH4_FONT_DARK, 3, 6);
+        draw_big5_text_with_spacing(screen, 590, row + 14, auction_status_text(status),
+                       18, 0xffff, RICH4_FONT_DARK, 3, 0, 2);
+    else {
+        snprintf(cash, sizeof(cash), "%d\xa4\xb8",
+                 snapshot->state->players[player].cash);
+        draw_big5_text_with_spacing(screen, 620, row + 14, cash, 18, 0xffff,
+                       RICH4_FONT_DARK, 3, 0, 6);
+        if ((auction->bidder_mask & (1u << player)) != 0 &&
+            auction->bidding.leader == player) {
+            snprintf(cash, sizeof(cash), "%d\xa4\xb8", auction->bidding.current_price);
+            draw_big5_text_with_spacing(screen, 620, row + 25, cash, 18,
+                rich4_character_rgb565_color(0xf0d020u), RICH4_FONT_DARK, 3, 0, 1);
+        }
     }
 }
 
@@ -196,13 +248,13 @@ static void draw_auction_action_feedback(
     else if (auction->bidding.last_action == GAME_AUCTION_GIVE_UP)
         text = give_up_text;
     else if (auction->bidding.last_bid > 0) {
-        snprintf(price, sizeof(price), "%d", auction->bidding.current_price);
+        snprintf(price, sizeof(price), "%d\xa4\xb8", auction->bidding.current_price);
         text = price;
     }
     if (text == NULL) return;
     draw_confinement_panel_chunk(screen, assets, 26, 1, 480, row - 15);
-    draw_big5_text(screen, 480, row - 15, text, 16, RICH4_FONT_DARK,
-                   0, 2, 2);
+    draw_big5_text_with_spacing(screen, 480, row - 15, text, 16, RICH4_FONT_DARK,
+                   0, 2, 0, 2);
 }
 
 void draw_auction_presentation(
@@ -232,10 +284,12 @@ void draw_auction_presentation(
     if (property_chunk >= 0)
         draw_confinement_panel_chunk(
             screen, assets, 26, (size_t)property_chunk, 232, 180);
-    draw_auction_property_name(
-        screen, assets, snapshot->state, auction->bidding.target);
-    snprintf(price, sizeof(price), "%d", auction->bidding.current_price);
-    draw_text(screen, 272, 262, price, 1, 0xffff);
+    draw_auctioneer(screen, assets, auction);
+    /* 0x43C3EA: fixed label at 0x4650A6, not the map property's name. */
+    draw_big5_text_with_spacing(screen, 182, 242, "\xbc\xd0\xbb\xf9\xa1\x47",
+        18, 0xffff, RICH4_FONT_DARK, 3, 0, 0);
+    snprintf(price, sizeof(price), "%d\xa4\xb8", auction->bidding.current_price);
+    draw_big5_text_with_spacing(screen, 272, 262, price, 18, 0xffff, RICH4_FONT_DARK, 3, 0, 1);
 
     for (player = 0; player < snapshot->state->player_count; player++) {
         int character;
@@ -243,7 +297,11 @@ void draw_auction_presentation(
             snapshot->presentation->actors[player].first_turn_landing_pending)
             continue;
         character = snapshot->state->players[player].character;
-        if (player == auction->bidding.current_player &&
+        if ((auction->stage != RICH4_AUCTION_PRESENT_ACTION
+                ? player == auction->bidding.current_player
+                : player == auction->bidding.last_player &&
+                  (auction->bidding.last_action == GAME_AUCTION_PASS ||
+                   (auction->bidding.last_bid > 0 && auction->action_tick == 0))) &&
             character >= 0 && character < 12)
             draw_confinement_panel_chunk(
                 screen, assets, 26, (size_t)(78 + character), 590, row);
@@ -253,9 +311,13 @@ void draw_auction_presentation(
 
     draw_auction_action_feedback(
         screen, assets, auction, snapshot);
+    draw_auction_speech(screen, assets, auction);
 
-    if (auction->stage == RICH4_AUCTION_PRESENT_BIDDING) {
-        int current = auction->bidding.current_player;
+    if (auction->stage == RICH4_AUCTION_PRESENT_BIDDING ||
+        auction->stage == RICH4_AUCTION_PRESENT_ACTION ||
+        auction->stage == RICH4_AUCTION_PRESENT_UNSOLD) {
+        int current = auction->stage == RICH4_AUCTION_PRESENT_BIDDING ?
+            auction->bidding.current_player : auction->bidding.last_player;
         if (current >= 0 && current < snapshot->state->player_count &&
             !snapshot->state->players[current].is_ai) {
             int action;

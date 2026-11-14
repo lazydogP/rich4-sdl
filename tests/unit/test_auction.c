@@ -53,6 +53,10 @@ static void reserve_and_eligibility(void)
     assert(auction.participant[1] == GAME_AUCTION_PARTICIPANT_READY);
     assert(auction.participant[2] == GAME_AUCTION_PARTICIPANT_EXCLUDED);
     assert(auction.participant[3] == GAME_AUCTION_PARTICIPANT_EXCLUDED);
+    state.land_price[0] = 101;
+    state.land_level[0] = 1;
+    assert(rich4_auction_reserve_price(&state, land(), &reserve));
+    assert(reserve == 302); /* 0x43BE74 truncates 151.5 before multiplying by 2. */
 }
 
 static void passes_reset_after_bid(void)

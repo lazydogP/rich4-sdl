@@ -45,6 +45,7 @@ void game_handle_confirm_input(GameConfirmInputContext *context)
         int action = rich4_auction_action_at(
             context->cursor->x, context->cursor->y);
         if (context->cursor->confirm_pointer_pressed) {
+            rich4_auction_flow_skip_speech(context->session, audio_events);
             /* Physical WM_LBUTTONDOWN only depresses the control.  The
              * original posts action 0x407 from WM_LBUTTONUP. */
             rich4_auction_flow_set_pressed(context->session, action);

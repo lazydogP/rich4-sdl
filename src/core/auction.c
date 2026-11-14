@@ -58,8 +58,10 @@ int rich4_auction_reserve_price(
         return 0;
     (void)owner;
     (void)asset_value;
-    scaled = (int64_t)state->price_index * base_price * (level + 2);
-    scaled /= 2;
+    /* 0x43BE74/0x43BFB8 truncate the building multiplier before indexing. */
+    scaled = (int64_t)base_price * ((int64_t)level + 2) / 2;
+    if (scaled > INT_MAX / state->price_index) return 0;
+    scaled *= state->price_index;
     if (scaled < 0 || scaled > INT_MAX) return 0;
     *out_price = (int)scaled;
     return 1;
