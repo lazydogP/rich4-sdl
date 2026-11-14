@@ -130,8 +130,9 @@ int rich4_periodic_finance_update(GameSession *s, uint32_t now,
     if ((uint32_t)(now - p->tick) < 50) return 1;
     p->tick = now;
     ++p->ticks;
-    if (speech_playing || p->speech_pending ||
-        (p->speech_id != 0 && now - p->stage_started < 2000)) goto hosts;
+    /* 0x430F4A advances celebration independently of the spoken name. */
+    if (p->phase != 5 && (speech_playing || p->speech_pending ||
+        (p->speech_id != 0 && now - p->stage_started < 2000))) goto hosts;
     switch (p->phase) {
     case 1: periodic_stage(p, 2, 18, now); break;
     case 2:
@@ -148,7 +149,9 @@ int rich4_periodic_finance_update(GameSession *s, uint32_t now,
                        p->winner >= 0 ? 19 : 0, now);
         break;
     case 4:
-        periodic_stage(p, 5, 0, now);
+        /* 0x4306C0/0x4306CA: off_475630 selects #0020..#0031 by
+         * character, and 0x44FABC plays it while drawing the winner name. */
+        periodic_stage(p, 5, 20 + s->state.players[p->winner].character, now);
         p->ticks = 1;
         p->effect_pending = 58;
         break;

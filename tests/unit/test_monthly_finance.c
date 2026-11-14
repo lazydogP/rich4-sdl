@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -7,6 +8,8 @@
 #include "core/rng.h"
 #include "core/turn_rotation.h"
 #include "core/ledger.h"
+#include "core/confinement.h"
+#include "core/status_countdown.h"
 #include "core/game_event_payload.h"
 #include "app/monthly_finance_flow.h"
 
@@ -88,14 +91,41 @@ static void lottery(void)
     rich4_game_event_queue_reset(&events);
     assert(rich4_lottery_claim(&s, number, &events));
     assert(memcmp(&before, &s, sizeof(s)) == 0);
+    assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 75, 0, &events) ==
+           GAME_PAYMENT_COMMITTED);
+    assert(s.lottery_pool == 90075 && s.lottery_owner[0] == 1 &&
+           s.lottery_owner[19] == 2);
     s.lottery_owner[20] = 1; /* one player now has 11 */
     s.ai_rng_state = 1;
     assert(rich4_lottery_draw(&s, &number, &winner));
     assert(number == 18 && winner == 1); /* any sold ticket can win */
-    assert(s.players[1].cash == 0 && s.lottery_pool == 90000);
+    assert(s.players[1].cash == 0 && s.lottery_pool == 90075);
     assert(rich4_lottery_claim(&s, number, &events));
-    assert(s.players[1].cash == 90000 && s.players[1].monthly_income == 90000);
+    assert(s.players[1].cash == 90075 && s.players[1].monthly_income == 90075);
     assert(s.lottery_pool == 0 && !rich4_lottery_has_tickets(&s));
+
+    setup(&s);
+    s.lottery_owner[0] = 1;
+    s.lottery_pool = 20;
+    s.players[0].cash = INT_MAX - 10;
+    s.players[0].monthly_income = INT_MAX - 5;
+    before = s;
+    events.count = GAME_EVENT_QUEUE_CAPACITY;
+    assert(!rich4_lottery_claim(&s, 1, &events));
+    assert(memcmp(&s, &before, sizeof(s)) == 0);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_lottery_claim(&s, 1, &events));
+    assert(s.players[0].cash == INT_MIN + 9 &&
+           s.players[0].monthly_income == INT_MIN + 14);
+    assert(s.lottery_pool == 0 && !rich4_lottery_has_tickets(&s));
+
+    /* A wrapped negative pool is still paid and cleared by 0x430ADB. */
+    s.lottery_pool = INT_MIN;
+    s.players[0].cash = 100;
+    s.lottery_owner[0] = 1;
+    assert(rich4_lottery_claim(&s, 1, &events));
+    assert(s.players[0].cash == INT_MIN + 100 && s.lottery_pool == 0 &&
+           !rich4_lottery_has_tickets(&s));
 }
 
 static void timing(void)
@@ -151,6 +181,50 @@ static void timing(void)
     assert(!session.presentation.bank_settlement.active);
     assert(session.presentation.bank_settlement.stage == 0);
     assert(session.state.players[0].monthly_loss == 0);
+}
+
+static void bad_days_month_boundary(void)
+{
+    static GameSession s;
+    GameEventQueue events;
+    StatusTickResult tick;
+    GameBankSettlementPresentationState *p = &s.presentation.bank_settlement;
+    memset(&s, 0, sizeof(s));
+    setup(&s.state);
+    s.state.calendar_start_year = 2000;
+    s.state.calendar_start_month = 1;
+    s.state.calendar_start_day = 31;
+    s.state.hospital_node = 20;
+    rich4_game_event_queue_reset(&events);
+    /* 0x43EE04 counts the full admission immediately, even at month end. */
+    assert(rich4_confinement_enter(&s.state, 0, GAME_CONFINEMENT_HOSPITAL, 7, &events) ==
+           GAME_CONFINEMENT_APPLIED);
+    assert(s.state.players[0].total_confinement_days == 7);
+    p->active = 1;
+    p->player_mask = 15;
+    p->tick = 1000;
+    rich4_monthly_finance_begin(&s);
+    assert(p->monthly_bad_days[0] == 7 && s.state.players[0].days_in_hospital == 7);
+    for (uint32_t now = 1100; now < 8000 && p->active; now += 100) {
+        (void)rich4_monthly_finance_take_speech(&s, 0);
+        rich4_monthly_finance_update(&s, now, 0, 0, 0, 71);
+    }
+    /* 0x439EDE clears +0x42, without clearing remaining hospital days. */
+    assert(!p->active && s.state.players[0].total_confinement_days == 0);
+    assert(s.state.players[0].days_in_hospital == 7 && p->monthly_bad_days[0] == 7);
+    ++s.state.elapsed_days;
+    rich4_status_tick_player(&s.state.players[0], &tick);
+    assert(s.state.players[0].days_in_hospital == 6 &&
+           s.state.players[0].total_confinement_days == 0);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_confinement_enter(&s.state, 0, GAME_CONFINEMENT_HOSPITAL, 3, &events) ==
+           GAME_CONFINEMENT_APPLIED);
+    assert(s.state.players[0].days_in_hospital == 9 &&
+           s.state.players[0].total_confinement_days == 3);
+    /* 0x40D761 releases old absence states without refunding counted days. */
+    rich4_confinement_clear_status(&s.state.players[0]);
+    assert(s.state.players[0].days_in_hospital == 0 &&
+           s.state.players[0].total_confinement_days == 3);
 }
 
 static void day_trigger_and_rollback(void)
@@ -251,9 +325,55 @@ static void ui_timing(void)
     assert(b->mouth_ticks>0 && (b->mouth_chunk>>8)==0);
 }
 
+static void lottery_winner_name_speech(void)
+{
+    static GameSession s;
+    GameEventQueue events;
+    GamePeriodicFinancePresentationState *p;
+    for (int enabled = 0; enabled <= 1; ++enabled) {
+        for (int character = 0; character < 12; ++character) {
+            memset(&s, 0, sizeof(s));
+            setup(&s.state);
+            p = &s.presentation.periodic_finance;
+            p->active = 1; p->phase = 4;
+            p->winner = (character + 1) % 4;
+            p->number = 1;
+            p->tick = p->stage_started = 1000;
+            p->speech_id = 19; p->speech_pending = 1;
+            s.state.players[p->winner].character = character;
+            s.state.lottery_owner[0] = (uint8_t)(p->winner + 1);
+            s.state.lottery_pool = 12345;
+            rich4_game_event_queue_reset(&events);
+            assert(rich4_monthly_finance_take_speech(&s, enabled) == 19);
+            rich4_periodic_finance_update(&s, 2950, enabled, 0, 37, 71, &events);
+            assert(p->phase == 4); /* intro still has its minimum text wait */
+            rich4_periodic_finance_update(&s, 3000, enabled, 1, 37, 71, &events);
+            assert(p->phase == 4); /* wait until "the winner is..." finishes */
+            rich4_periodic_finance_update(&s, 3050, enabled, 0, 37, 71, &events);
+            assert(p->phase == 5 && p->speech_id == 20 + character);
+            assert(rich4_monthly_finance_take_speech(&s, enabled) == 20 + character);
+            assert(rich4_monthly_finance_take_speech(&s, enabled) == 0);
+            assert(rich4_monthly_finance_take_effect(&s) == 58);
+            /* Name audio does not delay the first FLC frame at tick 31. */
+            for (int tick = 1; tick <= 65; ++tick) {
+                rich4_periodic_finance_update(&s, 3050 + 50 * tick,
+                    enabled, 1, 37, 71, &events);
+                assert(p->phase == 5);
+                assert(p->animation_frame == (tick < 30 ? 0 : tick - 29));
+            }
+            rich4_periodic_finance_update(&s, 6350, enabled, 1, 37, 71, &events);
+            assert(p->phase == 6);
+            assert(rich4_monthly_finance_take_speech(&s, enabled) == 32);
+            assert(s.state.lottery_pool == 12345 &&
+                   s.state.players[p->winner].cash == 0 && events.count == 0);
+        }
+    }
+}
+
 int main(void)
 {
-    dividends(); lottery(); timing(); day_trigger_and_rollback(); ui_timing();
+    dividends(); lottery(); timing(); bad_days_month_boundary();
+    day_trigger_and_rollback(); ui_timing(); lottery_winner_name_speech();
     puts("monthly finance original rules: ok");
     return 0;
 }

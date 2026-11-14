@@ -279,7 +279,8 @@ void draw_periodic_finance(SDL_Surface *screen, const GamePreviewAssets *a,
         draw_game_graph_frame_data(screen,a->ui.panel_data[17],a->ui.panel_size[17],
                                    p->animation_frame-1,205,0);
     if (no_winner) bubble(screen,a,15,23,320,200,0,0,p->speech_id);
-    else bubble(screen,a,15,22,300,47,-10,0,p->speech_id);
+    /* State 5 speaks the name shown on chunk 24, without a host bubble. */
+    else if (p->phase != 5) bubble(screen,a,15,22,300,47,-10,0,p->speech_id);
 }
 
 static void banker_face(SDL_Surface *screen, const GamePreviewAssets *a,

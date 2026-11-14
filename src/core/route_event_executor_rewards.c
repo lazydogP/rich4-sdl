@@ -69,7 +69,8 @@ int run_ai_lottery_purchase(
     state->ai_rng_state = rng.state;
     state->lottery_owner[number] = (uint8_t)(player + 1);
     state->players[player].cash -= 1000;
-    state->lottery_pool += 1000;
+    /* 0x431700 adds to the same wrapping dword as the human callback. */
+    state->lottery_pool = (int32_t)((uint32_t)state->lottery_pool + 1000u);
     return rich4_game_event_emit_typed_domain(
                events, rich4_game_event_player_cash_changed_from_fields, player,
                rich4_game_domain_ref(GAME_DOMAIN_PLAYER, player),

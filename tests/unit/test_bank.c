@@ -4,10 +4,73 @@
 
 #include "core/bank.h"
 
+static void ai_loan_repayment_boundaries(void)
+{
+    int scenario;
+    for (scenario = 0; scenario < 6; scenario++) {
+        GameState state = {0};
+        state.player_count = 1; state.elapsed_days = 10;
+        state.players[0].loan = 100;
+        state.players[0].loan_due_date = scenario == 2 ? 17 : 16;
+        state.players[0].days_bank_no_loans = 1; /* does not block repayment */
+        state.players[0].cash = scenario < 2 ? 100 : 61;
+        state.players[0].bank = scenario == 0 ? 200 : scenario == 1 ? 201 : 50;
+        if (scenario == 3) state.players[0].cash = 59;
+        if (scenario == 5) state.players[0].days_rejected_by_bank = 1;
+        state.ai_rng_state = 42;
+        /* Keep the 2L equality case outside the due-soon branch. */
+        if (scenario < 2) state.players[0].loan_due_date = 17;
+        assert(rich4_bank_run_ai(&state, 0));
+        assert(state.players[0].loan ==
+               (scenario == 1 || scenario == 4 ? 0 : 100));
+        if (scenario == 4)
+            assert(state.players[0].bank == 0 && state.players[0].cash == 11);
+        assert(state.players[0].loan_due_date ==
+               (scenario < 3 ? 17 : 16));
+        assert(state.ai_rng_state == 42);
+    }
+}
+
+static void forced_special_finance_preserves_lottery_pool(void)
+{
+    GameState state, before;
+    GameEventQueue events;
+    int mode;
+    for (mode = 0; mode <= 1; mode++) {
+        memset(&state, 0, sizeof(state));
+        state.active = 1; state.player_count = 2;
+        state.players[0].play_state = state.players[1].play_state = 1;
+        state.players[1].cash = 300;
+        state.players[1].bank = 400;
+        state.players[1].special_finance = 500;
+        state.players[1].monthly_loss = 17;
+        state.lottery_pool = 12345; state.system_cash = 77;
+        state.lottery_owner[5] = 2;
+        if (mode == 1) {
+            state.company_count = 1; state.company_type[0] = 7;
+            state.company_owner[0] = 1;
+        }
+        before = state;
+        rich4_game_event_queue_reset(&events);
+        events.count = GAME_EVENT_QUEUE_CAPACITY;
+        assert(!rich4_bank_settle_special_finance(&state, mode, 0, &events));
+        assert(memcmp(&state, &before, sizeof(state)) == 0);
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_bank_settle_special_finance(&state, mode, 0, &events));
+        assert(state.players[1].bank == 0 && state.players[1].cash == 200);
+        assert(state.players[1].special_finance == 0);
+        /* 0x436C29/0x436D0D -> 0x433BD8 directly debit the accounts. */
+        assert(state.lottery_pool == 12345 && state.system_cash == 77);
+        assert(state.players[1].monthly_loss == 17 && state.lottery_owner[5] == 2);
+    }
+}
+
 int main(void)
 {
     GameState state;
     Rich4BankSettlement settlement;
+    ai_loan_repayment_boundaries();
+    forced_special_finance_preserves_lottery_pool();
     memset(&state, 0, sizeof(state));
     state.active = 1;
     state.player_count = 2;
@@ -108,6 +171,16 @@ int main(void)
     state.players[0].cash = 800;
     state.players[0].bank = 200;
     state.players[0].ai_cash_ratio = 50;
+    assert(rich4_bank_run_ai_transfer(&state, 0));
+    assert(state.players[0].cash == 500 && state.players[0].bank == 500);
+
+    /* The lower boundary is inclusive too; one point inside it is silent. */
+    state.players[0].cash = 251;
+    state.players[0].bank = 749;
+    assert(rich4_bank_run_ai_transfer(&state, 0));
+    assert(state.players[0].cash == 251 && state.players[0].bank == 749);
+    state.players[0].cash = 250;
+    state.players[0].bank = 750;
     assert(rich4_bank_run_ai_transfer(&state, 0));
     assert(state.players[0].cash == 500 && state.players[0].bank == 500);
     /* 0x457DBC truncates the product; .5 ties do not round upward. */

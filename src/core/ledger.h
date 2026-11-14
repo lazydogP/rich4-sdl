@@ -28,6 +28,11 @@ GameLedgerParty rich4_ledger_company(int stock);
 int rich4_ledger_adjust_fee(int amount, int god_type, int *out_amount);
 int rich4_ledger_spend_cash(GameState *state, int payer, int amount,
                             GameEventQueue *events);
+/* 0x433BD8, used by 0x436A5A/0x436B0A: bank-first debt collection.
+ * Principal is neither lottery revenue nor monthly loss. Insufficient
+ * funds still run 0x40CD87, whose stock liquidation does feed the pool. */
+GamePaymentResult rich4_ledger_debit_bank(GameState *state, int payer, int amount,
+                                        GameEventQueue *events);
 /* Applies the same 0x40CD87 player cleanup used by insufficient-liquidity
  * bankruptcy, but as an explicit player-initiated surrender transaction. */
 int rich4_ledger_surrender_player(GameState *state, int player,

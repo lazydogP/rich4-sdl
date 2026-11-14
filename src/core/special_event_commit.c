@@ -177,13 +177,13 @@ static int fortune_return_stock(GameState *s, int actor, int stock,
     if (!(value>=0.0 && value<=(double)INT_MAX))
         return 0;
     proceeds=(int)value;
-    if (*account>INT_MAX-proceeds) return 0;
+    if (to_bank && *account>INT_MAX-proceeds) return 0;
     s->player_stock_amount[actor][stock]-=quantity;
     if (s->player_stock_amount[actor][stock]==0)
         s->player_stock_average_cost[actor][stock]=0.0f;
     s->stocks[stock].f8=(uint16_t)((uint32_t)s->stocks[stock].f8+(uint32_t)quantity);
     s->stocks[stock].f10=(uint16_t)((uint32_t)s->stocks[stock].f10+(uint32_t)quantity);
-    *account+=proceeds;
+    *account=(int32_t)((uint32_t)*account+(uint32_t)proceeds);
     rich4_stock_refresh_company_ownership(s,stock,actor);
     return 1;
 }

@@ -178,9 +178,7 @@ int rich4_bank_settle_special_finance(
                 continue;
             amount = next.players[i].special_finance;
             if (amount <= 0) continue;
-            payment = rich4_ledger_pay(
-                &next, i, rich4_ledger_system(), amount,
-                GAME_PAYMENT_PAYER_BANK_FIRST, &staged);
+            payment = rich4_ledger_debit_bank(&next, i, amount, &staged);
             if (payment == GAME_PAYMENT_REJECTED) return 0;
             next.players[i].special_finance = 0;
         }
@@ -205,9 +203,7 @@ int rich4_bank_settle_special_finance(
                     rich4_game_domain_ref(GAME_DOMAIN_NONE, -1), amount, 2500);
                 if (!rich4_game_event_queue_push(&staged, &notice)) return 0;
             }
-            payment = rich4_ledger_pay(
-                &next, owner, rich4_ledger_system(), amount,
-                GAME_PAYMENT_PAYER_BANK_FIRST, &staged);
+            payment = rich4_ledger_debit_bank(&next, owner, amount, &staged);
             if (payment == GAME_PAYMENT_REJECTED) return 0;
             next.players[owner].special_finance -= amount;
             if (next.players[owner].special_finance < 0)

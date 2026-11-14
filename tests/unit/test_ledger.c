@@ -94,9 +94,18 @@ int main(void)
     assert(rich4_ledger_pay(&s, 0, rich4_ledger_player(1), 20, 0, &q) == GAME_PAYMENT_REJECTED);
     assert(memcmp(&s, &before, sizeof(s)) == 0 && q.count == 0);
     init_state(&s, 2); rich4_game_event_queue_reset(&q);
-    s.players[0].cash = 1; s.system_cash = INT_MAX; before = s;
-    assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 1, 0, &q) == GAME_PAYMENT_REJECTED);
-    assert(memcmp(&s, &before, sizeof(s)) == 0 && q.count == 0);
+    s.players[0].cash = 1; s.system_cash = INT_MAX;
+    s.lottery_pool = INT_MAX;
+    assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 1, 0, &q) == GAME_PAYMENT_COMMITTED);
+    assert(s.players[0].cash == 0 && s.system_cash == INT_MIN &&
+           s.lottery_pool == INT_MIN && s.players[0].monthly_loss == 1);
+    s.players[0].cash = 1;
+    assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 1, 0, &q) == GAME_PAYMENT_COMMITTED);
+    assert(s.lottery_pool == INT_MIN + 1 && s.system_cash == INT_MIN + 1);
+    s.players[0].cash = 5;
+    assert(rich4_ledger_spend_cash(&s, 0, 5, &q));
+    assert(s.players[0].cash == 0 && s.lottery_pool == INT_MIN + 1 &&
+           s.players[0].monthly_loss == 2);
     init_state(&s, 2); rich4_game_event_queue_reset(&q);
     s.players[0].cash = 10; s.land_count = 1; s.land_owner[0] = 0; s.land_value[0] = 100;
     assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 80, 0, &q) == GAME_PAYMENT_BANKRUPTCY);
@@ -125,7 +134,7 @@ int main(void)
     assert(s.land_owner[0] == -1 && s.facility_owner[0] == -1 &&
            s.facility_last_change[0] == 0);
     assert(s.player_stock_amount[0][0] == 0 && s.stocks[0].f8 == 32 &&
-           s.stocks[0].f10 == 22 && s.system_cash == 8);
+           s.stocks[0].f10 == 22 && s.system_cash == 8 && s.lottery_pool == 8);
     for (i = 0; i < GAME_PLAYER_CARD_SLOTS; i++)
         assert(s.players[0].card_inventory[i] == 0);
     for (i = 0; i < GAME_PLAYER_TOOL_SLOTS; i++)
@@ -137,10 +146,10 @@ int main(void)
     init_state(&s, 2); rich4_game_event_queue_reset(&q);
     s.players[0].cash = 1; s.player_stock_amount[0][0] = 1;
     s.stocks[0].f8 = UINT16_MAX; s.stocks[0].f20 = 1.0f;
-    before = s;
     assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 2, 0, &q) ==
-           GAME_PAYMENT_REJECTED);
-    assert(memcmp(&s, &before, sizeof(s)) == 0 && q.count == 0);
+           GAME_PAYMENT_BANKRUPTCY);
+    assert(s.players[0].play_state == 0 && s.stocks[0].f8 == 0 &&
+           s.lottery_pool == 2 && s.system_cash == 2);
     rich4_game_event_queue_reset(&q); s.players[1].cash = 5;
     assert(rich4_ledger_pay(&s, 1, rich4_ledger_system(), 1, 0, &q) == GAME_PAYMENT_COMMITTED);
     assert(count_type(&q, GAME_EVENT_GAME_ENDED) == 0);
@@ -209,6 +218,19 @@ int main(void)
            GAME_PAYMENT_BANKRUPTCY);
     assert(s.players[0].play_state == 0 && s.players[0].node == 7);
     assert(s.players[1].play_state == 0 && s.players[1].node != 7);
+
+    /* 0x40D17B calls 0x428E23 per holding; total proceeds are a dword,
+     * and the volume words wrap instead of blocking the pool credit. */
+    init_state(&s, 2); rich4_game_event_queue_reset(&q);
+    s.lottery_pool = 123; s.system_cash = INT_MAX;
+    for (i = 0; i < 2; i++) {
+        s.player_stock_amount[0][i] = 1500000000;
+        s.stocks[i].f20 = 1.0f;
+    }
+    assert(rich4_ledger_surrender_player(&s, 0, &q));
+    assert(s.players[0].play_state == 0 &&
+           s.lottery_pool == (int32_t)(123u + 3000000000u));
+    assert(s.system_cash == (int32_t)((uint32_t)INT_MAX + 3000000000u));
     puts("ledger/payment/bankruptcy: ok");
     return 0;
 }

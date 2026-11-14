@@ -132,14 +132,14 @@ int rich4_lottery_claim(GameState *state, int number, GameEventQueue *events)
     GamePlayerState *p;
     GameEvent event;
     int winner;
-    int64_t cash;
+    int32_t cash;
     if (state == NULL || events == NULL || number < 1 || number > 36) return 0;
     winner = (int)state->lottery_owner[number - 1] - 1;
     if (winner < 0) return 1;
     if (!active(state, winner)) return 0;
     p = &state->players[winner];
-    cash = (int64_t)p->cash + state->lottery_pool;
-    if (cash < INT_MIN || cash > INT_MAX) return 0;
+    /* 0x430ADB -> 0x41D407: add the entire pool as a wrapping dword. */
+    cash = (int32_t)((uint32_t)p->cash + (uint32_t)state->lottery_pool);
     event = rich4_game_event_player_cash_changed_from_fields(
         (Rich4GameEventFields){.player=winner, .value=(int)cash,
                               .value2=state->lottery_pool});

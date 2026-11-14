@@ -189,7 +189,7 @@ static int emit_transfer(GameEventQueue *q, int payer, GameLedgerParty payee,
 static void credit(GameState *s, GameLedgerParty p, int amount, unsigned int flags)
 {
     if (p.kind == GAME_LEDGER_SYSTEM) {
-        s->system_cash += amount;
+        s->system_cash = (int32_t)((uint32_t)s->system_cash + (uint32_t)amount);
         /* 0x41D38C: the system recipient is the shared lottery pool. */
         s->lottery_pool = (int32_t)((uint32_t)s->lottery_pool + (uint32_t)amount);
     }
@@ -205,7 +205,9 @@ static int can_credit(const GameState *s, GameLedgerParty p, int amount,
                       unsigned int flags)
 {
     int balance;
-    if (p.kind == GAME_LEDGER_SYSTEM) balance = s->system_cash;
+    /* system_cash is a port bookkeeping counter, not an original account
+     * whose capacity can reject 0x41D38C's dword addition to the pool. */
+    if (p.kind == GAME_LEDGER_SYSTEM) return amount >= 0;
     else if (p.kind == GAME_LEDGER_COMPANY) balance = s->company_cash[p.id];
     else balance = (flags & GAME_PAYMENT_RECEIVER_CASH) != 0
         ? s->players[p.id].cash : s->players[p.id].bank;
@@ -238,12 +240,11 @@ int rich4_ledger_spend_cash(GameState *state, int payer, int amount,
     if (state == NULL || events == NULL || payer < 0 ||
         payer >= state->player_count || amount < 0 ||
         (state->players[payer].play_state & 0xff) == 0 ||
-        state->players[payer].cash < amount || state->system_cash < 0 ||
-        state->system_cash > INT_MAX - amount) return 0;
+        state->players[payer].cash < amount) return 0;
     next = *state;
     rich4_game_event_queue_reset(&staged);
     next.players[payer].cash -= amount;
-    next.system_cash += amount;
+    next.system_cash = (int32_t)((uint32_t)next.system_cash + (uint32_t)amount);
     if (!emit_transfer(&staged, payer, rich4_ledger_system(), amount,
                        GAME_PAYMENT_PAYER_CASH_ONLY) ||
         events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY) return 0;
@@ -260,7 +261,7 @@ static int clear_player(GameState *s, int player, GameEventQueue *q)
     int i, original_play_state;
     int land_first = -1, land_released = 0;
     int facility_first = -1, facility_released = 0;
-    int64_t stock_proceeds = 0;
+    uint32_t stock_proceeds = 0;
 
     /* Rich4.exe 0x40CD87 liquidates every holding through
      * 0x428E23(player, stock, quantity, 0) before clearing the player.
@@ -272,28 +273,22 @@ static int clear_player(GameState *s, int player, GameEventQueue *q)
         int proceeds;
         if (quantity < 0) return 0;
         if (quantity == 0) continue;
-        if ((unsigned int)s->stocks[i].f8 + (unsigned int)quantity > UINT16_MAX ||
-            (unsigned int)s->stocks[i].f10 + (unsigned int)quantity > UINT16_MAX)
-            return 0;
         value = (double)quantity * s->stocks[i].f20;
         if (value != value || value < 0.0 || value > (double)INT_MAX)
             return 0;
         proceeds = (int)value; /* original x87 conversion truncates toward zero */
-        if (stock_proceeds > INT_MAX - proceeds) return 0;
-        stock_proceeds += proceeds;
+        stock_proceeds += (uint32_t)proceeds;
     }
-    if (s->system_cash < 0 || stock_proceeds > INT_MAX - s->system_cash)
-        return 0;
     for (i = 0; i < GAME_STOCK_COUNT; i++) {
         int quantity = s->player_stock_amount[player][i];
         if (quantity == 0) continue;
-        s->stocks[i].f8 = (uint16_t)(s->stocks[i].f8 + quantity);
-        s->stocks[i].f10 = (uint16_t)(s->stocks[i].f10 + quantity);
+        s->stocks[i].f8 = (uint16_t)((uint32_t)s->stocks[i].f8 + (uint32_t)quantity);
+        s->stocks[i].f10 = (uint16_t)((uint32_t)s->stocks[i].f10 + (uint32_t)quantity);
         s->player_stock_amount[player][i] = 0;
         s->player_stock_average_cost[player][i] = 0.0f;
         rich4_stock_refresh_company_ownership(s, i, player);
     }
-    s->system_cash += (int)stock_proceeds;
+    s->system_cash = (int32_t)((uint32_t)s->system_cash + stock_proceeds);
     /* 0x428EA7, the mode=0 liquidation stock proceeds join the prize pool. */
     s->lottery_pool = (int32_t)((uint32_t)s->lottery_pool + (uint32_t)stock_proceeds);
     for (i = 0; i < s->land_count; i++) if (s->land_owner[i] == player) {
@@ -414,6 +409,42 @@ static void maybe_end(GameState *s, GameEventQueue *q)
         rich4_game_event_game_ended_emit(
             q, s->winner_player, s->winner_reason,
             rich4_player_total_assets(s, s->winner_player, NULL), 0, 0);
+}
+
+GamePaymentResult rich4_ledger_debit_bank(GameState *state, int payer, int amount,
+                                        GameEventQueue *events)
+{
+    GameState next;
+    GameEventQueue staged;
+    GamePlayerState *p;
+    int bank, cash;
+    GamePaymentResult result = GAME_PAYMENT_COMMITTED;
+    if (state == NULL || events == NULL || amount < 0 || payer < 0 ||
+        payer >= state->player_count ||
+        (state->players[payer].play_state & 0xff) == 0 ||
+        state->players[payer].cash < 0 || state->players[payer].bank < 0)
+        return GAME_PAYMENT_REJECTED;
+    next = *state;
+    rich4_game_event_queue_reset(&staged);
+    p = &next.players[payer];
+    bank = p->bank < amount ? p->bank : amount;
+    cash = p->cash < amount - bank ? p->cash : amount - bank;
+    p->bank -= bank;
+    p->cash -= cash;
+    /* 0x433BE8..0x433C16 changes only bank/cash, then clears a bankrupt
+     * player. It does not call 0x41D2C6 or record principal as a loss. */
+    if (!emit_transfer(&staged, payer, rich4_ledger_system(), bank + cash,
+                       GAME_PAYMENT_PAYER_BANK_FIRST))
+        return GAME_PAYMENT_REJECTED;
+    if (bank + cash < amount) {
+        if (!clear_player(&next, payer, &staged)) return GAME_PAYMENT_REJECTED;
+        result = GAME_PAYMENT_BANKRUPTCY;
+    }
+    maybe_end(&next, &staged);
+    if (!rich4_game_event_queue_append(events, &staged))
+        return GAME_PAYMENT_REJECTED;
+    *state = next;
+    return result;
 }
 
 int rich4_ledger_surrender_player(GameState *state, int player,

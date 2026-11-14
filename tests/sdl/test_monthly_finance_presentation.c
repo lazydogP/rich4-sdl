@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <SDL/SDL.h>
-#undef main
 
 #include "app/game_save.h"
 #include "app/monthly_finance_flow.h"
@@ -59,6 +58,86 @@ static int saved_region_matches(SDL_Surface *screen,
     return 1;
 }
 
+static void monthly_award_timing(const GamePreviewAssets *a)
+{
+    /* V3.11 Data[416+2*c+kind] headers and DWORD flags at
+     * 0x4759F7+24*c+8 / +20, read through IDA Pro MCP.
+     * 0x450CED uses the header speed when flags & 0xF0 == 0.
+     * 0x4511B1..0x4511D5 plays BYTE1 rounds, or one when it is zero. */
+    static const struct {
+        int frames[2];
+        unsigned int flags[2];
+    } original[12] = {
+        {{10,23},{0x0603,0x0003}}, {{10,8},{0x0403,0x0603}},
+        {{6,10},{0x0603,0x0603}}, {{6,6},{0x0603,0x0303}},
+        {{10,8},{0x0403,0x0603}}, {{16,21},{0x0403,0x0203}},
+        {{5,8},{0x0603,0x0603}}, {{21,32},{0x0403,0x0003}},
+        {{11,20},{0x0403,0x0003}}, {{8,12},{0x0403,0x0303}},
+        {{15,8},{0x0403,0x0603}}, {{16,21},{0x0403,0x0403}}
+    };
+    static GameSession session;
+    for (int c = 0; c < 12; ++c) for (int kind = 0; kind < 2; ++kind) {
+        GameBankSettlementPresentationState *p = &session.presentation.bank_settlement;
+        int stage = kind ? 8 : 18, speech = kind ? 108 : 122;
+        int frames = game_asset_graph_frames(a, &a->ui.monthly_award_data[c][kind],
+                                            a->ui.monthly_award_size[c][kind]);
+        int delay = game_asset_graph_delay(a, &a->ui.monthly_award_data[c][kind],
+                                          a->ui.monthly_award_size[c][kind]);
+        int rounds = (original[c].flags[kind] >> 8) & 255;
+        int total;
+        uint32_t first = 10200;
+        if (rounds == 0) rounds = 1;
+        total = original[c].frames[kind] * rounds;
+        assert(frames == original[c].frames[kind] && delay == 71);
+        assert((original[c].flags[kind] & 0xF0) == 0);
+        assert(rich4_monthly_animation_repeats(c, kind) == rounds);
+        memset(&session, 0, sizeof(session));
+        session.state.player_count = 2;
+        session.state.players[0].character = c;
+        p->active = 1;
+        p->stage = p->display_stage = stage - 1;
+        p->tick = p->stage_started = 10000;
+        p->unlucky_player = p->richest_player = 0;
+        rich4_monthly_finance_update(&session, 10100, 1, 0, frames, delay);
+        assert(p->stage == stage && p->animation_frame == -1);
+        /* 0x437F01: next 100 ms callback enters 0x45144F, which exposes
+         * frame zero immediately and holds each frame, including the last. */
+        rich4_monthly_finance_update(&session, first - 1, 1, 0, frames, delay);
+        assert(p->animation_frame == -1);
+        rich4_monthly_finance_update(&session, first, 1, 0, frames, delay);
+        assert(p->animation_frame == 0);
+        for (int frame = 1; frame <= total; ++frame) {
+            uint32_t due = first + (uint32_t)(frame * delay);
+            rich4_monthly_finance_update(&session, due - 1, 1, 0, frames, delay);
+            assert(p->stage == stage && p->animation_frame == frame - 1);
+            rich4_monthly_finance_update(&session, due, 1, 0, frames, delay);
+            if (frame < total) {
+                assert(p->stage == stage && p->animation_frame == frame);
+            } else {
+                assert(p->stage == stage + 1 && p->speech_id == speech);
+                assert(p->animation_frame == total - 1);
+            }
+        }
+        /* 0x451490..0x451528 timestamps each frame separately: a delayed
+         * update must advance only once, with no burst of catch-up frames. */
+        p->stage = p->display_stage = stage;
+        p->animation_frame = -1;
+        p->stage_started = 20000;
+        p->speech_id = p->speech_pending = 0;
+        rich4_monthly_finance_update(&session, 20100, 1, 0, frames, delay);
+        assert(p->animation_frame == 0);
+        rich4_monthly_finance_update(&session, 20100 + 5 * delay, 1, 0, frames, delay);
+        assert(p->stage == stage && p->animation_frame == 1);
+        rich4_monthly_finance_update(&session, 20100 + 6 * delay - 1, 1, 0, frames, delay);
+        assert(p->animation_frame == 1);
+        rich4_monthly_finance_update(&session, 20100 + 6 * delay, 1, 0, frames, delay);
+        assert(p->animation_frame == 2);
+        assert(rich4_monthly_finance_release(&session));
+        rich4_monthly_finance_update(&session, 20100 + 6 * delay, 1, 0, frames, delay);
+        assert(p->stage == stage + 1 && p->animation_frame == 2);
+    }
+}
+
 int main(void)
 {
     static GamePreviewAssets a;
@@ -94,6 +173,7 @@ int main(void)
         assert(game_graph_frame_count_data(a.ui.monthly_award_data[c][kind],
                                           a.ui.monthly_award_size[c][kind]) > 0);
     }
+    monthly_award_timing(&a);
     s.state.active = 1; s.state.player_count = 4; s.state.company_count = 2;
     for (int i = 0; i < 4; ++i) {
         s.state.players[i].play_state = 1;
@@ -130,6 +210,17 @@ int main(void)
     s.presentation.periodic_finance.phase=5;
     s.presentation.periodic_finance.speech_id=0;
     draw_periodic_finance(screen,&a,&snapshot);
+    {
+        size_t size = (size_t)screen->pitch * screen->h;
+        unsigned char *before = malloc(size);
+        assert(before != NULL);
+        memcpy(before, screen->pixels, size);
+        s.presentation.periodic_finance.speech_id =
+            20 + s.state.players[0].character;
+        draw_periodic_finance(screen,&a,&snapshot);
+        assert(memcmp(before, screen->pixels, size) == 0);
+        free(before);
+    }
     overlay_matches(screen,&a,15,6,0,0,20,140,55,170);
     overlay_matches(screen,&a,15,5,505,66,520,180,65,130);
     assert(SDL_SaveBMP(screen,"build/monthly-lottery-winner.bmp")==0);
