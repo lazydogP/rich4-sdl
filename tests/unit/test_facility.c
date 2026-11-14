@@ -35,6 +35,74 @@ static GameCommand command(GameCommandType type, int player, int facility,
         rich4_game_domain_ref(GAME_DOMAIN_NONE, -1), value);
 }
 
+static void test_research_completion_notices(void)
+{
+    const int play_states[] = {1, 2, 5};
+    const int inventory_counts[] = {8, 9, 255};
+    GameState state, before;
+    GameEventQueue events;
+    GameEvent event;
+    int control, selected, count;
+
+    for (control = 0; control < 3; ++control)
+    for (selected = 1; selected <= 5; ++selected)
+    for (count = 0; count < 3; ++count) {
+        int tool = selected + 7;
+        Rich4GameEventFields fields;
+        setup(&state);
+        state.players[0].play_state = play_states[control];
+        state.players[0].is_ai = control == 1;
+        state.facility_owner[0] = 0;
+        state.facility_type[0] = 4;
+        state.facility_level[0] = 5;
+        state.facility_research_selection[0] = selected;
+        state.facility_research_turns[0] = 2;
+        state.players[0].tool_inventory[tool] = inventory_counts[count];
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_facility_tick_research(&state, 1, &events));
+        assert(state.facility_research_turns[0] == 2 && events.count == 0);
+        assert(rich4_facility_tick_research(&state, 0, &events));
+        assert(state.facility_research_turns[0] == 1 && events.count == 0);
+
+        /* A full event queue must leave the completed project retryable. */
+        before = state;
+        event = rich4_game_event_special_place_notice(
+            0, GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE,
+            rich4_game_domain_ref(GAME_DOMAIN_TOOL, tool), 0, 1500);
+        while (events.count < GAME_EVENT_QUEUE_CAPACITY)
+            assert(rich4_game_event_queue_push(&events, &event));
+        assert(!rich4_facility_tick_research(&state, 0, &events));
+        assert(memcmp(&state, &before, sizeof(state)) == 0);
+        assert(events.count == GAME_EVENT_QUEUE_CAPACITY);
+
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_facility_tick_research(&state, 0, &events));
+        assert(state.facility_research_turns[0] == 0);
+        assert(rich4_game_event_queue_pop(&events, &event));
+        fields = rich4_game_event_special_place_notice_requested_fields(&event);
+        assert(event.type == GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED);
+        assert(event.player == 0 && fields.subject == GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE);
+        assert(fields.target_ref.kind == GAME_DOMAIN_TOOL && fields.target_ref.id == tool);
+        assert(fields.value2 == 1500);
+        assert(state.players[0].tool_inventory[tool] ==
+               (count == 0 ? 9 : inventory_counts[count]));
+        assert(events.count == (count == 0 ? 1 : 0));
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_facility_tick_research(&state, 0, &events));
+        assert(events.count == 0);
+    }
+
+    setup(&state);
+    state.facility_owner[0] = 0;
+    state.facility_type[0] = 4;
+    state.facility_level[0] = 1;
+    state.facility_research_selection[0] = 2;
+    state.facility_research_turns[0] = 1;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_facility_tick_research(&state, 0, &events));
+    assert(state.facility_research_turns[0] == 0 && events.count == 0);
+}
+
 int main(void)
 {
     GameState state, before;
@@ -279,6 +347,7 @@ int main(void)
         assert(fields.subject == GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL);
         assert(fields.value2 == 1500);
     }
+    test_research_completion_notices();
     puts("facility rules: ok");
     return 0;
 }

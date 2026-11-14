@@ -2,6 +2,7 @@
 #define RICH4_CORE_FACILITY_H
 
 #include "core/ledger.h"
+extern const unsigned char rich4_facility_max_level[5];
 
 typedef enum GameFacilityActionKind {
     GAME_FACILITY_ACTION_INVALID = 0,
@@ -11,7 +12,8 @@ typedef enum GameFacilityActionKind {
     GAME_FACILITY_ACTION_PURCHASE,
     GAME_FACILITY_ACTION_BUILD,
     GAME_FACILITY_ACTION_UPGRADE,
-    GAME_FACILITY_ACTION_RESEARCH
+    GAME_FACILITY_ACTION_RESEARCH,
+    GAME_FACILITY_ACTION_SEALED
 } GameFacilityActionKind;
 
 typedef struct GameFacilityAction {
@@ -68,6 +70,8 @@ GamePaymentResult rich4_facility_resolve_landing(
     GameEventQueue *events);
 int rich4_facility_start_research(GameState *state, int actor, int facility,
                                   int selection, GameEventQueue *events);
+int rich4_facility_start_ai_research_after_landing(
+    GameState *state, int actor, int facility, GameEventQueue *events);
 int rich4_facility_tick_research(GameState *state, int actor,
                                  GameEventQueue *events);
 

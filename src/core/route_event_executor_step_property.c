@@ -139,6 +139,9 @@ RouteEventExecutionResult rich4_route_event_executor_step_property(
                 rich4_game_event_queue_reset(&staged);
                 command.turn_token = executor->state.turn_token;
                 if (!rich4_facility_apply_command(&next_state, &command, &staged) ||
+                    !rich4_facility_start_ai_research_after_landing(
+                        &next_state, executor->state.execution_actor, ref.id,
+                        &staged) ||
                     !rich4_route_event_executor_complete_events(
                         &next_queue, ROUTE_EVENT_APPLIED, &staged) ||
                     events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY)
@@ -185,6 +188,9 @@ RouteEventExecutionResult rich4_route_event_executor_step_property(
                  * human-only park option (type 0). */
                 if (!rich4_facility_apply_command(
                         &next_state, &command, &staged) ||
+                    !rich4_facility_start_ai_research_after_landing(
+                        &next_state, executor->state.execution_actor, ref.id,
+                        &staged) ||
                     !rich4_route_event_executor_complete_events(
                         &next_queue, ROUTE_EVENT_APPLIED, &staged) ||
                     events->count + staged.count >
@@ -196,7 +202,7 @@ RouteEventExecutionResult rich4_route_event_executor_step_property(
                 return ROUTE_EVENT_EXECUTION_PROGRESSED;
             }
         } else if (action.kind == GAME_FACILITY_ACTION_RESEARCH) {
-            if (!state->players[executor->state.execution_actor].is_ai)
+            if ((state->players[executor->state.execution_actor].play_state & 0xff) == 1)
                 return request_property_decision(
                     executor, event, state,
                     GAME_COMMAND_UPGRADE_PROPERTY,
@@ -204,12 +210,6 @@ RouteEventExecutionResult rich4_route_event_executor_step_property(
                     ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND :
                     ROUTE_EVENT_EXECUTION_INVALID;
             else {
-                if (rich4_god_blocks_trade(
-                        &state->players[executor->state.execution_actor]))
-                    return rich4_route_event_executor_begin_god_trade_rejection(
-                        executor, state, event, events) ?
-                        ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND :
-                        ROUTE_EVENT_EXECUTION_INVALID;
                 GameState next_state = *state;
                 RouteEventExecutor next_queue = *executor;
                 GameEventQueue staged;
@@ -227,6 +227,26 @@ RouteEventExecutionResult rich4_route_event_executor_step_property(
                 *executor = next_queue;
                 return ROUTE_EVENT_EXECUTION_PROGRESSED;
             }
+        } else if (action.kind == GAME_FACILITY_ACTION_SEALED) {
+            RouteEventExecutor next_queue = *executor;
+            GameEventQueue staged;
+            rich4_game_event_queue_reset(&staged);
+            /* 0x41A3D7 returns through the shared 0x41D559 notice and
+             * actor speech without a roulette or payment continuation. */
+            if (!rich4_game_event_emit_typed_domain(
+                    &staged,
+                    rich4_game_event_property_charge_presentation_requested_from_fields,
+                    executor->state.execution_actor, ref,
+                    rich4_game_domain_ref(GAME_DOMAIN_PLAYER, action.owner),
+                    0, GAME_PROPERTY_COLLECTION_BLOCK_SEALED,
+                    executor->state.turn_token) ||
+                !rich4_route_event_executor_complete_events(
+                    &next_queue, ROUTE_EVENT_APPLIED, &staged) ||
+                events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
+                !rich4_game_event_queue_append(events, &staged))
+                return ROUTE_EVENT_EXECUTION_INVALID;
+            *executor = next_queue;
+            return ROUTE_EVENT_EXECUTION_PROGRESSED;
         } else if (action.kind == GAME_FACILITY_ACTION_DEFERRED ||
                    action.kind == GAME_FACILITY_ACTION_TRAFFIC_CHARGE) {
             GameState next_state = *state;

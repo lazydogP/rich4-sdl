@@ -42,8 +42,15 @@ int rich4_special_place_notice_enqueue(
     fields = rich4_game_event_special_place_notice_requested_fields(event);
     if (event->player < 0 || event->player >= session->state.player_count ||
         fields.subject < GAME_SPECIAL_NOTICE_PRISON_RELEASE ||
-        fields.subject > GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL ||
+        fields.subject > GAME_SPECIAL_NOTICE_CARD_CASH_SHORTFALL ||
         fields.value2 <= 0) return 0;
+    if (fields.subject == GAME_SPECIAL_NOTICE_STOCK_CARD &&
+        (fields.target_ref.kind != GAME_DOMAIN_STOCK || fields.target_ref.id < 0 ||
+         fields.target_ref.id >= GAME_STOCK_COUNT ||
+         (fields.value != 23 && fields.value != 24))) return 0;
+    if (fields.subject == GAME_SPECIAL_NOTICE_CARD_TAX &&
+        (fields.target_ref.kind != GAME_DOMAIN_PLAYER || fields.target_ref.id < 0 ||
+         fields.target_ref.id >= session->state.player_count || fields.value < 0)) return 0;
     notice = &session->presentation.special_place_notice;
     empty = notice->queue.count == 0;
     if (!rich4_game_event_queue_push(&notice->queue, event)) return 0;

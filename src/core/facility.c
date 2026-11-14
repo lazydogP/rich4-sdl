@@ -182,6 +182,7 @@ int rich4_facility_inspect(const GameState *state, int actor, int facility,
                 GAME_FACILITY_ACTION_BUILD : GAME_FACILITY_ACTION_UPGRADE;
             action.amount = price;
         } else if (       state->players[actor].days_sleep_walking == 0 &&
+                   (state->facility_price_status[facility] & 0x0f) == 0 &&
                    state->facility_closed_status[facility] == 0 &&
                    state->facility_type[facility] == 4 &&
                    state->facility_level[facility] > 0) {
@@ -191,10 +192,19 @@ int rich4_facility_inspect(const GameState *state, int actor, int facility,
         if (action.owner >= state->player_count ||
             (state->players[action.owner].play_state & 0xff) == 0) return 0;
         if (state->facility_level[facility] != 0 &&
-            !facility_closed(state, facility) &&
-            !owner_cannot_collect(&state->players[action.owner], actor) &&
             state->facility_type[facility] >= 1 &&
             state->facility_type[facility] <= 3) {
+            /* 0x41A3D7 -> 0x41D559 presents the seal before owner
+             * exemptions, even for a pedestrian at a gas station. */
+            if (facility_closed(state, facility)) {
+                action.kind = GAME_FACILITY_ACTION_SEALED;
+                *out_action = action;
+                return 1;
+            }
+            if (owner_cannot_collect(&state->players[action.owner], actor)) {
+                *out_action = action;
+                return 1;
+            }
             /* 1/2 use the random 0x44090E interaction.  Type 3 is an
              * immediate traffic charge; its amount is resolved from the
              * actor's low two traffic bits and dice total. */
@@ -413,6 +423,8 @@ int rich4_facility_start_research(GameState *state, int actor, int facility,
     if (state == NULL || events == NULL || !valid_facility(state, facility) ||
         !rich4_facility_active_player(state, actor) || state->facility_owner[facility] != actor ||
         state->facility_type[facility] != 4 ||
+        state->players[actor].days_sleep_walking != 0 ||
+        (state->facility_price_status[facility] & 0x0f) != 0 ||
         state->facility_closed_status[facility] != 0 || selection < 0 ||
         selection >= state->facility_level[facility]) return 0;
     next = *state;
@@ -428,6 +440,26 @@ int rich4_facility_start_research(GameState *state, int actor, int facility,
         !rich4_game_event_queue_append(events, &staged)) return 0;
     *state = next;
     return 1;
+}
+
+int rich4_facility_start_ai_research_after_landing(
+    GameState *state, int actor, int facility, GameEventQueue *events)
+{
+    if (state == NULL || events == NULL ||
+        !rich4_facility_active_player(state, actor) ||
+        facility < 0 || facility >= state->facility_count) return 0;
+    /* 0x41B0AB..0x41B109 runs after construction/upgrade (or its refusal).
+     * 0x441036 tests raw +21; 0x4411EC always picks level - 1 and resets
+     * +1D/+1E, even when another project is already in progress. */
+    if ((state->players[actor].play_state & 0xff) == 1 ||
+        state->facility_owner[facility] != actor ||
+        state->facility_type[facility] != 4 ||
+        state->facility_level[facility] <= 0 ||
+        state->players[actor].days_sleep_walking != 0 ||
+        (state->facility_price_status[facility] & 0x0f) != 0 ||
+        state->facility_closed_status[facility] != 0) return 1;
+    return rich4_facility_start_research(state, actor, facility,
+        state->facility_level[facility] - 1, events);
 }
 
 int rich4_facility_tick_research(GameState *state, int actor,
@@ -459,8 +491,17 @@ int rich4_facility_tick_research(GameState *state, int actor,
         if (next.facility_research_turns[i] != 0) continue;
         tool = selected + 7;
         next.facility_research_selection[i] = 0;
-        if (tool < 0 || tool >= GAME_PLAYER_TOOL_SLOTS ||
-            next.players[actor].tool_inventory[tool] == 255) return 0;
+        if (tool < 0 || tool >= GAME_PLAYER_TOOL_SLOTS) return 0;
+        /* 0x41CDDD..0x41CE25: every owner sees the completion notice,
+         * including AI/auto players and owners already at the tool cap. */
+        {
+            GameEvent notice = rich4_game_event_special_place_notice(
+                actor, GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE,
+                rich4_game_domain_ref(GAME_DOMAIN_TOOL, tool), 0, 1500);
+            if (!rich4_game_event_queue_push(&staged, &notice)) return 0;
+        }
+        /* 0x445A4D silently declines tools already held at nine. */
+        if (next.players[actor].tool_inventory[tool] >= 9) continue;
         next.players[actor].tool_inventory[tool]++;
         if (!rich4_game_event_emit_typed_domain(
                 &staged, rich4_game_event_inventory_changed_from_fields, actor,

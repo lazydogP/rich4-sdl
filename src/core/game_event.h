@@ -172,7 +172,14 @@ typedef enum GameSpecialPlaceNoticeKind {
     /* 0x452444 Christmas/peace/dinosaur/new-year card presentation. */
     GAME_SPECIAL_NOTICE_HOLIDAY_GIFT,
     /* 0x41ABE6: aviation roulette result zero, held for 1500 ms. */
-    GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL
+    GAME_SPECIAL_NOTICE_AIRLINE_NO_TRAVEL,
+    /* 0x41CE0E: research completion, target_ref=produced tool. */
+    GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE,
+    /* 0x444FDB/0x445154: target_ref=stock, value=zero-based card ID. */
+    GAME_SPECIAL_NOTICE_STOCK_CARD,
+    /* 0x4653C0 / 0x46530C, both through 0x440CAC. */
+    GAME_SPECIAL_NOTICE_CARD_TAX,
+    GAME_SPECIAL_NOTICE_CARD_CASH_SHORTFALL
 } GameSpecialPlaceNoticeKind;
 
 /* A single tagged payload boundary for event data that historically occupied

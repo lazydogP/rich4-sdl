@@ -265,7 +265,8 @@ int build_game_session_render_view_for_state(
         out_view->property_facility_type = type;
         out_view->property_outcome = session->flow.route_events.state.presentation_mode >= 10
             ? session->flow.route_events.state.presentation_mode - 10 : 0;
-        out_view->property_fee_label = type == 1 ? 1 : type == 2 ? 12 : 2;
+        /* 0x41A3B7: 0x475284[type+7] selects 5/12/2. */
+        out_view->property_fee_label = type == 1 ? 5 : type == 2 ? 12 : 2;
     } else if (session->presentation.property.property_kind == GAME_DOMAIN_COMPANY &&
                session->presentation.property.land >= 0 && session->presentation.property.land < state->company_count) {
         static const int labels[13] = {2,6,0,8,7,3,2,0,0,0,0,9,0};

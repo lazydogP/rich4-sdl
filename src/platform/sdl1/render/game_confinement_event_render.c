@@ -172,6 +172,28 @@ void draw_special_place_notice(
         snprintf(message, sizeof(message), "%s",
                  rich4_roulette_result_format_big5(0));
         break;
+    case GAME_SPECIAL_NOTICE_STOCK_CARD:
+        /* 0x4653AE: compact the stock name with 0x452946, then 0x440CAC. */
+        game_compact_display_name(name, sizeof(name),
+            game_stock_name_for_state(snapshot->state, fields.target_ref.id));
+        snprintf(message, sizeof(message), "\xb9\xef%s\xa8\xcf\xa5\xce%s\xa1\x49",
+            name, game_card_big5_name(fields.value));
+        break;
+    case GAME_SPECIAL_NOTICE_CARD_TAX:
+        game_compact_display_name(name, sizeof(name), new_game_character_name(
+            snapshot->state->players[fields.target_ref.id].character));
+        snprintf(message, sizeof(message), "\xa9\xe2\xa8\xfa%s\n\n%d\xa4\xb8\xb5\x7c\xaa\xf7\xa1\x49",
+            name, fields.value);
+        break;
+    case GAME_SPECIAL_NOTICE_CARD_CASH_SHORTFALL:
+        snprintf(message, sizeof(message), "\xb1\x7a\xaa\xba\xb2\x7b\xaa\xf7\xa4\xa3\xa8\xac\xa1\x49");
+        break;
+    case GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE:
+        /* 0x463B68, passed to 0x440CAC at 0x41CE0E. */
+        snprintf(message, sizeof(message),
+                 "%s\xb6\x7d\xb5\x6f\xa7\xb9\xa6\xa8\xa1\x49",
+                 game_tool_big5_name(fields.target_ref.id));
+        break;
     default: return;
     }
     if (game_asset_ready(assets, &assets->ui.has_common_dialog) && rich4_spr_smp_get_chunk(

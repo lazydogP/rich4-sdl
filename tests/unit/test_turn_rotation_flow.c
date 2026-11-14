@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "app/dynamic_object_flow.h"
+#include "app/special_place_notice_flow.h"
 #include "app/turn_rotation_flow.h"
 #include "app/turn_movement_flow.h"
 #include "core/game_constants.h"
@@ -220,6 +221,15 @@ static void test_special_action_is_returned_to_platform_seam(void)
     assert(result.special_action.end_node != 1);
     assert(session.state.special_player_node[0] ==
            result.special_action.end_node);
+
+    setup_session(&session);
+    session.state.special_player_f10[0] = 0;
+    session.state.special_player_node[0] = 1;
+    session.state.special_player_status[0][0] = 2;
+    assert(rich4_app_advance_turn_rotation(&session, &map, 2000, &result));
+    assert(result.special_action_pending);
+    assert(result.special_action.kind == TURN_SPECIAL_AUTO_BLOCKED);
+    assert(result.special_action.path_count == 1);
 }
 
 static void test_control_locked_turn_cleanup(void)
@@ -489,8 +499,60 @@ static void test_holiday_animation_precedes_card_notice(void)
            GAME_SPECIAL_NOTICE_HOLIDAY_GIFT);
 }
 
+static void test_research_completion_during_turn_rotation(void)
+{
+    const int play_states[] = {1, 2, 5};
+    static GameSession session;
+    Rich4AppTurnRotationResult result;
+    int control, i;
+
+    for (control = 0; control < 3; ++control) {
+        setup_session(&session);
+        session.state.price_index = 1;
+        session.state.players[0].play_state = play_states[control];
+        session.state.players[0].is_ai = control == 1;
+        session.state.facility_count = 2;
+        for (i = 0; i < 2; ++i) {
+            session.state.facility_owner[i] = 0;
+            session.state.facility_type[i] = 4;
+            session.state.facility_level[i] = 5;
+            session.state.facility_research_selection[i] = 1 + i * 4;
+            session.state.facility_research_turns[i] = 1;
+        }
+        /* No inventory event is emitted for the second, already capped tool. */
+        session.state.players[0].tool_inventory[12] = 9;
+        assert(rich4_app_advance_turn_rotation(&session, NULL, 1000, &result));
+        assert(session.presentation.special_place_notice.queue.count == 2);
+        for (i = 0; i < 2; ++i) {
+            const GameEvent *event =
+                rich4_special_place_notice_current(&session.presentation);
+            Rich4GameEventFields fields;
+            assert(event != NULL && event->player == 0);
+            fields = rich4_game_event_special_place_notice_requested_fields(event);
+            assert(fields.subject == GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE);
+            assert(fields.target_ref.kind == GAME_DOMAIN_TOOL &&
+                   fields.target_ref.id == 8 + i * 4);
+            assert(session.presentation.special_place_notice.until ==
+                   (uint32_t)(2500 + i * 1500));
+            assert(rich4_special_place_notice_update(&session, 2499 + i * 1500));
+            assert(session.presentation.special_place_notice.queue.count == 2 - i);
+            if (i == 1)
+                assert(rich4_special_place_notice_skip(&session, 3500));
+            assert(rich4_special_place_notice_update(
+                &session, i == 0 ? 2500 : 3500));
+        }
+        assert(session.presentation.special_place_notice.queue.count == 0);
+        assert(!session.presentation.speech.active);
+        assert(!session.presentation.route_interaction.active);
+        assert(session.state.players[0].tool_inventory[12] == 9);
+        assert(rich4_app_advance_turn_rotation(&session, NULL, 5000, &result));
+        assert(session.presentation.special_place_notice.queue.count == 0);
+    }
+}
+
 int main(void)
 {
+    test_research_completion_during_turn_rotation();
     test_holiday_animation_precedes_card_notice();
     test_calendar_defers_turn_status();
     test_god_expiry();

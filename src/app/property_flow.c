@@ -163,6 +163,16 @@ void rich4_property_begin_charge_presentation(
     property->related_amount = 0;
     property->collection_block_reason =
         rich4_game_event_property_charge_block_reason(event);
+    if (property->collection_block_reason !=
+            GAME_PROPERTY_COLLECTION_BLOCK_NONE) {
+        property->flash_count = 0;
+        property->flash_frame = 0;
+        property->flash_adjust = 0;
+        property->tick = now;
+        property->phase = GAME_PROPERTY_PRESENT_BLOCKED_TEXT;
+        property->sound_pending = 3;
+        return;
+    }
     if (property_ref.kind == GAME_DOMAIN_FACILITY || property_ref.kind == GAME_DOMAIN_COMPANY) {
         /* Facilities and companies quote without a land-group flash. */
         property->flash_count = 0;
@@ -185,16 +195,6 @@ void rich4_property_begin_charge_presentation(
             property->owner_amount = action.owner_amount;
             property->related_amount = action.related_amount;
         }
-    }
-    if (property->collection_block_reason !=
-            GAME_PROPERTY_COLLECTION_BLOCK_NONE) {
-        property->flash_count = 0;
-        property->flash_frame = 0;
-        property->flash_adjust = 0;
-        property->tick = now;
-        property->phase = GAME_PROPERTY_PRESENT_BLOCKED_TEXT;
-        property->sound_pending = 3;
-        return;
     }
     property->flash_count = rich4_property_toll_flash_count(
         &session->state, land);

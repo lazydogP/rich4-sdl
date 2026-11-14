@@ -38,6 +38,7 @@ RouteEventExecutionResult rich4_route_event_executor_finish_god_trade_rejection(
     const RouteEvent *event;
     RouteEventObjectFamily family;
     RouteEventExecutor next;
+    GameState next_state;
     GameEventQueue staged;
 
     if (executor == NULL || state == NULL || events == NULL ||
@@ -54,15 +55,23 @@ RouteEventExecutionResult rich4_route_event_executor_finish_god_trade_rejection(
          family != ROUTE_EVENT_FAMILY_FACILITY))
         return ROUTE_EVENT_EXECUTION_INVALID;
     next = *executor;
+    next_state = *state;
     next.state.waiting_for_presentation = 0;
     next.state.presentation_action = 0;
     rich4_game_event_queue_reset(&staged);
-    if (!rich4_route_event_executor_complete_events(
+    /* 0x41A32F's trade refusal joins 0x41B077, then still reaches the
+     * independent research check at 0x41B0AB. Research is not a purchase. */
+    if ((family == ROUTE_EVENT_FAMILY_FACILITY &&
+         !rich4_facility_start_ai_research_after_landing(
+             &next_state, executor->state.execution_actor,
+             event->object_ref.raw_object_id - 4001, &staged)) ||
+        !rich4_route_event_executor_complete_events(
             &next, ROUTE_EVENT_APPLIED, &staged) ||
         events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
         !rich4_game_event_queue_append(events, &staged))
         return ROUTE_EVENT_EXECUTION_INVALID;
     *executor = next;
+    *state = next_state;
     return ROUTE_EVENT_EXECUTION_PROGRESSED;
 }
 

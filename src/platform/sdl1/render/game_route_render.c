@@ -166,7 +166,7 @@ static void draw_facility_research_selector_with_pressed(
                 68 + i * 76, 324, 1);
         if (!drew_research_icon)
             draw_big5_text(
-                screen, 68 + i * 76, 324, game_tool_big5_name(7 + i), 12,
+                screen, 68 + i * 76, 324, game_tool_big5_name(8 + i), 12,
                 rich4_character_rgb565_color(0x00f0f0f0u),
                 rich4_character_rgb565_color(0x00101010u), 3, 2);
     }
@@ -175,7 +175,7 @@ static void draw_facility_research_selector_with_pressed(
             rich4_character_rgb565_color(0x00ffff00u);
         int left = 32 + hover * 76;
         draw_big5_text(
-            screen, 220, 154, game_tool_big5_name(7 + hover), 16,
+            screen, 220, 154, game_tool_big5_name(8 + hover), 16,
             rich4_character_rgb565_color(0x00f0f0f0u),
             rich4_character_rgb565_color(0x00101010u), 3, 4);
         SDL_LockSurface(screen);
@@ -534,7 +534,7 @@ void draw_game_property_presentation(SDL_Surface *screen,
             "%s\xb9\xda\xb9\x43\xa4\xa4\x0a\x0a\xa7\x4b\xa6\xac%s\xa1\x49",
             "\xa9\xd0\xab\xce\xac\x64\xab\xca\xa4\xa4\x0a\x0a\xa7\x4b\xa6\xac%s\xa1\x49"
         };
-        static const char toll[] = "\xb9\x4c\xb8\xf4\xb6\x4f";
+        const char *toll = god_fee_label(scene->property_fee_label);
         char message[160];
         char owner_name[64];
         int reason = scene->property_collection_block_reason;

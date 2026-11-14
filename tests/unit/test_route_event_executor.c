@@ -1,8 +1,10 @@
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "core/game_dispatch.h"
+#include "core/card.h"
 #include "core/game_event_payload.h"
 #include "core/property.h"
 #include "core/special_event.h"
@@ -1257,6 +1259,17 @@ static void ai_lottery_uses_strict_cash_threshold_and_empty_numbers(void)
     event=pop(&events);
     assert(event.type==GAME_EVENT_ROUTE_EVENT_RESOLVED &&
            rich4_game_event_value(&event)==ROUTE_EVENT_APPLIED);
+
+    state.players[0].cash=1001;
+    state.lottery_pool=INT_MAX-500;
+    rich4_route_event_executor_reset(&queue);
+    assert(rich4_route_event_queue_push(&queue.queue,&stop));
+    assert(rich4_route_event_executor_begin(&queue,0,120));
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_route_event_executor_step(&queue,&state,&events)==
+           ROUTE_EVENT_EXECUTION_PROGRESSED);
+    assert(state.players[0].cash==1 && state.lottery_pool==INT_MIN+499 &&
+           state.lottery_owner[17]==1);
 }
 
 static void human_lottery_allows_exactly_one_number(void)
@@ -1777,7 +1790,7 @@ static void facility_research_route_uses_original_selection(void)
     state.active = 1;
     state.player_count = 1;
     state.price_index = 1;
-    state.players[0].play_state = 1;
+    state.players[0].play_state = 2;
     state.players[0].is_ai = 1;
     state.facility_count = 1;
     state.facility_owner[0] = 0;
@@ -1801,6 +1814,7 @@ static void facility_research_route_uses_original_selection(void)
            rich4_game_event_value(&event) == ROUTE_EVENT_APPLIED);
 
     state.players[0].is_ai = 0;
+    state.players[0].play_state = 1;
     state.facility_research_selection[0] = 0;
     state.facility_research_turns[0] = 0;
     rich4_route_event_executor_reset(&queue);
@@ -1831,6 +1845,118 @@ static void facility_research_route_uses_original_selection(void)
     event = pop(&events);
     assert(event.type == GAME_EVENT_ROUTE_EVENT_RESOLVED &&
            rich4_game_event_value(&event) == ROUTE_EVENT_APPLIED);
+}
+
+static void ai_research_follows_upgrade_and_ignores_trade_block(void)
+{
+    int level, scenario;
+    for (level = 1; level <= 5; level++) for (scenario = 0; scenario < 5; scenario++) {
+        GameState state = {0};
+        RouteEventExecutor queue;
+        GameEventQueue events;
+        RouteEvent stop = route_event(ROUTE_EVENT_PHASE_STOP, 20, 4001, 0);
+        int upgraded = scenario == 1 && level < 5;
+        state.active = 1; state.player_count = 1; state.price_index = 1;
+        state.players[0].play_state = scenario == 0 ? 5 : 2;
+        state.players[0].is_ai = scenario != 0;
+        state.players[0].cash = scenario == 1 ? 1000 : 0;
+        state.players[0].god_info = scenario == 2 ? 7 : 0;
+        state.players[0].days_sleep_walking = scenario == 3;
+        state.facility_count = 1; state.facility_owner[0] = 0;
+        state.facility_type[0] = 4; state.facility_level[0] = level;
+        state.facility_price_per_level[0] = 100;
+        state.facility_price_status[0] = scenario == 4 ? 1 : 0;
+        state.facility_research_selection[0] = 1;
+        state.facility_research_turns[0] = 2;
+        state.ai_rng_state = 42;
+        rich4_route_event_executor_reset(&queue);
+        assert(rich4_route_event_queue_push(&queue.queue, &stop));
+        assert(rich4_route_event_executor_begin(&queue, 0, 600));
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_route_event_executor_step(&queue, &state, &events) ==
+               ROUTE_EVENT_EXECUTION_PROGRESSED);
+        assert(state.facility_level[0] == level + upgraded);
+        assert(state.facility_research_selection[0] ==
+               (scenario >= 3 ? 1 : level + upgraded));
+        assert(state.facility_research_turns[0] == (scenario >= 3 ? 2 : 5));
+        assert(state.ai_rng_state == 42 && queue.queue.count == 0);
+    }
+    /* A rejected upgrade still joins the independent research tail. */
+    {
+        GameState state = {0};
+        RouteEventExecutor queue;
+        GameEventQueue events;
+        RouteEvent stop = route_event(ROUTE_EVENT_PHASE_STOP, 20, 4001, 0);
+        state.active = 1; state.player_count = 1; state.price_index = 1;
+        state.players[0].play_state = 2; state.players[0].is_ai = 1;
+        state.players[0].cash = 1000; state.players[0].god_info = 7;
+        state.facility_count = 1; state.facility_owner[0] = 0;
+        state.facility_type[0] = 4; state.facility_level[0] = 2;
+        state.facility_price_per_level[0] = 100;
+        rich4_route_event_executor_reset(&queue);
+        assert(rich4_route_event_queue_push(&queue.queue, &stop));
+        assert(rich4_route_event_executor_begin(&queue, 0, 601));
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_route_event_executor_step(&queue, &state, &events) ==
+               ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND);
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_route_event_executor_finish_god_trade_rejection(
+                   &queue, &state, &events) == ROUTE_EVENT_EXECUTION_PROGRESSED);
+        assert(state.players[0].cash == 1000 && state.facility_level[0] == 2);
+        assert(state.facility_research_selection[0] == 2 &&
+               state.facility_research_turns[0] == 5);
+    }
+    /* Seed 3 builds type 4: its first project starts on the same stop. */
+    {
+        GameState state = {0};
+        RouteEventExecutor queue;
+        GameEventQueue events;
+        RouteEvent stop = route_event(ROUTE_EVENT_PHASE_STOP, 20, 4001, 0);
+        state.active = 1; state.player_count = 1; state.price_index = 1;
+        state.players[0].play_state = 2; state.players[0].is_ai = 1;
+        state.players[0].cash = 1000; state.ai_rng_state = 3;
+        state.facility_count = 1; state.facility_owner[0] = 0;
+        state.facility_price[0] = 100;
+        rich4_route_event_executor_reset(&queue);
+        assert(rich4_route_event_queue_push(&queue.queue, &stop));
+        assert(rich4_route_event_executor_begin(&queue, 0, 602));
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_route_event_executor_step(&queue, &state, &events) ==
+               ROUTE_EVENT_EXECUTION_PROGRESSED);
+        assert(state.facility_type[0] == 4 && state.facility_level[0] == 1);
+        assert(state.facility_research_selection[0] == 1 &&
+               state.facility_research_turns[0] == 5);
+    }
+}
+
+static void ai_shop_buys_repeated_cards_but_one_of_each_tool(void)
+{
+    int points, tool;
+    for (points = 1000; points <= 2000; points += 1000) {
+        GameState state = {0};
+        RouteEventExecutor queue;
+        GameEventQueue events;
+        RouteEvent stop = route_event(ROUTE_EVENT_PHASE_STOP, 20, 0, 0);
+        state.active = 1; state.player_count = 1;
+        state.players[0].play_state = 2; state.players[0].points = points;
+        state.players[0].ai_personality = 2;
+        state.card_amount[2] = 30; /* 35 points per card. */
+        for (tool = 0; tool < 8; tool++) state.tool_amount[tool] = 3;
+        stop.snapshot.route_action = 15;
+        rich4_route_event_executor_reset(&queue);
+        assert(rich4_route_event_queue_push(&queue.queue, &stop));
+        assert(rich4_route_event_executor_begin(&queue, 0, 603));
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_route_event_executor_step(&queue, &state, &events) ==
+               ROUTE_EVENT_EXECUTION_PROGRESSED);
+        assert(rich4_card_inventory_count(&state, 0) == (points == 1000 ? 14 : 15));
+        assert(state.card_amount[2] == (points == 1000 ? 16 : 15));
+        for (tool = 0; tool < 8; tool++) {
+            assert(state.players[0].tool_inventory[tool] == 1);
+            assert(state.tool_amount[tool] == 2);
+        }
+        assert(state.players[0].points == (points == 1000 ? 55 : 1020));
+    }
 }
 
 static void beggar_stop_precedes_route_event(void)
@@ -1977,6 +2103,8 @@ int main(void)
     insurance_automatic_issue_and_zero_quote();
     second_special_action_zero_is_original_noop();
     facility_research_route_uses_original_selection();
+    ai_research_follows_upgrade_and_ignores_trade_block();
+    ai_shop_buys_repeated_cards_but_one_of_each_tool();
     beggar_stop_precedes_route_event();
     puts("route event executor pause/resume: ok");
     return 0;

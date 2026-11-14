@@ -4,11 +4,112 @@
 
 #include "app/bankruptcy_flow.h"
 #include "app/property_flow.h"
+#include "app/game_speech_flow.h"
 #include "core/game_event_payload.h"
 #include "core/route_event.h"
 #include "core/route_event_executor.h"
 #include "core/card.h"
 #include "core/facility.h"
+#include "core/property.h"
+
+static void test_sealed_facility_notice(void)
+{
+    static GameSession s;
+    static GameState before;
+    static RouteEventExecutor before_executor;
+    const int controls[] = {1, 2, 5};
+    int type, control;
+    for (type = 1; type <= 3; type++) {
+        for (control = 0; control < 3; control++) {
+            RouteEvent stop = {0};
+            GameEventQueue events;
+            GameEvent event;
+            GameFacilityAction action;
+            int notices = 0;
+            memset(&s, 0, sizeof(s));
+            s.state.active = 1;
+            s.state.player_count = 2;
+            s.state.price_index = 1;
+            s.state.players[0].play_state = controls[control];
+            s.state.players[0].is_ai = control != 0;
+            s.state.players[1].play_state = 1;
+            s.state.players[0].cash = s.state.players[1].cash = 1000;
+            /* The seal takes priority over the owner's allied exemption.
+             * A pedestrian at a gas station also sees the notice. */
+            s.state.players[1].linked_player = 0;
+            s.state.facility_count = 1;
+            s.state.facility_owner[0] = 1;
+            s.state.facility_type[0] = type;
+            s.state.facility_level[0] = 1;
+            s.state.facility_price_status[0] = 0x51;
+            assert(rich4_facility_inspect(&s.state, 0, 0, &action) &&
+                   action.kind == GAME_FACILITY_ACTION_SEALED);
+            stop.phase = ROUTE_EVENT_PHASE_STOP;
+            stop.node = 20;
+            stop.object_ref.raw_object_id = 4001;
+            rich4_route_event_executor_reset(&s.flow.route_events);
+            assert(rich4_route_event_queue_push(&s.flow.route_events.queue, &stop));
+            assert(rich4_route_event_executor_begin(&s.flow.route_events, 0, 77));
+            before = s.state;
+            before_executor = s.flow.route_events;
+            rich4_game_event_queue_reset(&events);
+            while (events.count < GAME_EVENT_QUEUE_CAPACITY)
+                assert(rich4_game_event_text_requested_emit(&events, 0, 0, 0, 0, 0));
+            assert(rich4_route_event_executor_step(&s.flow.route_events,
+                &s.state, &events) == ROUTE_EVENT_EXECUTION_INVALID);
+            assert(memcmp(&before, &s.state, sizeof(before)) == 0);
+            assert(memcmp(&before_executor.queue, &s.flow.route_events.queue,
+                          sizeof(before_executor.queue)) == 0);
+            assert(events.count == GAME_EVENT_QUEUE_CAPACITY);
+            rich4_game_event_queue_reset(&events);
+            assert(rich4_route_event_executor_step(&s.flow.route_events,
+                &s.state, &events) == ROUTE_EVENT_EXECUTION_PROGRESSED);
+            assert(!s.flow.route_events.state.waiting_for_presentation);
+            assert(!s.flow.route_events.state.waiting_for_command);
+            assert(s.flow.route_events.queue.count == 0);
+            while (rich4_game_event_queue_pop(&events, &event)) {
+                assert(event.type == GAME_EVENT_PROPERTY_CHARGE_PRESENTATION_REQUESTED ||
+                       event.type == GAME_EVENT_ROUTE_EVENT_RESOLVED);
+                if (event.type != GAME_EVENT_PROPERTY_CHARGE_PRESENTATION_REQUESTED)
+                    continue;
+                notices++;
+                assert(rich4_game_event_property_ref(&event).kind == GAME_DOMAIN_FACILITY);
+                assert(rich4_game_event_property_charge_block_reason(&event) ==
+                       GAME_PROPERTY_COLLECTION_BLOCK_SEALED);
+                rich4_property_begin_charge_presentation(&s, &event, 100);
+            }
+            assert(notices == 1 && !s.presentation.facility_roulette.active);
+            assert(s.presentation.property.phase == GAME_PROPERTY_PRESENT_BLOCKED_TEXT);
+            assert(s.presentation.property.sound_pending == 3);
+            assert(s.presentation.property.flash_count == 0);
+            assert(rich4_property_update_charge_presentation(&s, 1599));
+            assert(s.presentation.property.phase == GAME_PROPERTY_PRESENT_BLOCKED_TEXT);
+            assert(!s.presentation.speech.active);
+            assert(rich4_property_update_charge_presentation(&s, 1600));
+            assert(s.presentation.property.phase == GAME_PROPERTY_PRESENT_BLOCKED_SPEECH);
+            assert(s.presentation.speech.active && s.presentation.speech.player == 0);
+            assert(s.presentation.speech.type == 3);
+            assert(s.presentation.speech.current ==
+                rich4_character_property_collection_blocked_speech(
+                    s.state.players[0].character));
+            rich4_speech_request_skip(&s);
+            assert(!rich4_speech_finish_update(&s, 1601, 0));
+            assert(!rich4_property_update_charge_presentation(&s, 1601));
+            assert(s.presentation.property.phase == GAME_PROPERTY_PRESENT_NONE);
+            assert(memcmp(&before, &s.state, sizeof(before)) == 0);
+            s.state.facility_level[0] = 0;
+            assert(rich4_facility_inspect(&s.state, 0, 0, &action) &&
+                   action.kind == GAME_FACILITY_ACTION_NONE);
+            s.state.facility_level[0] = 1;
+            s.state.facility_type[0] = 4;
+            assert(rich4_facility_inspect(&s.state, 0, 0, &action) &&
+                   action.kind == GAME_FACILITY_ACTION_NONE);
+            s.state.facility_type[0] = 0;
+            assert(rich4_facility_inspect(&s.state, 0, 0, &action) &&
+                   action.kind == GAME_FACILITY_ACTION_NONE);
+        }
+    }
+}
 
 static void begin_insurance(GameSession *s, int control, int shares, int god, int outcome)
 {
@@ -264,6 +365,7 @@ int main(void)
     GameEvent event;
 
     test_insurance_passive_flow();
+    test_sealed_facility_notice();
 
     memset(&session, 0, sizeof(session));
     session.state.active = 1;
