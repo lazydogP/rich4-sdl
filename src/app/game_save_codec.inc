@@ -810,6 +810,10 @@ static void codec_GameSpecialActorPresentationState(SaveCodec *codec, GameSpecia
     codec_GameSpecialActorActionBatch(codec, &(value->action_batch));
     codec_scalar(codec, &(value->action_index), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->action_until), SAVE_CODEC_U32);
+    if (codec->version >= 10) {
+        codec_scalar(codec, &(value->arrival_pending), SAVE_CODEC_I32);
+        codec_scalar(codec, &(value->end_ticks_remaining), SAVE_CODEC_I32);
+    }
 }
 
 static void codec_GameSpecialActorActionBatch(SaveCodec *codec, GameSpecialActorActionBatch *value)

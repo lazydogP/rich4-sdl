@@ -51,7 +51,7 @@ static int save_game_state_matches_map(const GameState *state,
 }
 
 enum {
-    GAME_SAVE_FORMAT_VERSION = 9,
+    GAME_SAVE_FORMAT_VERSION = 10,
     GAME_SAVE_HEADER_SIZE = 20,
     GAME_SAVE_MAX_FILE_SIZE = 64 * 1024 * 1024
 };
@@ -380,6 +380,28 @@ static int save_game_state_valid(const GameState *state)
     return 1;
 }
 
+static int save_placed_objects_match_map(const GameState *state, int route_count)
+{
+    int i;
+    for (i = 0; i < GAME_TOOL_PLACED_OBJECT_COUNT; i++) {
+        const struct GameToolPlacedObjectState *object =
+            &state->tool_placed_objects[i];
+        if (object->kind == 0) continue;
+        /* 0x41BFD2 binds a timed bomb to a player and clears its route
+         * association. tool_trigger_at_node represents that as node == 0;
+         * the player backlink must still identify this same bomb slot. */
+        if (object->kind == 0x12 && object->node == 0 &&
+            object->attached_player > 0 &&
+            object->attached_player <= GAME_MAX_PLAYERS &&
+            object->attached_player <= state->player_count &&
+            state->players[object->attached_player - 1].attached_timed_bomb_slot == i)
+            continue;
+        if (object->node <= 0 || object->node >= route_count)
+            return 0;
+    }
+    return 1;
+}
+
 int rich4_game_save_session_matches_map(const GameSession *session,
                                         const MapData *map)
 {
@@ -403,20 +425,9 @@ int rich4_game_save_session_matches_map(const GameSession *session,
                 return 0;
         }
     }
-    for (i = 0; i < GAME_TOOL_PLACED_OBJECT_COUNT; i++) {
-        const struct GameToolPlacedObjectState *object =
-            &session->state.tool_placed_objects[i];
-        if (object->kind != 0 &&
-            (object->node <= 0 || object->node >= route_count))
-            return 0;
-        if (session->time_machine_valid) {
-            object = &session->time_machine_state.tool_placed_objects[i];
-            if (object->kind != 0 &&
-                (object->node <= 0 || object->node >= route_count))
-                return 0;
-        }
-    }
-    return 1;
+    return save_placed_objects_match_map(&session->state, route_count) &&
+        (!session->time_machine_valid ||
+         save_placed_objects_match_map(&session->time_machine_state, route_count));
 }
 
 static int save_session_valid(const GameSession *session)
@@ -432,6 +443,10 @@ static int save_session_valid(const GameSession *session)
     flow = &session->flow;
     presentation = &session->presentation;
     /* These original blocking modals do not admit a save operation. */
+    if (presentation->card_use.phase != GAME_CARD_USE_NONE ||
+        (session->time_machine_valid &&
+         session->time_machine_presentation.card_use.phase != GAME_CARD_USE_NONE))
+        return 0;
     if (presentation->special_place_notice.queue.count > 0 ||
         (session->time_machine_valid &&
          session->time_machine_presentation.special_place_notice.queue.count > 0))
@@ -662,6 +677,7 @@ int rich4_game_save_read(const char *path, int slot,
     if (fclose(file) != 0) ok = 0;
     if (!ok || memcmp(bytes, magic, sizeof(magic)) != 0 ||
         (save_get_u32(bytes + 4) != GAME_SAVE_FORMAT_VERSION &&
+         save_get_u32(bytes + 4) != 9 &&
          save_get_u32(bytes + 4) != 8 &&
          save_get_u32(bytes + 4) != 7 &&
          save_get_u32(bytes + 4) != 6 &&
@@ -708,6 +724,23 @@ int rich4_game_save_read(const char *path, int slot,
     } else if (save_get_u32(bytes + 4) == 5)
         codec_v5_GameSession(&codec, decoded);
     else codec_GameSession(&codec, decoded);
+    if (codec.version < 10) {
+        GameState *states[2] = {&decoded->state, &decoded->time_machine_state};
+        int p, i;
+        for (p = 0; p < 2; p++)
+            for (i = 0; i < 4; i++) {
+                int kind = states[p]->special_player_actor_type[i];
+                int node = kind == GAME_CONFINEMENT_PRISON
+                    ? states[p]->prison_node : states[p]->hospital_node;
+                /* Earlier SDL saves kept only the release-origin bits. */
+                if (states[p]->special_player_f10[i] == 0 &&
+                    (kind == GAME_CONFINEMENT_PRISON ||
+                     kind == GAME_CONFINEMENT_HOSPITAL) &&
+                    node >= 0 && node < GAME_MAX_MAP_ROUTE_NODES &&
+                    (states[p]->tool_route_flags[node] & 0xffu) == (unsigned)(kind + 3))
+                    states[p]->special_player_actor_type[i] |= 0x80;
+            }
+    }
     if (codec.version < 9) {
         GamePresentationState *presentations[2] = {
             &decoded->presentation, &decoded->time_machine_presentation

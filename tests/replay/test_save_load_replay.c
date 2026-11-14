@@ -7,6 +7,7 @@
 
 #include "app/ai_flow.h"
 #include "app/audio_event.h"
+#include "app/dynamic_object_flow.h"
 #include "app/game_save.h"
 #include "app/game_session.h"
 #include "app/game_presentation.h"
@@ -289,6 +290,57 @@ static void round_trip_case(const char *directory, const char *name,
     remove(copy_path);
 }
 
+static void test_attached_bomb_roundtrip(const char *directory,
+                                         const MapData *map)
+{
+    static GameSession source;
+    int mask;
+    /* 0x41BFD2 keeps the bomb slot and binds it to a player while clearing
+     * its route association. Cover both the live state and time-machine copy. */
+    for (mask = 1; mask <= 3; mask++) {
+        GameState *states[2];
+        struct GameToolPlacedObjectState *bomb;
+        int p, i;
+        initialize_session(&source);
+        states[0] = &source.state;
+        states[1] = &source.time_machine_state;
+        for (p = 0; p < 2; p++) {
+            GameEventQueue events;
+            for (i = 0; i < GAME_MAX_PLAYERS; i++)
+                states[p]->players[i].attached_timed_bomb_slot = -1;
+            if (!(mask & (1 << p))) continue;
+            bomb = &states[p]->tool_placed_objects[20];
+            bomb->kind = 0x12;
+            bomb->node = 1;
+            bomb->owner = 0;
+            bomb->attached_player = 0xff;
+            rich4_game_event_queue_reset(&events);
+            assert(rich4_tool_trigger_at_node(states[p], 1, 1, 1, &events) ==
+                   GAME_TOOL_TRIGGER_PASS);
+            assert(bomb->node == 0 && bomb->attached_player == 2 &&
+                   states[p]->players[1].attached_timed_bomb_slot == 20);
+        }
+        round_trip_case(directory, "attached-bomb", &source, 2, map);
+        bomb = &states[mask & 1 ? 0 : 1]->tool_placed_objects[20];
+        bomb->kind = 0x10;
+        assert(!rich4_game_save_session_matches_map(&source, map));
+        bomb->kind = 0x12;
+        bomb->attached_player = 0;
+        assert(!rich4_game_save_session_matches_map(&source, map));
+        bomb->attached_player = 0xff;
+        assert(!rich4_game_save_session_matches_map(&source, map));
+        bomb->attached_player = source.state.player_count + 1;
+        assert(!rich4_game_save_session_matches_map(&source, map));
+        bomb->attached_player = 1; /* No matching player backlink. */
+        assert(!rich4_game_save_session_matches_map(&source, map));
+        bomb->attached_player = 2;
+        bomb->node = -1;
+        assert(!rich4_game_save_session_matches_map(&source, map));
+        bomb->node = (int)map->route_count;
+        assert(!rich4_game_save_session_matches_map(&source, map));
+    }
+}
+
 static int ai_replay_submit(Rich4AiCommandSink *sink,
                             const GameCommand *command, uint32_t now)
 {
@@ -568,6 +620,43 @@ static void runtime_load_reseeds_special_targets(const char *directory)
     remove(path);
 }
 
+static void runtime_load_preserves_dynamic_gods(const char *directory)
+{
+    GameSession *saved = &sessions[0], *decoded = &sessions[1];
+    GameSession *runtime = &sessions[2];
+    char path[512];
+    int attempt;
+
+    initialize_session(saved);
+    rich4_app_init_dynamic_object_pool(&saved->presentation);
+    saved->presentation.dynamic_objects[0].node = 1;
+    saved->presentation.dynamic_objects[0].world_x = 500;
+    saved->presentation.dynamic_objects[4].node = 1;
+    saved->presentation.dynamic_objects[4].attached_player = 1;
+    saved->presentation.dynamic_objects[4].countdown = 3;
+    saved->state.players[0].god_info = 5;
+    saved->state.players[0].god_type = 5;
+    saved->time_machine_presentation.dynamic_objects[2].type = 3;
+    saved->time_machine_presentation.dynamic_objects[2].node = 1;
+    snprintf(path, sizeof(path), "%s/dynamic-gods.R4S", directory);
+    memset(runtime, 0, sizeof(*runtime));
+    for (attempt = 0; attempt < 32; attempt++) {
+        assert(rich4_game_save_write(path, 2, saved));
+        assert(rich4_game_save_read(path, 2, decoded));
+        assert(rich4_game_save_resume(runtime, decoded, 1000u + attempt));
+        assert(memcmp(runtime->presentation.dynamic_objects,
+                      saved->presentation.dynamic_objects,
+                      sizeof(saved->presentation.dynamic_objects)) == 0);
+        assert(memcmp(runtime->time_machine_presentation.dynamic_objects,
+                      saved->time_machine_presentation.dynamic_objects,
+                      sizeof(saved->time_machine_presentation.dynamic_objects)) == 0);
+        assert(runtime->state.players[0].god_info == 5);
+        assert(runtime->state.players[0].god_type == 5);
+        *saved = *runtime;
+    }
+    remove(path);
+}
+
 int main(void)
 {
     static const char *directory = "build/save-load-replay";
@@ -581,10 +670,32 @@ int main(void)
     char damaged_source[512];
     assert(rich4_game_save_ensure_directory(directory));
     runtime_load_reseeds_special_targets(directory);
+    runtime_load_preserves_dynamic_gods(directory);
     initialize_map(&map);
+    test_attached_bomb_roundtrip(directory, &map);
     initialize_session(source);
     test_auto_save_waits_for_original_turn_boundary();
     test_failed_write_preserves_slot(directory, source);
+
+    source->state.special_player_actor_type[0] = 0x81;
+    source->presentation.special_actor.active = 1;
+    source->presentation.special_actor.path_count = 2;
+    source->presentation.special_actor.path_index = 1;
+    source->presentation.special_actor.path_nodes[0] = 1;
+    source->presentation.special_actor.path_nodes[1] = 1;
+    source->presentation.special_actor.arrival_pending = 1;
+    round_trip_case(directory, "special-arrival", source, 2, &map);
+    assert(loaded->presentation.special_actor.arrival_pending == 1);
+    source->presentation.special_actor.arrival_pending = 0;
+    source->presentation.special_actor.end_ticks_remaining = 3;
+    source->time_machine_presentation.special_actor = source->presentation.special_actor;
+    round_trip_case(directory, "special-end-pause", source, 2, &map);
+    assert(loaded->presentation.special_actor.end_ticks_remaining == 3);
+    assert(loaded->time_machine_presentation.special_actor.end_ticks_remaining == 3);
+    memset(&source->presentation.special_actor, 0, sizeof(source->presentation.special_actor));
+    memset(&source->time_machine_presentation.special_actor, 0,
+        sizeof(source->time_machine_presentation.special_actor));
+    source->state.special_player_actor_type[0] = 0;
 
     source->presentation.route_interaction.active = 1;
     source->presentation.route_interaction.accept =

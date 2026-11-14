@@ -210,13 +210,14 @@ class CodecGenerator:
             # clocks or blocking-modal continuation fields, not durable data.
             transient = {
                 "GameSession": {"pending_turn_events"},
-                "GamePresentationState": {"animation_clock", "special_place_notice"},
+                "GamePresentationState": {"animation_clock", "special_place_notice", "card_use"},
                 "GamePropertyPresentationState": {"flash_presented_frame"},
                 "GameEndingPresentationState": {"continuation_confirmation_frame"},
                 "GameSpecialEventPresentationState": {
                     "fortune_choices_done", "fortune_defense_ready", "fortune_redirect_target",
                     "fortune_passive_card", "fortune_choice_hover", "fortune_card_targets_seen",
-                    "fortune_god_notice_done", "fortune_passive_resolved"},
+                    "fortune_god_notice_done", "fortune_passive_resolved",
+                    "flash_adjust", "flash_presented_frame"},
                 "CardPanelState": {"effect_frame", "effect_frame_count", "effect_clock"},
             }
             if field.name in transient.get(alias, set()):
@@ -234,6 +235,10 @@ class CodecGenerator:
                 (alias == "GameSpecialEventPresentationState" and field.name == "pending_confinement_days") or
                 (alias == "GameInsuranceNoticeEntry" and field.name == "cause")):
                 emitted = ["if (codec->version >= 8) {"] + [
+                    "    " + line for line in emitted] + ["}"]
+            if alias == "GameSpecialActorPresentationState" and field.name in (
+                    "arrival_pending", "end_ticks_remaining"):
+                emitted = ["if (codec->version >= 10) {"] + [
                     "    " + line for line in emitted] + ["}"]
             body.extend(emitted)
         self.functions[name] = (

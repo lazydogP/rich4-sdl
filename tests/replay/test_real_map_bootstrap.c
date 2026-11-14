@@ -54,6 +54,11 @@
 #define REAL_MAP_REPLAY_SEED 29U
 #endif
 
+/* The target-assets fixture keeps the live road-god pool and auction timer
+ * RNG. Its independent placement seed reaches the asset target before the
+ * other players go bankrupt. The general replay seed remains configurable. */
+#define REAL_MAP_ASSET_TARGET_SEED 32U
+
 typedef struct RealMapFactSummary {
     int phase;
     int node;
@@ -2010,7 +2015,7 @@ static void run_real_map_asset_target_walk(
     /* Use a fixed alternate placement seed for this target replay so the
      * live dynamic-object pool itself is part of the evidence while the
      * other real-map smokes retain the common setup seed. */
-    session.state.ai_rng_state = REAL_MAP_REPLAY_SEED;
+    session.state.ai_rng_state = REAL_MAP_ASSET_TARGET_SEED;
     rich4_app_init_dynamic_object_pool(&session.presentation);
     rich4_app_initialize_dynamic_map_objects_with_rng(
         &session.presentation, map, &session.state.ai_rng_state);
