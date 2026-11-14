@@ -165,11 +165,14 @@ static void test_loan_due_reminder_and_forced_payment(void)
     state.players[0].bank = 700;
     state.players[0].loan = 1000;
     state.players[0].loan_due_date = 1;
+    state.lottery_pool = 12345;
+    state.players[0].monthly_loss = 17;
     rich4_game_event_queue_reset(&events);
     assert(rich4_turn_advance_once_events(&state, &result, &events));
     assert(state.players[0].bank == 0 && state.players[0].cash == 200 &&
            state.players[0].loan == 0 &&
            state.players[0].loan_due_date == 0);
+    assert(state.lottery_pool == 12345 && state.players[0].monthly_loss == 17);
     while (rich4_game_event_queue_pop(&events, &event))
         if (event.type == GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED) {
         assert(rich4_game_event_value(&event) == 0 &&
@@ -194,10 +197,16 @@ static void test_loan_due_bankruptcy_and_closed_day_shift(void)
     state.players[0].bank = 100;
     state.players[0].loan = 1000;
     state.players[0].loan_due_date = 1;
+    state.lottery_pool = 12345;
+    state.player_stock_amount[0][0] = 2;
+    state.stocks[0].f20 = 1.75f;
+    state.lottery_owner[5] = 1;
     rich4_game_event_queue_reset(&events);
     assert(rich4_turn_advance_once_events(&state, &result, &events));
     assert((state.players[0].play_state & 0xff) == 0 &&
            state.players[0].loan_due_date == 0);
+    /* 0x433BD8 sends no principal to the pool; 0x40CD87 adds only stocks. */
+    assert(state.lottery_pool == 12348 && state.lottery_owner[5] == 0);
     while (rich4_game_event_queue_pop(&events, &event))
         if (event.type == GAME_EVENT_PLAYER_ELIMINATED && event.player == 0)
             eliminated++;

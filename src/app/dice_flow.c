@@ -89,6 +89,22 @@ void rich4_dice_begin_roll(GameSession *session, uint32_t now)
     session->time_machine_presentation = session->presentation;
     session->time_machine_valid = rich4_presentation_rebind_speech(
         &session->time_machine_presentation);
+    /* 0x40DD53..0x40DD7C saves the time-machine snapshot, then a nonzero
+     * +56 bypasses the dice action and enters EA2=0, EA5=2.  The ordinary
+     * stop countdown still dispatches the square under the player. */
+    if ((player->play_state & 0x30) == 0 &&
+        (player->days_stopping & 0xff) != 0) {
+        session->flow.turn_state = GAME_TURN_STATE_MOVE;
+        session->flow.turn_state_frame = 0;
+        session->flow.turn_state_tick = now;
+        session->flow.turn_wait = 2;
+        session->flow.dice_value = 0;
+        session->flow.steps_remaining = 0;
+        session->presentation.movement_tick = 0;
+        session->presentation.dice.popup_active = 0;
+        session->presentation.dice.result_visible = 0;
+        return;
+    }
     session->presentation.dice.count = player->remote_dice_value != 0
         ? 1 : player->ndices;
     if (session->presentation.dice.count < 1)
@@ -177,6 +193,12 @@ int rich4_dice_update(GameSession *session, const MapData *map,
     if (session->presentation.god_acquisition.active) return 1;
     current = rich4_dice_player_index(session);
     if (current < 0) return 0;
+    if (!session->presentation.dice.popup_active &&
+        (session->state.players[current].play_state & 0x30) == 0 &&
+        (session->state.players[current].days_stopping & 0xff) != 0) {
+        rich4_dice_begin_roll(session, now);
+        return 1;
+    }
     if (action_delay_ms <= 0)
         action_delay_ms = RICH4_DICE_DEFAULT_FRAME_MS;
     if (graph_delay_ms <= 0) graph_delay_ms = 10;

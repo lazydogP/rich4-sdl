@@ -50,6 +50,9 @@ GameConfinementResult rich4_confinement_disappear(GameState *state, int actor,
 GameConfinementResult rich4_confinement_release(GameState *state, int actor,
                                                  int kind,
                                                  GameEventQueue *events);
+/* 0x41C7A6: match record +11 against the reached route action. */
+int rich4_confinement_special_pass(GameState *state, int slot, int action,
+                                   GameEventQueue *events);
 int rich4_confinement_visit_cost(GameDomainRef target);
 int rich4_confinement_visit_candidate(const GameState *state,
                                       GameDomainRef target, int kind);

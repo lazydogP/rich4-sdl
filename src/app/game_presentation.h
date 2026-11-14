@@ -314,6 +314,9 @@ typedef struct GameSpecialActorPresentationState {
     GameSpecialActorActionBatch action_batch;
     int action_index;
     uint32_t action_until;
+    /* 0x40D939 arrival pulse, then EA5=5 and EA5=0x83. */
+    int arrival_pending;
+    int end_ticks_remaining;
 } GameSpecialActorPresentationState;
 
 /* 0x417559 keeps the map information bubble as a transient cursor result.

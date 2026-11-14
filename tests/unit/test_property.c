@@ -5,6 +5,7 @@
 
 #include "core/property.h"
 #include "core/game_event_payload.h"
+#include "core/special_actor_action.h"
 
 static void init_state(GameState *s)
 {
@@ -35,6 +36,77 @@ static GameEvent pop(GameEventQueue *q)
     GameEvent e;
     assert(rich4_game_event_queue_pop(q, &e));
     return e;
+}
+
+static void test_spy_toll_record(void)
+{
+    GameState s, before;
+    GameEventQueue q;
+    GameSpecialActorActionBatch batch;
+    MapData map;
+    MapRouteNode routes[2];
+    int fee;
+
+    init_state(&s);
+    s.land_count = 2;
+    s.land_owner[0] = s.land_owner[1] = 1;
+    s.land_group[0] = s.land_group[1] = 4;
+    s.land_toll_by_level[0][0] = 100;
+    s.land_toll_by_level[1][0] = 250;
+    s.players[0].cash = s.players[2].cash = 5000;
+    s.special_player_play_state[3] = 0;
+    memset(&map, 0, sizeof(map));
+    memset(routes, 0, sizeof(routes));
+    map.routes = routes;
+    map.route_count = 2;
+    routes[1].object = rich4_map_object_ref(0x7d1);
+
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_land_charge(&s, 0, 0, &fee, &q) == GAME_PAYMENT_COMMITTED);
+    assert(fee == 700 && s.land_runtime_value[0] == 700);
+    assert(s.land_runtime_value[1] == 0); /* only the visited record */
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_special_actor_apply_step(&s, &map, 3, 1, 0, &batch, &q));
+    assert(batch.count == 0); /* passing the property does not collect */
+    assert(rich4_special_actor_apply_step(&s, &map, 3, 1, 1, &batch, &q));
+    assert(batch.count == 1 && batch.action[0].kind == GAME_SPECIAL_ACTOR_ACTION_SPY_TOLL);
+    assert(batch.action[0].amount == 700 && s.players[1].bank == 0 &&
+           s.players[0].bank == 700 && s.land_runtime_value[0] == 700);
+
+    s.players[0].god_info = s.players[0].god_type = 1;
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_land_charge(&s, 0, 0, &fee, &q) == GAME_PAYMENT_COMMITTED);
+    assert(fee == 350 && s.land_runtime_value[0] == 350); /* latest adjusted toll */
+    s.players[0].god_info = s.players[0].god_type = 2;
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_land_charge(&s, 0, 0, &fee, &q) == GAME_PAYMENT_COMMITTED);
+    assert(fee == 0 && s.land_runtime_value[0] == 350); /* zero before card chain */
+    s.players[0].god_info = s.players[0].god_type = 0;
+
+    s.players[0].card_inventory[0] = 19;
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_land_charge_with_cards(&s, 0, 0, 0, 1, &fee, &q) == GAME_PAYMENT_COMMITTED);
+    assert(s.land_runtime_value[0] == 350); /* owner becomes payer */
+    s.players[1].linked_player = 2;
+    s.players[0].card_inventory[0] = 19;
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_land_charge_with_cards(&s, 0, 0, 0, 2, &fee, &q) == GAME_PAYMENT_COMMITTED);
+    assert(s.land_runtime_value[0] == 350); /* related owner becomes payer */
+    s.players[1].linked_player = -1;
+
+    s.players[0].card_inventory[0] = 20;
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_land_charge_with_cards(&s, 0, 0, 1, -1, &fee, &q) == GAME_PAYMENT_COMMITTED);
+    assert(fee == 0 && s.land_runtime_value[0] == 0); /* free card clears income */
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_special_actor_apply_step(&s, &map, 3, 1, 1, &batch, &q));
+    assert(batch.count == 0);
+
+    while (q.count < GAME_EVENT_QUEUE_CAPACITY)
+        assert(rich4_game_event_text_requested_emit(&q, 0, 0, 0, 0, 0));
+    before = s;
+    assert(rich4_land_charge(&s, 0, 0, &fee, &q) == GAME_PAYMENT_REJECTED);
+    assert(memcmp(&s, &before, sizeof(s)) == 0);
 }
 
 int main(void)
@@ -125,6 +197,7 @@ int main(void)
                GAME_PAYMENT_COMMITTED && value == 1500);
     assert(s.players[0].cash == 500 && s.players[1].bank == 1400 &&
            s.players[2].bank == 100);
+    assert(s.land_runtime_value[0] == 1500);
     e = pop(&q); assert(e.type == GAME_EVENT_MONEY_TRANSFERRED &&
                        rich4_game_event_target_ref(&e).id == 1 &&
                        rich4_game_event_value(&e) == 1400);
@@ -171,6 +244,7 @@ int main(void)
     rich4_game_event_queue_reset(&q);
     assert(rich4_land_charge(&s, 0, 0, &value, &q) == GAME_PAYMENT_BANKRUPTCY);
     assert(s.players[0].play_state == 0 && s.players[1].bank == 15);
+    assert(s.land_runtime_value[0] == 1000);
 
     init_state(&s); s.land_count = 1; s.land_owner[0] = 1;
     s.land_group[0] = 0; s.land_toll_by_level[0][0] = 1250;
@@ -190,6 +264,7 @@ int main(void)
            GAME_PAYMENT_COMMITTED);
     assert(value == 2500 && s.players[2].cash == 500 &&
            s.players[1].bank == 2500);
+    assert(s.land_runtime_value[0] == 2500);
 
     init_state(&s); s.land_count = 2; s.land_owner[0] = 1; s.land_owner[1] = 0;
     s.land_group[0] = 0; s.land_group[1] = 1;
@@ -231,6 +306,7 @@ int main(void)
     s.land_price_status[0] = 0;
     assert(rich4_land_inspect(&s, 0, 0, &action) &&
            action.kind == GAME_LAND_ACTION_CHARGE);
+    test_spy_toll_record();
     puts("ordinary land purchase/upgrade/toll: ok");
     return 0;
 }

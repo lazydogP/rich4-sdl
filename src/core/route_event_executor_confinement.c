@@ -8,7 +8,9 @@ int confinement_has_candidate(const GameState *state, int kind)
         if (rich4_confinement_visit_candidate(
                 state, rich4_game_domain_ref(GAME_DOMAIN_PLAYER, i), kind))
             return 1;
-    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++)
+    /* 0x43D30E/0x43E9AE scan exactly eight occupancy slots: four players
+     * and four special actors; the fifth special actor has no visit slot. */
+    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT && i < 4; i++)
         if (rich4_confinement_visit_candidate(
                 state,
                 rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, i), kind))

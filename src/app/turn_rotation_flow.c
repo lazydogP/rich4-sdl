@@ -142,7 +142,7 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                                        confinement_kind);
             if (confinement_kind == GAME_CONFINEMENT_HOTEL)
                 session->presentation.hotel_entry.saved_direction = return_direction;
-            rich4_app_update_player_status_countdowns(session, event.player);
+            rich4_app_update_player_status_countdowns(session, event.player, now);
             /* 0x41CC6F..0x41CC9B: tick the selected player's attached god
              * even during confinement; expire immediately at zero. */
             if (player->god_info > 0 && player->god_info <= GAME_MAP_DYNAMIC_OBJECT_COUNT &&
@@ -259,6 +259,9 @@ int rich4_app_advance_turn_rotation(
     if (session == NULL || !session->state.active || session->state.game_over ||
         session->state.player_count <= 0 || session->pending_turn_events.count > 0)
         return 0;
+    /* 0x418EC2 clears the observation target on entry to the shared turn
+     * rotation, before selecting an ordinary or special actor. */
+    session->presentation.has_view_override = 0;
     previous_elapsed_days = session->state.elapsed_days;
     for (guard = 0; guard < GAME_MAX_PLAYERS + 5; guard++) {
         TurnAdvanceResult result;
@@ -289,10 +292,14 @@ int rich4_app_advance_turn_rotation(
         if (result.kind == TURN_SELECTION_SPECIAL) {
             int slot = result.selected_index - GAME_MAX_PLAYERS;
             TurnSpecialAutoActionResult special_action;
+            /* 0x418D69 -> 0x41D548: the shared actor-start repaint clears
+             * any observation target created by the rotation's events. */
+            session->presentation.has_view_override = 0;
             rich4_app_update_special_player_status_countdowns(session, slot);
             rich4_turn_run_special_auto_action(
                 &session->state, map, slot, &special_action);
-            if (special_action.kind == TURN_SPECIAL_AUTO_MOVED) {
+            if (special_action.kind == TURN_SPECIAL_AUTO_MOVED ||
+                special_action.kind == TURN_SPECIAL_AUTO_BLOCKED) {
                 if (out_result != NULL) {
                     out_result->special_action_pending = 1;
                     out_result->special_action = special_action;

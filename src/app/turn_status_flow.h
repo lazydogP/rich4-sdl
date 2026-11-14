@@ -11,7 +11,7 @@
  * records app debug facts and presentation dirtiness without SDL. Evidence:
  * A4/A5, tests/unit/test_turn_status_flow.c. */
 void rich4_app_update_player_status_countdowns(GameSession *session,
-                                               int player_index);
+                                               int player_index, uint32_t now);
 int rich4_app_process_pending_status_events(GameSession *session,
                                             int player_index);
 int rich4_app_process_pending_status_events_to(

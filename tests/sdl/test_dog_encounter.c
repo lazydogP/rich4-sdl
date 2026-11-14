@@ -2,7 +2,6 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL/SDL.h>
-#undef main
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -470,7 +469,9 @@ static void special_actor(void)
             session.presentation.special_actor.move_distance - 1;
         session.presentation.special_actor.last_step_tick = 900;
         assert(rich4_special_actor_update(&session, &assets.map.maps[0],
-            10, 1000) == RICH4_SPECIAL_ACTOR_UPDATE_DOG);
+            10, 1000) == RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE);
+        assert(rich4_special_actor_update(&session, &assets.map.maps[0],
+            10, 1010) == RICH4_SPECIAL_ACTOR_UPDATE_DOG);
         assert(session.presentation.special_actor.active);
         assert(rich4_game_event_queue_pop(&session.deferred_events, &event));
         game_tool_animation_enqueue_from_platform(&session, &assets, &event, 1000);
@@ -479,8 +480,14 @@ static void special_actor(void)
     assert(session.state.special_player_f10[0] == 0);
     update(5332, 1);
     assert(session.state.special_player_f10[0] == 2);
-    assert(rich4_special_actor_update(&session, &assets.map.maps[0],
-        10, 5333) == RICH4_SPECIAL_ACTOR_UPDATE_FINISHED);
+    {
+        int tick;
+        for (tick = 0; tick < 8; tick++)
+            assert(rich4_special_actor_update(&session, &assets.map.maps[0],
+                10, 5340 + tick * 10) == (tick == 7
+                    ? RICH4_SPECIAL_ACTOR_UPDATE_FINISHED
+                    : RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE));
+    }
     assert(session.presentation.tool_animation_count == 0);
     assert(!session.presentation.speech.active);
     assert(session.presentation.insurance.count == 0);

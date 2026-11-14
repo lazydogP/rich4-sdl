@@ -86,10 +86,10 @@ static int emit_transition(GameEventQueue *events, int actor, int kind, int days
            push_confinement_event(
                events, rich4_game_event_scene_refresh_requested_from_fields,
                actor, offset, kind, entering) &&
-           (!entering || push_confinement_event(
+           (!entering || actor >= GAME_MAX_PLAYERS || push_confinement_event(
                events, rich4_game_event_text_requested_from_fields,
                actor, offset, kind, days)) &&
-           (!entering || push_confinement_event(
+           (!entering || actor >= GAME_MAX_PLAYERS || push_confinement_event(
                events, rich4_game_event_voice_requested_from_fields,
                actor, offset, kind, days));
 }
@@ -121,7 +121,8 @@ static GameConfinementResult confinement_enter(GameState *state, int actor,
     int node;
     if (state == NULL || events == NULL || actor < 0 || actor >= 8 ||
         (kind != GAME_CONFINEMENT_PRISON && kind != GAME_CONFINEMENT_HOSPITAL) ||
-        days <= 0 || days >= GAME_STATUS_PENDING_BIT) return GAME_CONFINEMENT_INVALID;
+        days < 0 || (days == 0 && actor < GAME_MAX_PLAYERS) ||
+        days >= GAME_STATUS_PENDING_BIT) return GAME_CONFINEMENT_INVALID;
     node = special_node(state, kind);
     if (node < 0 || node >= GAME_MAX_MAP_ROUTE_NODES) return GAME_CONFINEMENT_INVALID;
     next = *state;
@@ -274,6 +275,11 @@ GameConfinementResult rich4_confinement_release(GameState *state, int actor,
         next.special_player_node[special] = node;
         next.special_player_previous_node[special] = 0;
         next.special_player_actor_type[special] = kind;
+        /* 0x43D872 / 0x43EF21: raw destination and route action need not
+         * coincide on every map. Arm only on the matching action. */
+        if (node < GAME_MAX_MAP_ROUTE_NODES &&
+            (state->tool_route_flags[node] & 0xffu) == (unsigned)(kind + 3))
+            next.special_player_actor_type[special] |= 0x80;
         next.special_player_confinement[special] = GAME_CONFINEMENT_NONE;
         next.special_player_f10[special] = 0;
     }
@@ -282,6 +288,25 @@ GameConfinementResult rich4_confinement_release(GameState *state, int actor,
         return GAME_CONFINEMENT_EVENT_CAPACITY;
     *state = next;
     return GAME_CONFINEMENT_APPLIED;
+}
+
+int rich4_confinement_special_pass(GameState *state, int slot, int action,
+                                   GameEventQueue *events)
+{
+    int origin;
+    int kind;
+    if (state == NULL || events == NULL || slot < 0 || slot >= 4 ||
+        state->special_player_f10[slot] != 0) return 0;
+    origin = state->special_player_actor_type[slot];
+    kind = origin & 0x7f;
+    if ((kind != GAME_CONFINEMENT_PRISON && kind != GAME_CONFINEMENT_HOSPITAL) ||
+        action != kind + 3) return 1;
+    if ((origin & 0x80) == 0) {
+        state->special_player_actor_type[slot] = origin | 0x80;
+        return 1;
+    }
+    return rich4_confinement_enter(state, slot + 4, kind, 0, events) ==
+        GAME_CONFINEMENT_APPLIED;
 }
 
 int rich4_confinement_visit_cost(GameDomainRef target)
@@ -456,7 +481,8 @@ int rich4_status_snapshot_import(GameState *state, const GameStatusSnapshot *in)
         if (in->special_node[i] < -1 ||
             in->special_node[i] >= GAME_MAX_MAP_ROUTE_NODES ||
             in->special_actor_type[i] < GAME_CONFINEMENT_NONE ||
-            in->special_actor_type[i] > GAME_CONFINEMENT_HOSPITAL ||
+            (in->special_actor_type[i] & ~0x80) > GAME_CONFINEMENT_HOSPITAL ||
+            in->special_actor_type[i] > 0x82 ||
             in->special_confinement[i] < GAME_CONFINEMENT_NONE ||
             in->special_confinement[i] > GAME_CONFINEMENT_HOSPITAL) return 0;
     next=*state; next.prison_node=in->prison_node; next.hospital_node=in->hospital_node;

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "app/game_speech_flow.h"
+#include "app/special_place_notice_flow.h"
 #include "core/confinement.h"
 #include "core/facility.h"
 #include "core/game_constants.h"
@@ -87,7 +88,7 @@ static void tick_god_relation_balance(GameSession *session, int player_index)
 }
 
 void rich4_app_update_player_status_countdowns(GameSession *session,
-                                               int player_index)
+                                               int player_index, uint32_t now)
 {
     GamePlayerState *player;
     StatusTickResult tick_result;
@@ -107,7 +108,9 @@ void rich4_app_update_player_status_countdowns(GameSession *session,
     rich4_game_event_queue_reset(&events);
     if (rich4_facility_tick_research(&session->state, player_index, &events)) {
         while (rich4_game_event_queue_pop(&events, &event)) {
-            if (event.type == GAME_EVENT_INVENTORY_CHANGED ||
+            if (event.type == GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED)
+                (void)rich4_special_place_notice_enqueue(session, &event, now);
+            else if (event.type == GAME_EVENT_INVENTORY_CHANGED ||
                 event.type == GAME_EVENT_STATUS_CHANGED)
                 session->presentation.actors[player_index].dirty_flags |=
                     GAME_PLAYER_DIRTY_TURN;

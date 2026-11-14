@@ -100,9 +100,7 @@ static int resolve_ordinary_loan_due(GameState *state, int player,
         return rich4_game_event_queue_push(events, &event);
     }
     principal = account->loan;
-    payment = rich4_ledger_pay(
-        state, player, rich4_ledger_system(), principal,
-        GAME_PAYMENT_PAYER_BANK_FIRST, events);
+    payment = rich4_ledger_debit_bank(state, player, principal, events);
     if (payment == GAME_PAYMENT_REJECTED ||
         payment == GAME_PAYMENT_LIQUIDATION)
         return 0;
@@ -155,6 +153,7 @@ int rich4_turn_run_special_auto_action(
     int node;
     int previous;
     int steps;
+    int origin;
     int i;
     memset(&result, 0, sizeof(result));
     result.kind = TURN_SPECIAL_AUTO_INVALID;
@@ -194,6 +193,7 @@ int rich4_turn_run_special_auto_action(
     steps = (state->special_player_status[special_slot][3] & 0xff) != 0
         ? 1 : rich4_rng_state_range(&rng, 9) + 2;
     result.requested_steps = steps;
+    origin = state->special_player_actor_type[special_slot];
     for (i = 0; i < steps; i++) {
         int options[4];
         int count = special_route_options(map, node, previous, options);
@@ -204,6 +204,16 @@ int rich4_turn_run_special_auto_action(
         node = next;
         result.completed_steps++;
         result.path_nodes[result.path_count++] = node;
+        /* 0x41C7A6..0x41C83E runs at every arrival, including pass-through.
+         * Do not draw random edges beyond a return to confinement. The
+         * actual +11/+10 changes commit when that node is presented. */
+        if (((origin & 0x7f) == GAME_CONFINEMENT_PRISON &&
+             (map->routes[node].flags & 0xffu) == 4) ||
+            ((origin & 0x7f) == GAME_CONFINEMENT_HOSPITAL &&
+             (map->routes[node].flags & 0xffu) == 5)) {
+            if ((origin & 0x80) != 0) break;
+            origin |= 0x80;
+        }
     }
     state->special_player_previous_node[special_slot] = previous;
     state->special_player_node[special_slot] = node;

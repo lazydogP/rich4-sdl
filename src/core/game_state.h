@@ -108,6 +108,8 @@ typedef struct GameState {
     int special_player_node[GAME_SPECIAL_PLAYER_COUNT];
     /* Original special-player record +6: the route node just left. */
     int special_player_previous_node[GAME_SPECIAL_PLAYER_COUNT];
+    /* Original +11: low 7 bits are release origin (1 prison / 2 hospital),
+     * bit 0x80 arms automatic re-entry at the matching route action. */
     int special_player_actor_type[GAME_SPECIAL_PLAYER_COUNT];
     int special_player_confinement[GAME_SPECIAL_PLAYER_COUNT];
     /* Original record +10: zero means the special actor is active. */

@@ -364,6 +364,12 @@ GamePaymentResult rich4_land_charge_with_cards(GameState *state, int actor,
         return (payment == GAME_PAYMENT_COMMITTED ||
                 payment == GAME_PAYMENT_BANKRUPTCY)
             ? GAME_PAYMENT_REJECTED : payment;
+    /* 0x41A00B records the post-card toll, including a free
+     * card's zero, only when the god-adjusted charge was nonzero and the
+     * resolved payer is neither owner.  The spy reads this at 0x41C597. */
+    if (action.amount != 0 && payer != action.owner &&
+        payer != action.related_owner)
+        next.land_runtime_value[land] = (uint32_t)fee;
     *state = next;
     return payment;
 }

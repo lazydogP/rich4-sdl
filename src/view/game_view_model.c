@@ -546,9 +546,13 @@ int rich4_game_view_model_build(const GameState *state,
     }
     model.hud.price_index = state->price_index > 0 ? state->price_index : 1;
     if (model.current_actor >= 4 && model.current_actor < 8) {
+        int owner = state->special_player_play_state[model.current_actor - 4];
         model.hud.special_actor = model.current_actor;
+        /* 0x41605C / 0x4167DC: +8 indexes the owner's Map portrait,
+         * not the special actor's +11 confinement-origin byte. */
         model.hud.special_portrait_character =
-            state->special_player_actor_type[model.current_actor - 4];
+            owner >= 0 && owner < state->player_count
+                ? state->players[owner].character : -1;
     }
     build_calendar_view(state, &model.calendar);
     model.land_count = state->land_count;

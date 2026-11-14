@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <SDL/SDL.h>
-#undef main
 #include "app/map_input_flow.h"
 #include "core/character_template.h"
 #include "platform/sdl1/game_loop_preview_toolbar_input.h"
@@ -265,7 +264,30 @@ int main(void)
             80 + ((5696 * target_y) >> 16) - 15) == 0xf800);
     }
     /* The small thief/robber/hoodlum/spy card shares the baked compact labels. */
-    view.hud.special_actor=4; view.hud.special_portrait_character=2;
+    state.turn_rotation_index = 4;
+    state.special_player_actor_type[0] = 0x81;
+    for (i = 0; i < 2; i++) {
+        int character = state.players[i].character;
+        state.special_player_play_state[0] = i;
+        assert(rich4_game_view_model_build(&state, &input, NULL, &view));
+        assert(view.hud.special_actor == 4);
+        assert(view.hud.special_portrait_character == character);
+        assert(rich4_spr_smp_get_chunk(assets.character.map_character_data[character],
+            assets.character.map_character_size[character],
+            &assets.character.map_character_spr[character],1,&chunk)==RICH4_SPR_SMP_OK);
+        for (mode = 0; mode < 3; mode++) {
+            int x, y;
+            SDL_FillRect(screen, NULL, 0x1234);
+            draw_game_layout(screen, &assets, &view, mode);
+            for (y = 0; y < chunk.height; y++)
+                for (x = 0; x < chunk.width; x++) {
+                    uint16_t value = source_pixel(screen,
+                        assets.character.map_character_data[character], &chunk, x, y);
+                    if (value) assert(pixel(screen, 524 - chunk.x + x,
+                        64 - chunk.y + y) == value);
+                }
+        }
+    }
     SDL_FillRect(screen,NULL,0x1234);
     draw_game_layout(screen,&assets,&view,0);
     assert(rich4_spr_smp_get_chunk(assets.ui.panel_data[0],assets.ui.panel_size[0],

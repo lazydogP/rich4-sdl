@@ -56,9 +56,10 @@ void rich4_special_actor_begin(
     int i;
 
     if (session == NULL || map == NULL || action == NULL ||
-        action->kind != TURN_SPECIAL_AUTO_MOVED ||
+        (action->kind != TURN_SPECIAL_AUTO_MOVED &&
+         action->kind != TURN_SPECIAL_AUTO_BLOCKED) ||
         action->special_slot < 0 || action->special_slot >= 4 ||
-        action->path_count < 2)
+        action->path_count < (action->kind == TURN_SPECIAL_AUTO_MOVED ? 2 : 1))
         return;
     count = action->path_count;
     if (count > TURN_SPECIAL_AUTO_MAX_STEPS + 1)
@@ -72,6 +73,8 @@ void rich4_special_actor_begin(
     memset(flow, 0, sizeof(*flow));
     flow->active = 1;
     flow->slot = action->special_slot;
+    /* Route generation records the endpoint; presentation commits arrivals. */
+    session->state.special_player_node[flow->slot] = action->path_nodes[0];
     flow->path_count = count;
     memcpy(flow->path_nodes, action->path_nodes,
            sizeof(flow->path_nodes[0]) * (size_t)count);
@@ -85,6 +88,13 @@ void rich4_special_actor_begin(
     memset(&flow->action_batch, 0, sizeof(flow->action_batch));
     flow->action_index = 0;
     flow->action_until = 0;
+    if (action->kind == TURN_SPECIAL_AUTO_BLOCKED) {
+        /* 0x40C912(0)==0 -> 0x418E7F: no movement, only EA5=0x83. */
+        flow->end_ticks_remaining = 3;
+        flow->resource_part =
+            (map->routes[action->path_nodes[0]].flags & 0x80000000u) != 0 ? 2 : 0;
+        return;
+    }
     prepare_edge(flow, map);
 }
 
@@ -146,56 +156,72 @@ Rich4SpecialActorUpdateResult rich4_special_actor_update(
             flow->last_step_tick = now;
         }
     }
-    if (flow->path_index + 1 >= flow->path_count) {
-        if (begin_endpoint_dog(session, map))
-            return RICH4_SPECIAL_ACTOR_UPDATE_DOG;
+    if (!rich4_consume_animation_pulse(&flow->last_step_tick, now, frame_ms))
+        return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;
+    if (flow->end_ticks_remaining > 0) {
+        if (--flow->end_ticks_remaining != 0)
+            return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;
         session->presentation.view_world_x = flow->visual_x;
         session->presentation.view_world_y = flow->visual_y;
         session->presentation.has_view_override = 1;
         memset(flow, 0, sizeof(*flow));
         return RICH4_SPECIAL_ACTOR_UPDATE_FINISHED;
     }
-    if (rich4_consume_animation_pulse(
-            &flow->last_step_tick, now, frame_ms)) {
+    if (flow->arrival_pending) {
+        GameEventQueue events;
+        GameEvent event;
+        int reached_node = flow->path_nodes[flow->path_index];
+        int endpoint = flow->path_index + 1 >= flow->path_count;
+        flow->arrival_pending = 0;
+        rich4_game_event_queue_reset(&events);
+        memset(&flow->action_batch, 0, sizeof(flow->action_batch));
+        if (!rich4_special_actor_apply_step(
+                &session->state, map, flow->slot, reached_node,
+                endpoint, &flow->action_batch, &events))
+            memset(&flow->action_batch, 0, sizeof(flow->action_batch));
+        while (rich4_game_event_queue_pop(&events, &event))
+            if (event.player >= 0 && event.player < session->state.player_count)
+                session->presentation.actors[event.player].dirty_flags |=
+                    GAME_PLAYER_DIRTY_TURN;
+        if (session->state.special_player_f10[flow->slot] != 0) {
+            /* 0x41C7E1/0x41C831 clears remaining steps immediately. */
+            flow->path_count = flow->path_index + 1;
+            flow->steps_remaining = 0;
+            endpoint = 1;
+        }
+        flow->action_index = 0;
+        flow->action_until = 0;
+        if (endpoint) {
+            /* The arrival pulse sets EA5=5. Five later pulses call
+             * 0x418E7F, then three consume 0x83 before 0x418EBD. */
+            flow->end_ticks_remaining = 8;
+            flow->resource_part = (map->routes[reached_node].flags &
+                0x80000000u) != 0 ? 2 : 0;
+            flow->animation_frame = 0;
+            if (begin_endpoint_dog(session, map))
+                return RICH4_SPECIAL_ACTOR_UPDATE_DOG;
+        } else {
+            prepare_edge(flow, map);
+        }
+        if (endpoint || flow->action_batch.count > 0)
+            return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;
+    }
+    /* Old saves can resume after an endpoint action without an EA5 field. */
+    if (flow->path_index + 1 >= flow->path_count) {
+        flow->end_ticks_remaining = 8;
+        if (begin_endpoint_dog(session, map))
+            return RICH4_SPECIAL_ACTOR_UPDATE_DOG;
+        return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;
+    }
+    {
         flow->move_progress++;
         flow->animation_frame++;
         if (flow->move_progress >= flow->move_distance) {
-            GameEventQueue events;
-            GameEvent event;
-            int reached_node;
-            int endpoint;
-
             flow->visual_x = flow->move_to_x;
             flow->visual_y = flow->move_to_y;
             flow->path_index++;
             flow->steps_remaining = flow->path_count - flow->path_index - 1;
-            reached_node = flow->path_nodes[flow->path_index];
-            endpoint = flow->path_index + 1 >= flow->path_count;
-            rich4_game_event_queue_reset(&events);
-            memset(&flow->action_batch, 0, sizeof(flow->action_batch));
-            if (!rich4_special_actor_apply_step(
-                    &session->state, map, flow->slot, reached_node,
-                    endpoint, &flow->action_batch, &events))
-                memset(&flow->action_batch, 0, sizeof(flow->action_batch));
-            while (rich4_game_event_queue_pop(&events, &event))
-                if (event.player >= 0 &&
-                    event.player < session->state.player_count)
-                    session->presentation.actors[event.player].dirty_flags |=
-                        GAME_PLAYER_DIRTY_TURN;
-            flow->action_index = 0;
-            flow->action_until = 0;
-            if (flow->action_batch.count > 0)
-                return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;
-            if (endpoint && begin_endpoint_dog(session, map))
-                return RICH4_SPECIAL_ACTOR_UPDATE_DOG;
-            if (endpoint) {
-                session->presentation.view_world_x = flow->visual_x;
-                session->presentation.view_world_y = flow->visual_y;
-                session->presentation.has_view_override = 1;
-                memset(flow, 0, sizeof(*flow));
-                return RICH4_SPECIAL_ACTOR_UPDATE_FINISHED;
-            }
-            prepare_edge(flow, map);
+            flow->arrival_pending = 1;
         } else {
             float duration = rich4_original_fixed_move_duration(
                 flow->move_to_x - flow->move_from_x,

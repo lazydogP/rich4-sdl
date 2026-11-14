@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "core/card.h"
+#include "core/confinement.h"
 #include "core/ledger.h"
 #include "core/rng.h"
 
@@ -93,17 +94,18 @@ int rich4_special_actor_apply_step(
         state->special_player_f10[special_slot] != 0)
         return 0;
     memset(&batch, 0, sizeof(batch));
+    next = *state;
+    next.special_player_previous_node[special_slot] =
+        next.special_player_node[special_slot];
+    next.special_player_node[special_slot] = node;
+    rich4_game_event_queue_reset(&staged);
     if ((state->special_player_status[special_slot][1] & 0xff) != 0) {
-        *out_batch = batch;
-        return 1;
+        goto finish;
     }
     owner = state->special_player_play_state[special_slot];
     if (!active_player(state, owner)) {
-        *out_batch = batch;
-        return 1;
+        goto finish;
     }
-    next = *state;
-    rich4_game_event_queue_reset(&staged);
     rng.state = next.ai_rng_state;
     victim = encountered_player(&next, node, owner, &rng);
     if (special_slot == 0 && victim >= 0) {
@@ -221,6 +223,10 @@ int rich4_special_actor_apply_step(
         }
     }
     next.ai_rng_state = rng.state;
+finish:
+    /* LABEL_145 is reached even while sleepwalking or with no beneficiary. */
+    if (!rich4_confinement_special_pass(&next, special_slot,
+            (int)(map->routes[node].flags & 0xffu), &staged)) return 0;
     if (!rich4_game_event_queue_append(events, &staged)) return 0;
     *state = next;
     *out_batch = batch;

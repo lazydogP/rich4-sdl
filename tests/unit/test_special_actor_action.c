@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "core/special_actor_action.h"
+#include "core/confinement.h"
+#include "core/turn_rotation.h"
 
 static void setup(GameState *state, MapData *map, MapRouteNode routes[5])
 {
@@ -23,6 +25,61 @@ static void setup(GameState *state, MapData *map, MapRouteNode routes[5])
         state->special_player_play_state[i] = 0;
     map->routes = routes;
     map->route_count = 5;
+}
+
+static void test_return_to_confinement(void)
+{
+    GameState state;
+    MapData map;
+    MapRouteNode routes[5];
+    GameSpecialActorActionBatch batch;
+    GameEventQueue events;
+    TurnSpecialAutoActionResult route;
+    int kind;
+    for (kind = 1; kind <= 2; kind++) {
+        setup(&state, &map, routes);
+        state.prison_node = state.hospital_node = 2;
+        state.special_player_confinement[0] = kind;
+        state.special_player_f10[0] = kind;
+        state.tool_route_flags[2] = routes[2].flags = (unsigned)(kind + 3);
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_confinement_visit_release(&state, 0,
+            rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, 0), kind,
+            &events) == GAME_CONFINEMENT_INVALID); /* insufficient points */
+        state.players[0].points = 300;
+        assert(rich4_confinement_visit_release(&state, 0,
+            rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, 0), kind,
+            &events) == GAME_CONFINEMENT_APPLIED);
+        assert(state.special_player_actor_type[0] == (kind | 0x80));
+        assert(state.special_player_play_state[0] == 0);
+        state.special_player_node[0] = 1;
+        routes[1].next[0] = 2;
+        routes[2].next[0] = 3;
+        routes[3].next[0] = 4;
+        routes[4].next[0] = 1;
+        assert(rich4_turn_run_special_auto_action(&state, &map, 0, &route));
+        assert(route.requested_steps >= 2 && route.completed_steps == 1);
+        assert(route.end_node == 2);
+        /* Return also applies while dreaming and with an inactive owner. */
+        state.special_player_status[0][1] = 5;
+        state.players[0].play_state = 0;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_special_actor_apply_step(&state, &map, 0, 2, 0,
+            &batch, &events));
+        assert(batch.count == 0 && state.special_player_f10[0] == kind);
+        assert(state.special_player_confinement[0] == kind);
+        assert(state.special_player_actor_type[0] == 0);
+        assert(state.special_player_status[0][1] == 0);
+    }
+    setup(&state, &map, routes);
+    state.special_player_actor_type[0] = 1;
+    routes[2].flags = 5;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_special_actor_apply_step(&state, &map, 0, 2, 0, &batch, &events));
+    assert(state.special_player_actor_type[0] == 1 && state.special_player_f10[0] == 0);
+    routes[2].flags = 4;
+    assert(rich4_special_actor_apply_step(&state, &map, 0, 2, 0, &batch, &events));
+    assert(state.special_player_actor_type[0] == 0x81 && state.special_player_f10[0] == 0);
 }
 
 int main(void)
@@ -142,6 +199,7 @@ int main(void)
            state.players[1].cash == 1655 &&
            state.players[0].bank == 1345);
 
+    test_return_to_confinement();
     puts("special actor 0x41B42D actions: ok");
     return 0;
 }

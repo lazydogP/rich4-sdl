@@ -26,7 +26,7 @@ int main(void)
 
     setup(&session);
     session.state.players[0].days_in_prison = 2;
-    rich4_app_update_player_status_countdowns(&session, 0);
+    rich4_app_update_player_status_countdowns(&session, 0, 0);
     assert(session.state.players[0].days_in_prison == 1);
 
     session.state.price_index = 2;
@@ -35,7 +35,7 @@ int main(void)
     session.state.players[1].linked_player = 0;
     session.state.players[0].relation_balance[1] = 100;
     session.state.players[1].relation_balance[0] = 80;
-    rich4_app_update_player_status_countdowns(&session, 0);
+    rich4_app_update_player_status_countdowns(&session, 0, 0);
     assert(session.state.players[0].relation_balance[1] == 60);
     assert(session.state.players[1].relation_balance[0] == 40);
     assert(session.debug.god_balance_tick_count == 2);
