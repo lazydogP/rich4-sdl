@@ -6,10 +6,12 @@
 #include "app/turn_movement_flow.h"
 #include "app/turn_rotation_flow.h"
 #include "app/turn_start_flow.h"
+#include "core/card.h"
+#include "core/rng.h"
 #include "core/special_event.h"
 #include "view/view_constants.h"
 
-static void news_stopping_turn(int news_id, int is_ai)
+static void news_stopping_turn(int news_id, int is_ai, int tortoise)
 {
     static GameSession session;
     MapData map;
@@ -38,6 +40,7 @@ static void news_stopping_turn(int news_id, int is_ai)
     session.state.players[0].node = 1;
     session.state.players[0].previous_node = 3;
     session.state.players[0].remote_dice_value = 4;
+    session.state.players[0].days_tortoise_walking = tortoise;
     session.state.players[1].play_state = 1;
     session.state.players[1].traffic_method = news_id == 16 ? 2 : 0;
     session.state.news_event_order[0] = (uint8_t)news_id;
@@ -96,6 +99,113 @@ static void news_stopping_turn(int news_id, int is_ai)
     assert(session.presentation.dice.popup_active);
     assert(session.flow.dice_value == 4);
     assert(session.state.players[0].remote_dice_value == 0);
+}
+
+static void tortoise_card_turns(int self, int is_ai, int traffic, int remote)
+{
+    static GameSession session;
+    MapData map;
+    MapRouteNode routes[4];
+    GameEventQueue events;
+    GameCommand command;
+    GamePlayerState *player;
+    uint32_t now = 1000;
+    int target = self ? 0 : 1;
+    int i;
+
+    memset(&session, 0, sizeof(session));
+    memset(&map, 0, sizeof(map));
+    memset(routes, 0, sizeof(routes));
+    map.routes = routes;
+    map.route_count = 4;
+    for (i = 1; i <= 3; i++) {
+        routes[i].x = i * 8;
+        routes[i].next[0] = i == 3 ? 1 : i + 1;
+        routes[i].object.raw_object_id = (uint16_t)i;
+    }
+    session.state.active = 1;
+    session.state.player_count = 2;
+    session.state.players[0].play_state = 1;
+    session.state.players[1].play_state = 1;
+    session.state.players[0].card_inventory[0] = 30;
+    player = &session.state.players[target];
+    player->play_state = is_ai ? 2 : 1;
+    player->is_ai = is_ai;
+    player->traffic_method = traffic;
+    player->ndices = traffic + 1;
+    player->remote_dice_value = remote;
+    player->attached_timed_bomb_slot = -1;
+    player->node = 1;
+    player->next_node = 2;
+    command = rich4_game_domain_command(GAME_COMMAND_USE_CARD,
+        GAME_COMMAND_SOURCE_HUMAN, 0,
+        rich4_game_domain_ref(GAME_DOMAIN_CARD, 29),
+        rich4_game_domain_ref(GAME_DOMAIN_PLAYER, target), 0);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_card_apply_command(&session.state, &command, &events) ==
+           GAME_CARD_USE_APPLIED);
+    assert(player->days_tortoise_walking == (self ? 2 : 3));
+    assert(!rich4_card_inventory_has(&session.state, 0, 30));
+    if (!self) {
+        session.state.turn_rotation_index = target - 1;
+        assert(rich4_app_advance_turn_rotation(&session, &map, now, NULL));
+    }
+
+    /* 0x4458DF writes 2 for self and 3 for others. Turn selection ticks
+     * the latter to 2; both include the final pending-0x80 turn. */
+    for (i = 0; i < 3; i++) {
+        Rich4AppTurnMovementResult movement;
+        uint32_t rng_before = session.state.ai_rng_state;
+        uint32_t rng_after = rng_before;
+        int node = player->node;
+        int next = node == 3 ? 1 : node + 1;
+        int guard;
+        assert(player->days_tortoise_walking ==
+               (i == 2 ? GAME_STATUS_PENDING_BIT : 2 - i));
+        assert(rich4_turn_start_begin(&session, now));
+        /* Only uncached route selection draws RNG; dice do not. */
+        player->previous_node = is_ai ? (node == 1 ? 3 : node - 1) : 0;
+        player->next_node = next;
+        if (is_ai) (void)rich4_rng_range_at(&rng_after, 1);
+        assert(rich4_dice_update(&session, &map, 12, 20, 30, 10, now));
+        assert(session.flow.turn_state == GAME_TURN_STATE_MOVE);
+        assert(session.flow.steps_remaining == 1);
+        assert(session.flow.route_move.steps_remaining == 1);
+        assert(session.flow.route_move.next_node == next);
+        assert(!session.presentation.dice.popup_active);
+        assert(!session.presentation.dice.result_visible);
+        assert(!session.presentation.dice.sound_pending);
+        assert(session.state.ai_rng_state == rng_after);
+        assert(player->remote_dice_value == remote);
+        assert(player->ndices == traffic + 1);
+        assert(session.time_machine_valid);
+        assert(session.time_machine_state.ai_rng_state == rng_before);
+        assert(session.time_machine_state.players[target].node == node);
+        assert(session.time_machine_state.players[target].remote_dice_value == remote);
+        for (guard = 0; guard < 20 &&
+             session.flow.turn_state == GAME_TURN_STATE_MOVE; guard++) {
+            now += 20;
+            assert(rich4_app_update_turn_movement(
+                &session, &map, 20, now, &movement));
+        }
+        assert(session.flow.turn_state == GAME_TURN_STATE_ROUTE_EVENTS);
+        assert(player->node == next);
+        assert(session.flow.steps_remaining == 0);
+        assert(session.flow.route_facts.count == 1);
+        assert(session.flow.route_facts.events[0].phase == ROUTE_EVENT_PHASE_STOP);
+        assert(session.flow.route_facts.events[0].node == next);
+        session.state.turn_rotation_index = target - 1;
+        assert(rich4_app_complete_route_event_turn(
+            &session, &map, now + 100, NULL));
+        now += 100;
+    }
+    assert(player->days_tortoise_walking == 0);
+    assert(rich4_turn_start_begin(&session, now));
+    assert(rich4_dice_update(&session, &map, 0, 20, 30, 10, now));
+    assert(session.presentation.dice.popup_active);
+    assert(session.presentation.dice.count == (remote ? 1 : traffic + 1));
+    assert(player->remote_dice_value == 0);
+    if (remote) assert(session.flow.dice_value == remote);
 }
 
 int main(void)
@@ -202,10 +312,17 @@ int main(void)
     rich4_dice_clear_action_panel_flags(&session);
     assert(!session.presentation.dice.status_visible);
 
-    news_stopping_turn(16, 0);
-    news_stopping_turn(16, 1);
-    news_stopping_turn(17, 0);
-    news_stopping_turn(17, 1);
+    for (int tortoise = 0; tortoise <= 1; tortoise++) {
+        news_stopping_turn(16, 0, tortoise);
+        news_stopping_turn(16, 1, tortoise);
+        news_stopping_turn(17, 0, tortoise);
+        news_stopping_turn(17, 1, tortoise);
+    }
+    for (int self = 0; self <= 1; self++)
+        for (int ai = 0; ai <= 1; ai++)
+            for (int traffic = 0; traffic <= 2; traffic++)
+                for (int remote = 0; remote <= 4; remote += 4)
+                    tortoise_card_turns(self, ai, traffic, remote);
     puts("app dice flow: ok");
     return 0;
 }

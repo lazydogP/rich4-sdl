@@ -105,6 +105,18 @@ void rich4_dice_begin_roll(GameSession *session, uint32_t now)
         session->presentation.dice.result_visible = 0;
         return;
     }
+    /* 0x40DD7E -> 0x40DD40: nonzero +57 skips the action/dice animation
+     * and moves one square, without consuming a remote value or dice RNG.
+     * The map-dependent route handoff is completed by dice_update. */
+    if ((player->play_state & 0x30) == 0 &&
+        (player->days_tortoise_walking & 0xff) != 0) {
+        session->flow.dice_value = 1;
+        session->flow.steps_remaining = 0;
+        session->presentation.dice.popup_active = 0;
+        session->presentation.dice.result_visible = 0;
+        session->presentation.dice.sound_pending = 0;
+        return;
+    }
     session->presentation.dice.count = player->remote_dice_value != 0
         ? 1 : player->ndices;
     if (session->presentation.dice.count < 1)
@@ -181,6 +193,25 @@ static void rich4_dice_request_roll(GameSession *session, int current,
     }
 }
 
+static void rich4_dice_begin_movement(GameSession *session,
+                                      const MapData *map, uint32_t now)
+{
+    int current = rich4_dice_player_index(session);
+    session->presentation.dice.popup_active = 0;
+    session->presentation.dice.result_visible = 0;
+    session->presentation.dice.cache_reset_pending = 1;
+    session->flow.turn_state = GAME_TURN_STATE_MOVE;
+    session->flow.turn_state_frame = 0;
+    session->flow.turn_state_tick = now;
+    session->flow.turn_wait = 0;
+    session->flow.steps_remaining = session->flow.dice_value;
+    rich4_dice_begin_route_move(session, map);
+    rich4_route_event_collection_reset(&session->flow.route_facts);
+    rich4_route_event_executor_reset_dispatch(&session->flow.route_events);
+    session->presentation.movement_tick = 0;
+    session->presentation.actors[current].move_active = 0;
+}
+
 int rich4_dice_update(GameSession *session, const MapData *map,
                       int action_frames, int action_delay_ms,
                       int graph_frames, int graph_delay_ms,
@@ -195,8 +226,11 @@ int rich4_dice_update(GameSession *session, const MapData *map,
     if (current < 0) return 0;
     if (!session->presentation.dice.popup_active &&
         (session->state.players[current].play_state & 0x30) == 0 &&
-        (session->state.players[current].days_stopping & 0xff) != 0) {
+        ((session->state.players[current].days_stopping & 0xff) != 0 ||
+         (session->state.players[current].days_tortoise_walking & 0xff) != 0)) {
         rich4_dice_begin_roll(session, now);
+        if (session->flow.turn_state == GAME_TURN_STATE_PREROLL)
+            rich4_dice_begin_movement(session, map, now);
         return 1;
     }
     if (action_delay_ms <= 0)
@@ -237,19 +271,7 @@ int rich4_dice_update(GameSession *session, const MapData *map,
         }
     } else if (now - session->presentation.dice.result_tick >=
                RICH4_DICE_RESULT_HOLD_MS) {
-        session->presentation.dice.popup_active = 0;
-        session->presentation.dice.result_visible = 0;
-        session->presentation.dice.cache_reset_pending = 1;
-        session->flow.turn_state = 1;
-        session->flow.turn_state_frame = 0;
-        session->flow.turn_state_tick = now;
-        session->flow.steps_remaining = session->flow.dice_value;
-        rich4_dice_begin_route_move(session, map);
-        rich4_route_event_collection_reset(&session->flow.route_facts);
-        rich4_route_event_executor_reset_dispatch(
-            &session->flow.route_events);
-        session->presentation.movement_tick = 0;
-        session->presentation.actors[current].move_active = 0;
+        rich4_dice_begin_movement(session, map, now);
     }
     return 1;
 }

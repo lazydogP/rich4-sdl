@@ -1309,6 +1309,7 @@ $(eval $(call RICH4_TEST_SUITE,test-audio-loops,,test_audio_event test_magic_hou
 $(eval $(call RICH4_TEST_SUITE,test-music,,test_music))
 $(eval $(call RICH4_TEST_SUITE,test-bank,,test_bank))
 $(eval $(call RICH4_TEST_SUITE,test-card,,test_card))
+$(eval $(call RICH4_TEST_SUITE,test-dice-flow,,test_dice_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-panel-flow,,test_card_panel_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-presentation,,test_card_presentation))
 $(eval $(call RICH4_TEST_SUITE,test-card-use-flow,,test_card_use_flow test_game_dispatch test_card_panel_flow test_ai_flow test_game_update_flow test_turn_start_flow test_app_input_flow test_game_speech_flow test_monster_card_flow test_audio_event test_character_speech))
