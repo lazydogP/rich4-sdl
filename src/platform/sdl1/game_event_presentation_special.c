@@ -265,6 +265,9 @@ void draw_special_event_presentation(
         return;
     }
     if (session->presentation->special_event.phase ==
+            RICH4_SPECIAL_PRESENT_PROPERTY_FLASH)
+        return;
+    if (session->presentation->special_event.phase ==
             RICH4_SPECIAL_PRESENT_REACTION ||
         session->presentation->special_event.phase ==
             RICH4_SPECIAL_PRESENT_REACTION_DELAY ||

@@ -109,6 +109,8 @@ int rich4_special_event_confinement_kind(int family, int id);
 int rich4_special_event_confinement_days(
     const GameSession *session, int player, int confinement);
 int rich4_special_event_consequence_index(int logical_id);
+/* 0x451985 starts each 30 ms wait after presenting that flash frame. */
+void rich4_special_event_flash_frame_presented(GameSession *session, uint32_t now);
 int rich4_special_event_begin_from_event(
     GameSession *session, const GameEvent *event, uint32_t now);
 int rich4_special_event_start_confinement_final_speech(

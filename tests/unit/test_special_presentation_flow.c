@@ -697,12 +697,179 @@ static void fortune_passive_cancel_and_block(void)
     assert(s.state.lottery_pool==1 && s.state.ai_rng_state==1);
 }
 
+static void news_property_flash(int id, int facility, int built, int skip)
+{
+    static GameSession s;
+    Rich4SpecialEventUpdateInput input = {0};
+    Rich4SpecialEventUpdateResult update;
+    GameEvent page;
+    GameCommand confirm = {0};
+    RouteEvent route = {0};
+    uint32_t now = 3400;
+    int frame;
+    static const int adjust[] = {4,8,12,16,12,8,4,0,-4,-8,-12,-16,-12,-8,-4,0};
+    memset(&s, 0, sizeof(s));
+    s.state.active = 1;
+    s.state.player_count = 2;
+    s.state.price_index = 1;
+    s.state.land_count = 3;
+    s.state.facility_count = 1;
+    s.state.players[0].play_state = s.state.players[1].play_state = 1;
+    s.state.players[0].node = 2;
+    for (frame = 0; frame < 3; ++frame) {
+        s.state.land_owner[frame] = built ? frame % 2 : -1;
+        s.state.land_level[frame] = built ? 2 : 0;
+        s.state.land_group[frame] = frame < 2 ? 7 : 8;
+    }
+    s.state.facility_owner[0] = built ? 1 : -1;
+    s.state.facility_level[0] = built ? 2 : 0;
+    s.state.tool_land_x[0] = 352; s.state.tool_land_y[0] = 640;
+    s.state.tool_facility_x[0] = 700; s.state.tool_facility_y[0] = 800;
+    s.state.special_event_family = GAME_SPECIAL_EVENT_NEWS;
+    s.state.special_event_actor = 0;
+    s.state.special_event_logical_id = s.state.special_event_resolved_id = id;
+    s.state.special_event_phase = GAME_SPECIAL_PHASE_PREPARED;
+    s.state.special_event_target_mask = 1u | (facility ? 0x80000000u : 0u) |
+        (built ? (unsigned int)(facility ? 2 : 1) << 24 : 0u);
+    page = rich4_game_event_special_event_presentation(0, 441 + id, 66, GAME_SPECIAL_EVENT_NEWS);
+    assert(rich4_special_event_begin(&s, &page, 0, 0, 1000));
+    route.phase = ROUTE_EVENT_PHASE_STOP; route.node = 2;
+    assert(rich4_route_event_queue_push(&s.flow.route_events.queue, &route));
+    s.flow.route_events.state.execution_started = 1;
+    s.flow.route_events.state.execution_actor = 0;
+    s.flow.route_events.state.waiting_for_command = 1;
+    confirm.type = GAME_COMMAND_CONFIRM;
+    s.flow.route_events.state.pending_accept = confirm;
+    assert(rich4_special_event_update(&s, &input, 3399, &update));
+    assert(s.presentation.special_event.phase == RICH4_SPECIAL_PRESENT_PAGE);
+    assert(rich4_special_event_update(&s, &input, now, &update));
+    assert(s.presentation.special_event.phase == RICH4_SPECIAL_PRESENT_PROPERTY_FLASH);
+    assert(s.presentation.has_view_override);
+    assert(s.presentation.view_world_x == (facility ? 700 : 352));
+    assert(s.presentation.special_event.pre_state.land_level[0] == (built ? 2 : 0));
+    if (facility) {
+        assert(s.state.facility_level[0] == (built && id == 18 ? 1 : 0));
+        assert(s.state.land_level[0] == (built ? 2 : 0));
+    } else {
+        assert(s.state.land_level[0] == (built && id == 18 ? 1 : 0));
+        assert(s.state.land_level[1] == (built ? (id == 18 ? 1 : 2) : 0));
+        assert(s.state.land_level[2] == (built ? 2 : 0));
+    }
+    /* A late update must not skip a frame that has not been presented. */
+    assert(rich4_special_event_update(&s, &input, now + 100, &update));
+    assert(s.presentation.special_event.frame == 0);
+    if (skip) {
+        rich4_special_event_flash_frame_presented(&s, now);
+        rich4_special_event_skip_wait(&s, now, NULL);
+        assert(s.presentation.special_event.frame == 16);
+        assert(s.presentation.special_event.flash_adjust == 4);
+    } else for (frame = 0; frame < 16; frame++) {
+        assert(s.presentation.special_event.frame == frame);
+        assert(s.presentation.special_event.flash_adjust == adjust[frame]);
+        assert(rich4_special_event_render_state(&s) == &s.presentation.special_event.pre_state);
+        rich4_special_event_flash_frame_presented(&s, now);
+        rich4_special_event_flash_frame_presented(&s, now + 10);
+        assert(rich4_special_event_update(&s, &input, now + 29, &update));
+        assert(s.presentation.special_event.frame == frame);
+        now += 30;
+        assert(rich4_special_event_update(&s, &input, now, &update));
+    }
+    assert(rich4_special_event_update(&s, &input, now + 399, &update));
+    assert(rich4_special_event_render_state(&s) == &s.presentation.special_event.pre_state);
+    assert(rich4_special_event_update(&s, &input, now + 400, &update));
+    assert(s.presentation.special_event.phase == RICH4_SPECIAL_PRESENT_REACTION_DELAY);
+    assert(!s.presentation.has_view_override);
+    assert(rich4_special_event_render_state(&s) == &s.state);
+    assert(s.presentation.special_event.until == now + 400 + (id == 18 ? 500u : 300u));
+    if (built && id == 19) {
+        assert(rich4_special_event_update(&s, &input, s.presentation.special_event.until, &update));
+        assert(update.action == RICH4_SPECIAL_EVENT_UPDATE_REACTION);
+        assert(s.presentation.speech.active && s.presentation.speech.player == (facility ? 1 : 0));
+        assert(s.state.ai_rng_state != 0); /* one owner-reaction draw, after the flash */
+    } else {
+        assert(!rich4_special_event_update(&s, &input, s.presentation.special_event.until, &update));
+        assert(!s.presentation.special_event.active && !s.presentation.speech.active);
+        assert(s.state.ai_rng_state == 0);
+    }
+}
+
+static void land_expropriation_waits_for_page_voice_and_separate_tail(void)
+{
+    int scenario;
+    for (scenario = 0; scenario < 3; scenario++) {
+        static GameSession s;
+        Rich4SpecialEventUpdateInput input = {0};
+        Rich4SpecialEventUpdateResult update;
+        Rich4AudioEventQueue audio;
+        Rich4AudioEvent sound;
+        GameEvent page;
+        GameCommand confirm = {0};
+        RouteEvent route = {0};
+        uint32_t callback_at = scenario == 0 ? 2600u : scenario == 1 ? 3000u : 1200u;
+        memset(&s, 0, sizeof(s));
+        s.state.active = 1; s.state.player_count = 1; s.state.price_index = 1;
+        s.state.players[0].play_state = 1;
+        s.state.land_count = 1; s.state.land_owner[0] = 0;
+        s.state.land_price[0] = s.state.land_value[0] = 100;
+        s.state.special_event_family = GAME_SPECIAL_EVENT_FORTUNE;
+        s.state.special_event_phase = GAME_SPECIAL_PHASE_PREPARED;
+        s.state.special_event_logical_id = s.state.special_event_resolved_id = 1;
+        s.state.special_event_target_mask = 1;
+        s.state.special_event_prepared_value = 100;
+        page = rich4_game_event_special_event_presentation(0, 478, 66, GAME_SPECIAL_EVENT_FORTUNE);
+        assert(rich4_special_event_begin_from_event(&s, &page, 1000));
+        assert(s.presentation.special_event.until == 2600);
+        route.phase = ROUTE_EVENT_PHASE_STOP;
+        assert(rich4_route_event_queue_push(&s.flow.route_events.queue, &route));
+        s.flow.route_events.state.execution_started = 1;
+        s.flow.route_events.state.waiting_for_command = 1;
+        confirm.type = GAME_COMMAND_CONFIRM;
+        s.flow.route_events.state.pending_accept = confirm;
+        input.page_frame_count = 100; input.page_delay_ms = 100;
+        assert(rich4_special_event_update(&s, &input, 1199, &update));
+        assert(s.state.land_owner[0] == 0 && s.presentation.special_event.until == 2600);
+        if (scenario == 2) {
+            rich4_audio_event_queue_init(&audio);
+            rich4_special_event_skip_wait(&s, 1200, &audio);
+            assert(rich4_audio_event_pop(&audio, &sound));
+            assert(sound.type == RICH4_AUDIO_EVENT_SPEECH_STOP);
+        } else {
+            assert(rich4_special_event_update(&s, &input, 2599, &update));
+            assert(s.state.land_owner[0] == 0);
+            if (scenario == 1) {
+                input.audio_speech_playing = 1;
+                assert(rich4_special_event_update(&s, &input, 2600, &update));
+                assert(s.state.land_owner[0] == 0);
+                input.audio_speech_playing = 0;
+            }
+        }
+        assert(rich4_special_event_update(&s, &input, callback_at, &update));
+        assert(s.state.land_owner[0] == -1 && s.state.players[0].cash == 100);
+        assert(s.presentation.special_event.phase == RICH4_SPECIAL_PRESENT_REACTION_DELAY);
+        assert(s.presentation.special_event.until == callback_at + 300);
+        assert(rich4_special_event_update(&s, &input, callback_at + 299, &update));
+        assert(update.action == RICH4_SPECIAL_EVENT_UPDATE_WAIT);
+        assert(rich4_special_event_update(&s, &input, callback_at + 300, &update));
+        assert(update.action == RICH4_SPECIAL_EVENT_UPDATE_REACTION);
+        s.presentation.speech.active = 0;
+        assert(rich4_special_event_update(&s, &input, callback_at + 301, &update));
+        assert(s.presentation.special_event.phase == RICH4_SPECIAL_PRESENT_POST_HOLD);
+        assert(s.presentation.special_event.until == callback_at + 301 + 800);
+    }
+}
+
 int main(void)
 {
+    land_expropriation_waits_for_page_voice_and_separate_tail();
     news4_dynamic_removal_is_ordered_and_atomic();
     news_tax_other_bankrupt_player_preserves_route_actor();
     fortune_passive_cancel_and_block();
     fortune_bank_theft_has_no_reaction_rng();
+    for (int id = 18; id <= 19; id++)
+        for (int facility = 0; facility < 2; facility++)
+            for (int built = 0; built < 2; built++)
+                for (int skip = 0; skip < 2; skip++)
+                    news_property_flash(id, facility, built, skip);
     fortune_money_reaction_rng();
     news_reward_reaction_rng();
     magic_fortune_waits_for_callback();

@@ -323,6 +323,9 @@ typedef struct GameSpecialEventPresentationState {
     int fortune_card_targets_seen;
     int scene_refresh_frame;
     int scene_refreshed;
+    /* 0x451985: transient state of the blocking news property flash. */
+    int flash_adjust;
+    int flash_presented_frame;
 } GameSpecialEventPresentationState;
 
 #endif

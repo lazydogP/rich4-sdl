@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <float.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -1309,6 +1310,18 @@ static void fortune_stock_return_accounting(void)
     assert(rich4_special_event_begin_fortune(&s,0,&q)==GAME_SPECIAL_EVENT_PREPARED);
     assert(rich4_special_event_commit(&s,GAME_SPECIAL_DEFENSE_NONE,&q)==GAME_SPECIAL_EVENT_APPLIED);
     assert(s.players[0].bank==16778217); /* integer shares must not round through float32 */
+
+    base_state(&s,404);
+    first(s.fortune_event_order,GAME_FORTUNE_EVENT_COUNT,8);
+    s.lottery_pool=INT_MAX;
+    s.player_stock_amount[0][0]=10;
+    s.stocks[0].f20=1.5f;
+    s.stocks[0].f8=s.stocks[0].f10=UINT16_MAX;
+    rich4_game_event_queue_reset(&q);
+    assert(rich4_special_event_begin_fortune(&s,0,&q)==GAME_SPECIAL_EVENT_PREPARED);
+    assert(rich4_special_event_commit(&s,GAME_SPECIAL_DEFENSE_NONE,&q)==GAME_SPECIAL_EVENT_APPLIED);
+    assert(s.lottery_pool==INT_MIN && s.players[0].bank==1000);
+    assert(s.player_stock_amount[0][0]==9 && s.stocks[0].f8==0 && s.stocks[0].f10==0);
 }
 
 #include "news_selection_cases.inc"

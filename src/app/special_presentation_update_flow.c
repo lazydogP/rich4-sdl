@@ -47,6 +47,62 @@ static int special_event_prepare_update_reaction(
     return 1;
 }
 
+/* 0x44A6E0 / 0x44A91E prepare the old map and its object mask, commit
+ * the damage, then call 0x451985. The source map survives all 16 frames
+ * and the following 400 ms wait; 0x41D476(0,0,1) redraws afterwards. */
+static int special_event_begin_property_flash(GameSession *session, uint32_t now)
+{
+    GameSpecialEventPresentationState *s = &session->presentation.special_event;
+    if (s->family != GAME_SPECIAL_EVENT_NEWS ||
+        (s->resolved_id != 18 && s->resolved_id != 19)) return 0;
+    s->phase = RICH4_SPECIAL_PRESENT_PROPERTY_FLASH;
+    s->frame = 0;
+    s->flash_adjust = 4;
+    s->flash_presented_frame = -1;
+    s->scene_refreshed = 0;
+    rich4_animation_clock_reset(&session->presentation.animation_clock[RICH4_ANIMATION_SPECIAL]);
+    (void)rich4_animation_clock_step(
+        &session->presentation.animation_clock[RICH4_ANIMATION_SPECIAL], now, 30);
+    return 1;
+}
+
+void rich4_special_event_flash_frame_presented(GameSession *session, uint32_t now)
+{
+    GameSpecialEventPresentationState *s;
+    Rich4AnimationClock *clock;
+    if (session == NULL) return;
+    s = &session->presentation.special_event;
+    if (!s->active || s->phase != RICH4_SPECIAL_PRESENT_PROPERTY_FLASH ||
+        s->frame >= 16 || s->flash_presented_frame == s->frame) return;
+    s->flash_presented_frame = s->frame;
+    clock = &session->presentation.animation_clock[RICH4_ANIMATION_SPECIAL];
+    clock->tick = clock->updated_at = now;
+}
+
+static void special_event_update_property_flash(GameSession *session, uint32_t now)
+{
+    static const int adjust[16] = {
+        4,8,12,16,12,8,4,0,-4,-8,-12,-16,-12,-8,-4,0
+    }; /* signed bytes at 0x476380 */
+    GameSpecialEventPresentationState *s = &session->presentation.special_event;
+    Rich4AnimationClock *clock = &session->presentation.animation_clock[RICH4_ANIMATION_SPECIAL];
+    if (s->frame < 16) {
+        if (s->flash_presented_frame != s->frame) return;
+        if (rich4_animation_clock_step(clock, now, 30)) {
+            ++s->frame;
+            if (s->frame < 16) s->flash_adjust = adjust[s->frame];
+            else clock->delay_ms = 400;
+        }
+        return;
+    }
+    if (!rich4_animation_clock_step(clock, now, 400)) return;
+    rich4_animation_clock_reset(clock);
+    s->flash_adjust = 0;
+    s->scene_refreshed = 1;
+    session->presentation.has_view_override = 0;
+    (void)rich4_special_event_start_reaction_delay(session, now);
+}
+
 int rich4_special_event_update(
     GameSession *session, const Rich4SpecialEventUpdateInput *input,
     uint32_t now, Rich4SpecialEventUpdateResult *result)
@@ -69,6 +125,12 @@ int rich4_special_event_update(
         !session->presentation.special_event.active)
         return 0;
     special = &session->presentation.special_event;
+
+    if (special->phase == RICH4_SPECIAL_PRESENT_PROPERTY_FLASH) {
+        special_event_update_property_flash(session, now);
+        result->action = RICH4_SPECIAL_EVENT_UPDATE_WAIT;
+        return 1;
+    }
 
     if (special->phase == RICH4_SPECIAL_PRESENT_REACTION_DELAY) {
         if ((int32_t)(now - special->until) < 0) {
@@ -224,6 +286,10 @@ int rich4_special_event_update(
             return 0;
         }
         rich4_special_event_center_callback_view(session);
+        if (special_event_begin_property_flash(session, now)) {
+            result->action = RICH4_SPECIAL_EVENT_UPDATE_WAIT;
+            return 1;
+        }
         consequence_index = rich4_special_event_consequence_index(
             special->logical_id);
         if (special->family == GAME_SPECIAL_EVENT_NEWS &&
@@ -310,6 +376,10 @@ const GameState *rich4_special_event_render_state(
     int phase;
     if (session == NULL) return NULL;
     phase = session->presentation.special_event.phase;
+    if (session->presentation.special_event.active &&
+        session->presentation.special_event.pre_state_valid &&
+        phase == RICH4_SPECIAL_PRESENT_PROPERTY_FLASH)
+        return &session->presentation.special_event.pre_state;
     if (session->presentation.special_event.active &&
         session->presentation.special_event.reaction_stage == 5)
         return &session->state;

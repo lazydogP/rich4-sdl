@@ -430,14 +430,14 @@ int rich4_special_event_start_reaction_delay(
     special = &session->presentation.special_event;
     id = special->resolved_id;
     if (special->family == GAME_SPECIAL_EVENT_NEWS) {
-        if (id != 15 && id != 19 && id != 21) return 0;
+        if (id != 15 && id != 18 && id != 19 && id != 21) return 0;
     } else if (special->family == GAME_SPECIAL_EVENT_FORTUNE) {
         if (id != 0 && id != 1) return 0;
     } else {
         return 0;
     }
     special->phase = RICH4_SPECIAL_PRESENT_REACTION_DELAY;
-    special->until = now + 300;
+    special->until = now + (special->family == GAME_SPECIAL_EVENT_NEWS && id == 18 ? 500u : 300u);
     return 1;
 }
 

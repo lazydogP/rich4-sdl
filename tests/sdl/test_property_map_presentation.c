@@ -6,12 +6,20 @@
 #undef main
 
 #include "core/card.h"
+#include "core/game_event_payload.h"
 #include "core/turn_rotation.h"
 #include "platform/sdl1/render/game_map_objects.h"
 #include "platform/sdl1/render/blit.h"
+#include "platform/sdl1/render/game_confinement_event_render.h"
+#include "platform/sdl1/render/game_route_render.h"
+#include "platform/sdl1/runtime_render_api.h"
+#include "platform/sdl1/text/runtime_text.h"
+#include "view/map_renderer.h"
 #include "resource/mkf.h"
 #include "app/property_flow.h"
 #include "platform/sdl1/runtime_trace.h"
+#include "platform/sdl1/game_scene_view_builder.h"
+#include "core/property.h"
 
 static GamePreviewAssets assets;
 static GameState state;
@@ -20,6 +28,88 @@ static GameViewModelInput input;
 static MapLandRecord lands[33];
 static MapFacilityRecord facilities[2];
 static NewGameSettings settings;
+
+static void check_research_prompt_text(SDL_Surface *screen)
+{
+    /* off_47FF1A[selection * 8], selection 1..5. */
+    static const char *const names[] = {
+        "\xbe\xf7\xbe\xb9\xa4\x75\xa4\x48",
+        "\xae\xc9\xa5\xfa\xbe\xf7",
+        "\xb6\xc7\xb0\x65\xbe\xf7",
+        "\xa4\x75\xb5\x7b\xa8\xae",
+        "\xae\xd6\xa4\x6c\xad\xb8\xbc\x75"
+    };
+    static GamePresentationState presentation;
+    Rich4GameEventPresentationSnapshot snapshot = { &state, &presentation };
+    SDL_Surface *reference = SDL_CreateRGBSurface(
+        SDL_SWSURFACE, 640, 480, 16, 0xf800, 0x07e0, 0x001f, 0);
+    uint16_t foreground = rich4_character_rgb565_color(0x00f0f0f0u);
+    uint16_t shadow = rich4_character_rgb565_color(0x00101010u);
+    int i, y;
+    assert(reference != NULL);
+    rich4_sdl_text_set_font_path("assets/fonts/rich4.ttc");
+    state.player_count = 1;
+    for (i = 0; i < 5; ++i) {
+        GameEvent notice = rich4_game_event_special_place_notice(
+            0, GAME_SPECIAL_NOTICE_RESEARCH_COMPLETE,
+            rich4_game_domain_ref(GAME_DOMAIN_TOOL, i + 8), 0, 1500);
+        char message[64];
+        SDL_FillRect(screen, NULL, 0);
+        SDL_FillRect(reference, NULL, 0);
+        draw_facility_research_selector(screen, &assets, i, 5);
+        draw_big5_text(reference, 220, 154, names[i], 16, foreground, shadow, 3, 4);
+        for (y = 144; y < 180; ++y)
+            assert(memcmp((unsigned char *)screen->pixels + y * screen->pitch,
+                          (unsigned char *)reference->pixels + y * reference->pitch,
+                          640 * 2) == 0);
+
+        rich4_game_event_queue_reset(&presentation.special_place_notice.queue);
+        assert(rich4_game_event_queue_push(&presentation.special_place_notice.queue, &notice));
+        SDL_FillRect(screen, NULL, 0);
+        SDL_FillRect(reference, NULL, 0);
+        draw_special_place_notice(screen, &assets, &snapshot);
+        snprintf(message, sizeof(message),
+                 "%s\xb6\x7d\xb5\x6f\xa7\xb9\xa6\xa8\xa1\x49", names[i]);
+        draw_big5_text(reference, 220, 140, message, 16, foreground, shadow, 3, 4);
+        for (y = 0; y < 480; ++y)
+            assert(memcmp((unsigned char *)screen->pixels + y * screen->pitch,
+                          (unsigned char *)reference->pixels + y * reference->pitch,
+                          640 * 2) == 0);
+    }
+    SDL_FreeSurface(reference);
+    memset(&state, 0, sizeof(state));
+}
+
+static void check_sealed_facility_scene(void)
+{
+    static GameSession session;
+    GameSceneView scene;
+    const int labels[] = {0, 5, 12, 2};
+    int type;
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 2;
+    session.state.price_index = 1;
+    session.state.facility_count = 1;
+    session.state.facility_owner[0] = 1;
+    session.state.facility_level[0] = 1;
+    session.state.facility_price_status[0] = 0x51;
+    session.state.players[0].play_state = session.state.players[1].play_state = 1;
+    session.presentation.property.phase = GAME_PROPERTY_PRESENT_BLOCKED_TEXT;
+    session.presentation.property.property_kind = GAME_DOMAIN_FACILITY;
+    session.presentation.property.land = 0;
+    session.presentation.property.owner = 1;
+    session.presentation.property.collection_block_reason =
+        GAME_PROPERTY_COLLECTION_BLOCK_SEALED;
+    for (type = 1; type <= 3; type++) {
+        session.state.facility_type[0] = type;
+        assert(build_game_session_render_view(NULL, NULL, &session, &scene));
+        assert(scene.property_presentation_phase == GAME_PROPERTY_PRESENT_BLOCKED_TEXT);
+        assert(scene.property_facility_type == type);
+        assert(scene.property_collection_block_reason == GAME_PROPERTY_COLLECTION_BLOCK_SEALED);
+        assert(scene.property_fee_label == labels[type]);
+    }
+}
 
 static void setup(int facility)
 {
@@ -109,37 +199,40 @@ static void check_card_markers(SDL_Surface *screen)
 static void check_flash_footprint_and_occlusion(SDL_Surface *screen)
 {
     Rich4SprSmpChunk mask;
-    int rotation, actor, x, y;
-    setup(0);
-    lands[1].parity_overlay = 0;
-    for (rotation = 0; rotation < 8; rotation++) {
-        input.map_direction = rotation;
-        assert(rich4_game_view_model_build(&state, &input, &assets.map.maps[0], &view));
-        view.property_flash_adjust = 8;
-        view.lands[0].flash_selected = 1;
-        view.lands[0].flash_adjust = 8;
-        assert(rich4_spr_smp_get_chunk(assets.map.map_common_data[2],
-            assets.map.map_common_size[2], &assets.map.map_common_spr[2],
-            (size_t)(rotation & 1), &mask) == RICH4_SPR_SMP_OK);
-        for (actor = 0; actor < 2; actor++) {
-            int cx, cy;
-            rich4_game_viewport_project(&view.viewport, 352, 640, &cx, &cy);
-            view.actor_count = actor;
-            view.actors[0].visible = 1;
-            view.actors[0].world_x = 352;
-            view.actors[0].world_y = 640;
-            view.actors[0].overlay_part = -1;
-            SDL_FillRect(screen, NULL, 0x2104);
-            draw_game_property_flash(screen, &assets, &settings, &view, NULL);
-            for (y = 40; y < 480; y++) for (x = 0; x < 440; x++) {
-                int mx = x - (cx - mask.x), my = y - (cy - mask.y);
-                int covered = mx >= 0 && mx < mask.width && my >= 0 && my < mask.height &&
-                    assets.map.map_common_data[2][mask.data_offset + my * mask.width + mx];
-                uint16_t expected = 0x2104;
-                if (actor && x >= cx - 7 && x < cx + 7 && y >= cy - 7 && y < cy + 7) covered = 0;
-                /* LUT at 0x485D68: a=8,c=4 -> 11. */
-                if (covered) expected = map_resource_pixel(screen, (uint16_t)((11 << 10) | (11 << 5) | 11));
-                assert(pixel(screen, x, y) == expected);
+    int facility, rotation, actor, x, y;
+    for (facility = 0; facility < 2; facility++) {
+        setup(facility);
+        lands[1].parity_overlay = facilities[1].parity_overlay = 0;
+        input.property_flash_active = 1;
+        input.property_flash_adjust = 8;
+        input.property_flash_target = rich4_game_domain_ref(
+            facility ? GAME_DOMAIN_FACILITY : GAME_DOMAIN_LAND, 0);
+        for (rotation = 0; rotation < 8; rotation++) {
+            input.map_direction = rotation;
+            assert(rich4_game_view_model_build(&state, &input, &assets.map.maps[0], &view));
+            assert(rich4_spr_smp_get_chunk(assets.map.map_common_data[2],
+                assets.map.map_common_size[2], &assets.map.map_common_spr[2],
+                (size_t)(facility * 2 + (rotation & 1)), &mask) == RICH4_SPR_SMP_OK);
+            for (actor = 0; actor < 2; actor++) {
+                int cx, cy;
+                rich4_game_viewport_project(&view.viewport, 352, 640, &cx, &cy);
+                view.actor_count = actor;
+                view.actors[0].visible = 1;
+                view.actors[0].world_x = 352;
+                view.actors[0].world_y = 640;
+                view.actors[0].overlay_part = -1;
+                SDL_FillRect(screen, NULL, 0x2104);
+                draw_game_property_flash(screen, &assets, &settings, &view, NULL);
+                for (y = 40; y < 480; y++) for (x = 0; x < 440; x++) {
+                    int mx = x - (cx - mask.x), my = y - (cy - mask.y);
+                    int covered = mx >= 0 && mx < mask.width && my >= 0 && my < mask.height &&
+                        assets.map.map_common_data[2][mask.data_offset + my * mask.width + mx];
+                    uint16_t expected = 0x2104;
+                    if (actor && x >= cx - 7 && x < cx + 7 && y >= cy - 7 && y < cy + 7) covered = 0;
+                    /* LUT at 0x485D68: a=8,c=4 -> 11. */
+                    if (covered) expected = map_resource_pixel(screen, (uint16_t)((11 << 10) | (11 << 5) | 11));
+                    assert(pixel(screen, x, y) == expected);
+                }
             }
         }
     }
@@ -365,6 +458,7 @@ int main(void)
     SDL_Surface *screen = SDL_CreateRGBSurface(SDL_SWSURFACE, 640, 480, 16,
         0xf800, 0x07e0, 0x001f, 0);
     assert(screen != NULL);
+    check_research_prompt_text(screen);
     if (rich4_mkf_open("assets/original/Map.mkf", &mkf) != RICH4_MKF_OK) {
         rich4_mkf_close(mkf);
         assert(rich4_mkf_open("assets/original/Map.mkf", &mkf) == RICH4_MKF_OK);
@@ -379,6 +473,7 @@ int main(void)
     assets.map.maps[0].facilities = facilities;
     assets.map.maps[0].facility_count = 2;
     check_card_markers(screen);
+    check_sealed_facility_scene();
     check_flash_footprint_and_occlusion(screen);
     check_flash_building_pixels(screen, mkf);
     check_sequential_flash();

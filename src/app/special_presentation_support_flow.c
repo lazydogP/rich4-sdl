@@ -455,6 +455,18 @@ void rich4_special_event_skip_wait(
     if (session == NULL || !session->presentation.special_event.active)
         return;
     phase = session->presentation.special_event.phase;
+    if (phase == RICH4_SPECIAL_PRESENT_PROPERTY_FLASH) {
+        GameSpecialEventPresentationState *s = &session->presentation.special_event;
+        Rich4AnimationClock *clock = &session->presentation.animation_clock[RICH4_ANIMATION_SPECIAL];
+        /* A release exits only the current wait. Preserve the displayed
+         * brightness during 0x451985's separate 400 ms finishing wait. */
+        clock->tick = s->frame < 16 ? now : now - 400u;
+        clock->updated_at = now;
+        clock->started = 1;
+        clock->delay_ms = 400;
+        s->frame = 16;
+        return;
+    }
     if (phase == RICH4_SPECIAL_PRESENT_REACTION ||
         phase == RICH4_SPECIAL_PRESENT_PASSIVE_ACTOR_SPEECH ||
         phase == RICH4_SPECIAL_PRESENT_PASSIVE_VICTIM_SPEECH) {

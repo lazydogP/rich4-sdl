@@ -94,7 +94,7 @@
 | `0x41982D`、`0x40FA61` | 购买留`min(trunc(F*0.05),7000)*P`，必须严格超出；附神槽12禁购买，槽7/8/15阻止投资；建设不套购地保留金 | `rich4_ai_purchase_allowed`、`god.h`、route executor；`test_property`、`test_facility`、`test_route_event_executor` |
 | `0x40B455`、`0x40B110` | 自有可升级住宅后设施，按收费严格最大；空设施随机1..4型 | `ai.c:select_upgrade`、`route_event_executor_decisions.c`；`test_ai`、`test_route_event_executor` |
 | `0x41AAF0`等 | 自营建筑公司最多两次施工，他营一次；达到上限停止 | route executor property/company链；`test_route_event_executor` |
-| `0x44101D` | 研究所选零基level-1最高可用工具，5天生产 | route executor research链；`test_route_event_executor`、`test_facility` |
+| `0x41B0AB..0x41B109`、`0x44101D` | 自有已建研究所、非梦游且状态低四位为0时，在建设/升级或建设被神明拒绝后仍检查研究；非真人按原始+21判定，固定选零基level-1并重设5回合，不受禁止交易状态阻止 | `rich4_facility_start_ai_research_after_landing`、route executor research链；`test_route_event_executor`、`test_facility` |
 | `0x41D1A9 → 0x41D839` | 公司增发限制最多1000股，AI保留`trunc(F*0.3)*P`现金 | route executor company issue链；`test_route_event_executor` |
 
 ## 股票、资金、商店与拍卖
@@ -110,7 +110,7 @@
 | 银行 `0x4379C9`、`0x436668` | `bank.c:rich4_bank_run_ai_transfer/run_ai` | 单精度现金比例、月初/月末修正、含±25%边界；B>2L或到期≤6天且资金≥1.1L全还；无贷款1/10或资金<30000借款；`test_bank` |
 | 特殊融资 `0x436B0A` | `rich4_bank_settle_special_finance` | 最后有效银行owner；其他活动玩家清融资；owner覆盖差额；`test_bank`、`test_route_event_executor` |
 | 挂牌 `0x4284BE` | `ai_flow.c:ai_market_preactions`、共享ledger | 1/15创建、1/3调价、1/4购买；重复卡双循环权重、七槽顺序、股票整数商、资产严格估值门槛 |
-| 商店 `0x42E931` | `route_event_executor_rewards.c`、`route_event_executor_shop.c` | 卖卡首轮难度按槽索引；点券不足100卖最便宜卡及多余工具；卡/工具分预算；卡降价序，工具固定序；`test_route_event_executor`、`test_shop_flow` |
+| 商店 `0x42E931` | `route_event_executor_rewards.c`、`route_event_executor_shop.c` | 卖卡首轮难度按槽索引；点券不足100卖最便宜卡及多余工具；售后点券平分独立预算；卡按降价序可重复买到预算/库存/15卡槽限制；交通工具及固定序六种工具每种每次最多一件；`test_route_event_executor`、`test_shop_flow` |
 | 拍卖 `0x43BDE5`、`0x439F0D`、`0x43A2DD` | `auction.c`、`app/auction_flow.c` | 起价、活动/拘留过滤、两随机估值上限、物价双乘原式、100..10000五档及调用模式压档；`test_auction`、`test_auction_flow` |
 
 这些已列分支为 `confirmed`。股票、挂牌、银行均通过typed命令/共享领域规则应用；候选选择不是通用最大收益求解。
@@ -120,7 +120,8 @@
 | 原版入口 | SDL 对应 | 对齐规则/验证 |
 |---|---|---|
 | 彩票 `0x4315CC` | `run_ai_lottery_purchase` | 现金严格>1000且有空号，空号集合随机一次；`test_route_event_executor` |
-| 监狱/医院 `0x43D304`、`0x43E9A4` | `route_event_executor_confinement.c` | 有收容对象再抽1/2；策略0/1/2决定普通/四名特殊人物候选；先抽目标再判>30或≥700点券，不重选；`test_route_event_executor` |
+| 监狱/医院 `0x43D304`、`0x43E9A4` | `route_event_executor_confinement.c` | 只扫描四名普通玩家及四名特殊人物的八槽；有收容对象再抽1/2；策略0/1/2决定候选；先抽目标再判>30或≥700点券，实际扣30/300，不重选；`test_route_event_executor`、`test_special_place_alignment` |
+| 强制征收命运 `0x44BFB1`、`0x44DB81`、`0x4544F6` | `special_presentation_flow.c`、`special_presentation_update_flow.c`、`special_event_timeline.c` | 命运页面等待1600 ms，语音更长则等语音，松键/松开鼠标可提前结束；征收后独立300 ms反应等待及角色发言，回调结束另等800 ms；`test_special_presentation_flow:land_expropriation_waits_for_page_voice_and_separate_tail` |
 | 魔法屋 `0x43380A` | `route_event_executor_step_special.c`、`special_event_magic.c` | 重抽非空条件组；含自己动作6；否则0..10且6改7；免罪消耗压紧库存；`test_special_event`、`test_magic_house_flow` |
 | 三小游戏 `0x415215`、`0x4154DC`、`0x4155FC` | `apply_automatic_point_minigame` | 50..69点，然后另一随机数选择角色发言；`test_route_event_executor`、`test_route_event_flow` |
 | 旅馆、购物中心、保险转盘 | `roulette_flow.c`、`hotel_flow.c`、`insurance_flow.c` | 自动停止时点和减速落格，不按回报选格；`test_roulette_flow`、`test_hotel_flow`、`test_insurance_flow` |

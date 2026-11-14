@@ -24,6 +24,7 @@
 | `0x40AC7B` | 4 选区内 H/B 清除和人物；20 仅选区内 H/B 降级；C 不被选作破坏目标 | `apply_news_area`、`special_event_commit.c`；没有世界坐标方框后备近似 |
 | `0x44A91E / 0x44AC99` | 19/21 不筛建成或 owner，选空地不重抽 | `choose_property(0,0,0)`；单地清除/降级 |
 | `0x44A5D6 / 0x44A657` | 16/17 比较完整交通 byte 的零/非零，所有匹配活动玩家都停留 | `news_prepare_effect` |
+| `0x40DD53..0x40DD7C / 0x40D808..0x40D889` | 普通行动先保存时光机快照；停留 byte 非零（含待清除的 `0x80`）时不掷骰、不移动，写 `EA2=0 / EA5=2`，两个逻辑 tick 后调用 `0x418E7F` 处理脚下格；`+21 & 0x30` 的返回移动优先 | `dice_flow.c:rich4_dice_begin_roll`、`rich4_dice_update` 接入已有 MOVE 倒计时和停格分派 |
 | `0x44B0D1 / 0x44B1A3` | 27 全 12 股抽取，停牌字段写 15；28 从已停牌股中抽取 | `news_prepare_effect`；保存股票索引用于页面名称，不另抽 |
 | `0x448E64..0x448E99 / 0x40D73F` | 29 资格只需一家公司经营者活动且旅馆/出国/监狱/医院四字段全空 | `news_eligible(29)`、`company_operator` |
 | `0x44B285..0x44B29E` | 29 候选只要求有经营者，不重复资格中的离场筛选，也不要求有效股票链接；按公司记录入池，重复经营者保留权重 | `news_prepare_effect(29)` 保存公司和经营者，候选容量按公司数量上限 |
@@ -86,6 +87,7 @@ app 在提交前保留动态对象数组，路线命令失败时恢复，状态�
 - `python scripts/make_minimal.py test-ai-pixel-candidates`：8 个方向的原锚点坐标、资源存在和同像素 raw 表；新闻 4/20 复用该来源，缺失资源的邻近建筑不进入受影响集合。
 - `python scripts/make_minimal.py test-fortune-selection-sdl`：原版 MKF 被动面板、鼠标输入、新闻 29 的经营者目标排除和单人确认，兼顾共享命运路径。
 - `test_special_event_text` 验证标题边界和两个独立 `%s` 名称的有界展开。
+- `tests/unit/test_dice_flow.c` 覆盖新闻 16/17 的真人及 AI：回合选择把停留 1 递减为 `0x80` 后仍跳过掷骰，保留 RNG 与遥控骰子，两个逻辑 tick 后原地停格分派；下一次选择清除停留并恢复掷骰。
 
 ## 边界
 

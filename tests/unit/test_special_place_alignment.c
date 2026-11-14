@@ -131,6 +131,61 @@ static void visits_only_notify_success(void)
         }
 }
 
+static void visit_selection_does_not_retry_or_include_fifth_special(void)
+{
+    int action, scenario;
+    for (action = 4; action <= 5; action++) for (scenario = 0; scenario < 2; scenario++) {
+        GameSession session;
+        Rich4AudioEventQueue audio;
+        int kind = action == 4 ? GAME_CONFINEMENT_PRISON : GAME_CONFINEMENT_HOSPITAL;
+        prepare(&session, 5, action, ROUTE_EVENT_PHASE_STOP);
+        session.state.ai_rng_state = 3;
+        session.state.players[0].ai_personality = 1;
+        session.state.players[0].points = 31;
+        if (scenario == 0) {
+            /* Seed 3: attempt, include specials, choose the special over
+             * the affordable normal player. Insufficient 700 points ends it. */
+            if (action == 4) session.state.players[1].days_in_prison = 2;
+            else session.state.players[1].days_in_hospital = 2;
+            session.state.special_player_confinement[0] = kind;
+        } else {
+            session.state.special_player_confinement[4] = kind;
+        }
+        rich4_audio_event_queue_init(&audio);
+        step(&session, &audio);
+        assert(rich4_special_place_notice_current(&session.presentation) == NULL);
+        assert(session.state.players[0].points == 31);
+        assert(session.state.ai_rng_state == (scenario == 0 ? 679304702u : 3u));
+        assert((action == 4 ? session.state.players[1].days_in_prison :
+                             session.state.players[1].days_in_hospital) ==
+               (scenario == 0 ? 2 : 0));
+    }
+}
+
+static void bank_pass_only_transfers_and_stop_can_repay(void)
+{
+    int phase;
+    for (phase = ROUTE_EVENT_PHASE_PASS; phase <= ROUTE_EVENT_PHASE_STOP; phase++) {
+        GameSession session;
+        Rich4AudioEventQueue audio;
+        prepare(&session, 5, 14, phase);
+        session.state.calendar_start_year = 2026;
+        session.state.calendar_start_month = 11;
+        session.state.calendar_start_day = 15;
+        session.state.players[0].cash = 299;
+        session.state.players[0].bank = 201;
+        session.state.players[0].loan = 100;
+        session.state.players[0].loan_due_date = 90;
+        rich4_audio_event_queue_init(&audio);
+        step(&session, &audio);
+        assert(session.state.players[0].cash == 299);
+        assert(session.state.players[0].loan == (phase == ROUTE_EVENT_PHASE_PASS ? 100 : 0));
+        assert(session.state.players[0].bank == (phase == ROUTE_EVENT_PHASE_PASS ? 201 : 101));
+        assert((rich4_special_place_notice_current(&session.presentation) != NULL) ==
+               (phase == ROUTE_EVENT_PHASE_STOP));
+    }
+}
+
 static void bank_notices_and_silent_lottery_shop(void)
 {
     int scenario;
@@ -326,6 +381,8 @@ int main(void)
     entry_once_for_every_actor_and_action();
     silent_pass_sleepwalk_and_inactive();
     visits_only_notify_success();
+    visit_selection_does_not_retry_or_include_fifth_special();
+    bank_pass_only_transfers_and_stop_can_repay();
     bank_notices_and_silent_lottery_shop();
     gift_notice_and_speech_own_the_turn();
     owner_shortfall_and_serial_notices();
