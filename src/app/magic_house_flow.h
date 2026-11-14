@@ -22,6 +22,8 @@ const char *rich4_magic_house_action_big5(int action);
 const char *rich4_magic_house_condition_big5(int condition);
 const char *rich4_magic_house_phase_big5(int phase, int condition);
 int rich4_magic_house_facility_at(int x, int y);
+/* 0x431CAA temporarily selects each recipient until its blocking effect returns. */
+int rich4_magic_house_presentation_player(const GamePresentationState *presentation);
 void rich4_magic_house_set_hover(GameSession *session, int hover);
 void rich4_magic_house_set_facility_choice_hover(
     GameSession *session, int hover);

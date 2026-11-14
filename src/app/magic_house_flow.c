@@ -460,8 +460,6 @@ void rich4_magic_house_finish(
                 changed_type[player];
         return;
     }
-    memset(&session->presentation.magic_house, 0,
-           sizeof(session->presentation.magic_house));
     while (rich4_game_event_queue_pop(&events, &event)) {
         if (event.type == GAME_EVENT_TEXT_REQUESTED) {
             Rich4GameEventFields fields = rich4_game_event_text_requested_fields(&event);
@@ -500,7 +498,38 @@ void rich4_magic_house_finish(
                    out_events != NULL)
             rich4_game_event_queue_push(out_events, &event);
     }
-    (void)now;
+    if ((action == 2 || action == 10) &&
+        session->presentation.tool_animation_count > 0) {
+        /* 0x431E68/0x432421 return only after admission, speech and claim.
+         * Keep the recipient context until the queued blocking calls return. */
+        session->presentation.magic_house.phase = RICH4_MAGIC_HOUSE_EFFECTS;
+        session->presentation.magic_house.target_player = -1;
+    } else {
+        memset(&session->presentation.magic_house, 0,
+               sizeof(session->presentation.magic_house));
+        session->presentation.has_view_override = 0;
+    }
+}
+
+int rich4_magic_house_presentation_player(const GamePresentationState *presentation)
+{
+    const struct MagicHouseState *magic;
+    int player = -1;
+    if (presentation == NULL || !presentation->magic_house.active) return -1;
+    magic = &presentation->magic_house;
+    if (magic->phase == RICH4_MAGIC_HOUSE_TARGET)
+        player = magic->target_player;
+    else if (magic->phase == RICH4_MAGIC_HOUSE_EFFECTS) {
+        if (presentation->insurance.count > 0)
+            player = presentation->insurance.queue[presentation->insurance.head].player;
+        else if (presentation->tool_animation_count > 0) {
+            const GameToolAnimationRequest *request =
+                &presentation->tool_animation[presentation->tool_animation_head];
+            player = request->after_sync_player;
+            if (player <= -2) player = -2 - player;
+        }
+    }
+    return player >= 0 && player < GAME_MAX_PLAYERS ? player : -1;
 }
 
 int rich4_magic_house_update(
@@ -511,6 +540,15 @@ int rich4_magic_house_update(
     struct MagicHouseState *magic;
     if (session == NULL || !session->presentation.magic_house.active) return 0;
     magic = &session->presentation.magic_house;
+    if (magic->phase == RICH4_MAGIC_HOUSE_EFFECTS) {
+        if (session->presentation.tool_animation_count > 0 ||
+            session->presentation.insurance.count > 0) return 1;
+        /* 0x432501 restores the caster after the last recipient's call.
+         * The SDL target camera must return with the temporary selection. */
+        memset(magic, 0, sizeof(*magic));
+        session->presentation.has_view_override = 0;
+        return 0;
+    }
     if (magic->phase == RICH4_MAGIC_HOUSE_AI_NOTICE) {
         if ((int32_t)(now - magic->phase_until) >= 0) {
             magic->pending_targets = magic->targets;

@@ -118,6 +118,7 @@ int game_update_magic_house(
     if (session != NULL && session->presentation.magic_house.active &&
         session->presentation.magic_house.phase != RICH4_MAGIC_HOUSE_AI_NOTICE &&
         session->presentation.magic_house.phase != RICH4_MAGIC_HOUSE_TARGET &&
+        session->presentation.magic_house.phase != RICH4_MAGIC_HOUSE_EFFECTS &&
         session->presentation.magic_house.phase != RICH4_MAGIC_HOUSE_FACILITY_CHOICE &&
         assets != NULL && game_asset_ready(assets, &assets->ui.has_panel_graph[20])) {
         frames = game_asset_graph_frames(assets, &assets->ui.panel_data[20], assets->ui.panel_size[20]);

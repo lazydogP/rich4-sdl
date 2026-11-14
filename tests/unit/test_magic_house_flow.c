@@ -3,7 +3,26 @@
 #include <string.h>
 
 #include "app/magic_house_flow.h"
+#include "app/game_speech_flow.h"
+#include "app/insurance_flow.h"
+#include "app/tool_animation_flow.h"
+#include "app/turn_rotation_flow.h"
+#include "core/confinement.h"
+#include "core/special_event.h"
 #include "core/game_event_payload.h"
+#include "view/game_view_model.h"
+
+static void assert_hud_player(const GameSession *session, int player)
+{
+    GameViewModelInput input;
+    GameViewModel view;
+    memset(&input, 0, sizeof(input));
+    input.presentation_player =
+        rich4_magic_house_presentation_player(&session->presentation) + 1;
+    assert(rich4_game_view_model_build(&session->state, &input, NULL, &view));
+    assert(view.hud.current_player == player);
+    assert(view.hud.cash == session->state.players[player].cash);
+}
 
 static void ai_notice_precedes_effect(void)
 {
@@ -83,7 +102,7 @@ static void confinement_actions_request_shared_presentations(void)
         s.flow.route_events.state.presentation_targets = 3;
         s.presentation.magic_house.active = 1;
         rich4_magic_house_finish(&s, action, 1000, NULL, NULL);
-        assert(!s.presentation.magic_house.active);
+        assert(s.presentation.magic_house.active);
         assert(s.presentation.tool_animation_count == 2);
         for (player = 0; player < 2; player++) {
             assert(s.state.players[player].node == 2 + player);
@@ -94,6 +113,103 @@ static void confinement_actions_request_shared_presentations(void)
             assert(s.presentation.tool_animation[player].confinement_days == 3);
             assert(s.presentation.tool_animation[player].resource == (action == 2 ? 538 : 524));
         }
+    }
+}
+
+static void walking_admission_keeps_claimant(void)
+{
+    static GameSession s;
+    RouteEvent route = {0};
+    Rich4ToolAnimationCompletion completion;
+    GameEvent event;
+    int i, tick;
+    memset(&s, 0, sizeof(s));
+    s.state.active = 1;
+    s.state.player_count = 3;
+    s.state.current_player = s.state.turn_rotation_index = 2; /* Z */
+    s.state.price_index = 1;
+    s.state.prison_node = 5;
+    s.state.tool_route_node_count = 8;
+    s.state.company_count = 1;
+    s.state.company_type[0] = 4;
+    for (i = 0; i < 3; ++i) {
+        s.state.players[i].play_state = 1;
+        s.state.players[i].character = i;
+        s.state.players[i].node = i + 1;
+        s.state.players[i].cash = 10000;
+        s.state.players[i].days_assurance = 10;
+        s.state.players[i].attached_timed_bomb_slot = -1;
+    }
+    s.state.players[0].traffic_method = s.state.players[2].traffic_method = 2;
+    route.phase = ROUTE_EVENT_PHASE_STOP;
+    route.snapshot.route_action = 16;
+    assert(rich4_route_event_queue_push(&s.flow.route_events.queue, &route));
+    s.flow.route_events.state.execution_started = 1;
+    s.flow.route_events.state.execution_actor = 2;
+    s.flow.route_events.state.waiting_for_presentation = 1;
+    s.flow.route_events.state.presentation_action = 16;
+    s.flow.route_events.state.presentation_condition = 6;
+    s.flow.route_events.state.presentation_targets = rich4_magic_house_target_mask(&s.state, 6);
+    assert(s.flow.route_events.state.presentation_targets == 2u);
+    s.presentation.magic_house.active = 1;
+    s.presentation.magic_house.player = 2;
+    rich4_magic_house_finish(&s, 2, 1000, NULL, NULL);
+    assert(s.presentation.magic_house.active);
+    assert(s.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_EFFECTS);
+    assert(s.presentation.tool_animation_count == 1);
+    assert(s.presentation.tool_animation[0].after_sync_player == 1);
+    assert_hud_player(&s, 1);
+    rich4_tool_animation_skip_optional_confinement(&s);
+    for (tick = 1000; tick < 20000 && s.presentation.tool_animation_count; tick += 2000) {
+        if (s.presentation.speech.active) {
+            rich4_speech_request_skip(&s);
+            (void)rich4_speech_finish_update(&s, (uint32_t)tick, 0);
+        }
+        (void)rich4_tool_animation_update(&s, 1, 1, (uint32_t)tick, NULL, &completion);
+        while (rich4_game_event_queue_pop(&completion.events, &event)) {
+            assert(event.type == GAME_EVENT_INSURANCE_CLAIM_PRESENTATION_REQUESTED);
+            assert(event.player == 1);
+            assert(rich4_game_event_insurance_claimant(&event) == 1);
+            rich4_insurance_flow_enqueue_confinement_claim(&s, &event, (uint32_t)tick);
+        }
+        assert_hud_player(&s, 1);
+    }
+    assert(!s.presentation.tool_animation_count);
+    assert(s.presentation.insurance.count == 1);
+    assert(rich4_insurance_flow_update(&s, 21000));
+    assert(rich4_magic_house_update(&s, 0, 0, 21001, 0, NULL, NULL));
+    assert(s.presentation.magic_house.active);
+    assert_hud_player(&s, 1);
+    assert(!rich4_insurance_flow_update(&s, 23000));
+    assert(s.state.players[0].cash == 10000);
+    assert(s.state.players[1].cash == 16000);
+    assert(s.state.players[2].cash == 10000);
+    assert(s.state.players[0].days_in_prison == 0);
+    assert(s.state.players[1].days_in_prison == 3);
+    /* The target camera belongs to the whole blocking magic-house call.
+     * Its return restores the caster before the next turn or dice roll. */
+    s.presentation.has_view_override = 1;
+    assert(!rich4_magic_house_update(&s, 0, 0, 23001, 0, NULL, NULL));
+    assert(!s.presentation.magic_house.active);
+    assert(!s.presentation.has_view_override);
+    assert_hud_player(&s, 2);
+    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; ++i)
+        s.state.special_player_f10[i] = 1;
+    assert(rich4_app_complete_route_event_turn(&s, NULL, 24000, NULL));
+    assert(s.state.current_player == 0);
+    assert(!s.presentation.has_view_override);
+    assert_hud_player(&s, 0);
+    {
+        GameViewModelInput input = {0};
+        GameViewportModel viewport;
+        /* A's camera follows its movement immediately after the handoff. */
+        input.has_view_override = s.presentation.has_view_override;
+        input.view_world_x = input.view_world_y = 900;
+        input.actors[0].move_active = 1;
+        input.actors[0].visual_x = 123;
+        input.actors[0].visual_y = 456;
+        rich4_game_viewport_build(&s.state, &input, NULL, &viewport);
+        assert(viewport.center_world_x == 123 && viewport.center_world_y == 456);
     }
 }
 
@@ -125,12 +241,14 @@ static void turn_action_uses_shared_flow(void)
     session.flow.route_events.state.presentation_condition = 6;
     session.flow.route_events.state.presentation_targets = 1;
     session.presentation.magic_house.active = 1;
+    session.presentation.has_view_override = 1;
 
     rich4_audio_event_queue_init(&audio);
     rich4_magic_house_finish(&session, 7, 1000, &audio, NULL);
     assert(session.state.players[0].next_node == 3);
     assert(session.presentation.actors[0].direction == 6);
     assert(session.presentation.actors[0].walk_frame == 0);
+    assert(!session.presentation.has_view_override);
     assert(rich4_audio_event_pop(&audio, &sound));
     assert(sound.type == RICH4_AUDIO_EVENT_TURN_AROUND &&
            sound.value == 56);
@@ -138,6 +256,7 @@ static void turn_action_uses_shared_flow(void)
 
 int main(void)
 {
+    walking_admission_keeps_claimant();
     turn_action_uses_shared_flow();
     confinement_actions_request_shared_presentations();
     GameSession session;
