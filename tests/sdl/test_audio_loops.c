@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <SDL/SDL.h>
-#undef main
 #include "platform/sdl1/audio/audio_sdl_mixer.h"
 #include "platform/sdl1/audio/audio_sdl_mixer_internal.h"
 

@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL/SDL.h>
-#undef main
 #include "platform/sdl1/render/game_map_objects.h"
 #include "core/special_event.h"
 

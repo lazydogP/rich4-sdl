@@ -4,7 +4,6 @@
 #include <string.h>
 #include <SDL/SDL.h>
 #ifdef main
-#undef main
 #endif
 
 #include "platform/sdl1/game_asset_api.h"

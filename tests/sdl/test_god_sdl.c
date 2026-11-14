@@ -1,6 +1,5 @@
 #define SDL_MAIN_HANDLED
 #include <SDL/SDL.h>
-#undef main
 
 #include <assert.h>
 #include <stdio.h>

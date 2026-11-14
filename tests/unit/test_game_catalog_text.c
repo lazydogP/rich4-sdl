@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "platform/sdl1/game_asset_api.h"
-#undef main
 
 int main(void)
 {

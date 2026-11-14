@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <SDL/SDL.h>
-#undef main
 #include "app/ai_settings_flow.h"
 #include "core/turn_rotation.h"
 #include "platform/sdl1/game_loop_event_poll.h"

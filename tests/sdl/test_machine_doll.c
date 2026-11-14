@@ -2,7 +2,6 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL/SDL.h>
-#undef main
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

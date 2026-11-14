@@ -9,7 +9,6 @@
 #include <direct.h>
 #endif
 #include <SDL/SDL.h>
-#undef main
 #include "platform/sdl1/game_loop_panels.h"
 #include "platform/sdl1/game_loop_options_input.h"
 #include "platform/sdl1/game_asset_api.h"

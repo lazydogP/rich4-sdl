@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <SDL/SDL.h>
-#undef main
 
 #include "app/engineering_attack_flow.h"
 #include "platform/sdl1/game_loop_orchestration.h"

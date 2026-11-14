@@ -5,7 +5,6 @@
 #include "platform/sdl1/render/game_render_cache.h"
 
 #ifdef main
-#undef main
 #endif
 
 int main(void)
