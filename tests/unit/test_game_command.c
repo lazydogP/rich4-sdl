@@ -110,6 +110,19 @@ int main(void)
         rich4_game_domain_ref(GAME_DOMAIN_TOOL, 1), 0,
         rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 2), none());
     assert(rich4_game_command_is_valid(&command));
+    command = rich4_game_command_with_missile_direction(command, 1);
+    assert(!rich4_game_command_is_valid(&command));
+    command.subject = rich4_game_domain_ref(GAME_DOMAIN_TOOL, 6);
+    assert(rich4_game_command_is_valid(&command));
+    command = rich4_game_command_with_missile_direction(command, 7);
+    assert(rich4_game_command_is_valid(&command));
+    command = rich4_game_command_with_missile_direction(command, 8);
+    assert(!rich4_game_command_is_valid(&command));
+    command = rich4_game_command_with_missile_direction(command, -1);
+    assert(!rich4_game_command_is_valid(&command));
+    command = rich4_game_command_with_missile_direction(command, 0);
+    command.flags = 1;
+    assert(!rich4_game_command_is_valid(&command));
     command = rich4_game_command_stock(
         GAME_COMMAND_BUY_STOCK, GAME_COMMAND_SOURCE_HUMAN, 0,
         rich4_game_domain_ref(GAME_DOMAIN_STOCK, 0), 1);

@@ -5,6 +5,7 @@
 #include "core/insurance.h"
 #include "core/confinement.h"
 #include "core/game_event_payload.h"
+#include "core/map_projection.h"
 
 #define NO_PLAYER 0xffu
 
@@ -105,19 +106,35 @@ void rich4_tool_release_area_object(GameState *state, int slot)
     memset(object, 0, sizeof(*object));
 }
 
+/* 0x446FBC focuses the target before 0x40AC7B(100) builds the 0x40A45C
+ * window. 0x409DE7 indexes projected anchors, not map/world coordinates.
+ * Its [120,320) x [120,320) window is [-100,100) about the viewport centre. */
+static int tool_area_contains(int x, int y, int center_x, int center_y,
+    int full_destroy, int map_direction)
+{
+    int dx, dy;
+    if (full_destroy)
+        return rich4_tool_in_square(x, y, center_x, center_y, 220);
+    return rich4_map_project_offset(map_direction, center_x, center_y,
+               x, y, &dx, &dy) &&
+        dx >= -100 && dx < 100 && dy >= -100 && dy < 100;
+}
+
 static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
-    int full_destroy, GameEventQueue *events, int defer_confinement);
+    int full_destroy, GameEventQueue *events, int defer_confinement,
+    int map_direction);
 
 int rich4_tool_area_effect(GameState *next, int actor, GameDomainRef center,
     int full_destroy, GameEventQueue *events)
 {
-    return tool_area_effect(next, actor, center, full_destroy, events, 0);
+    return tool_area_effect(next, actor, center, full_destroy, events, 0, 0);
 }
 
 static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
-    int full_destroy, GameEventQueue *events, int defer_confinement)
+    int full_destroy, GameEventQueue *events, int defer_confinement,
+    int map_direction)
 {
-    int center_x, center_y, half = full_destroy ? 220 : 100;
+    int center_x, center_y;
     int first_land = -1, first_facility = -1, first_object = -1;
     int land_count = 0, facility_count = 0, object_count = 0;
     int player, i;
@@ -125,8 +142,8 @@ static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
         next->price_index <= 0 || events == NULL) return 0;
     for (i = 0; i < next->land_count; i++) {
         int owner, old_value, new_value;
-        if (!rich4_tool_in_square(next->tool_land_x[i], next->tool_land_y[i],
-                       center_x, center_y, half)) continue;
+        if (!tool_area_contains(next->tool_land_x[i], next->tool_land_y[i],
+                       center_x, center_y, full_destroy, map_direction)) continue;
         owner = next->land_owner[i];
         old_value = next->land_value[i];
         if (owner >= 0 && owner < next->player_count &&
@@ -155,9 +172,9 @@ static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
     }
     for (i = 0; i < next->facility_count; i++) {
         int owner, old_value, new_value;
-        if (!rich4_tool_in_square(next->tool_facility_x[i],
+        if (!tool_area_contains(next->tool_facility_x[i],
                        next->tool_facility_y[i],
-                       center_x, center_y, half)) continue;
+                       center_x, center_y, full_destroy, map_direction)) continue;
         owner = next->facility_owner[i];
         old_value = next->facility_value[i];
         if (owner >= 0 && owner < next->player_count &&
@@ -192,8 +209,8 @@ static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
                                                &next->tool_placed_objects[i]);
         if (next->tool_placed_objects[i].kind == 0 ||
             node < 0 ||
-            !rich4_tool_in_square(next->tool_route_x[node], next->tool_route_y[node],
-                       center_x, center_y, half)) continue;
+            !tool_area_contains(next->tool_route_x[node], next->tool_route_y[node],
+                       center_x, center_y, full_destroy, map_direction)) continue;
         rich4_tool_release_area_object(next, i);
         if (first_object < 0) first_object = i;
         object_count++;
@@ -206,16 +223,16 @@ static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
          * rescued special actor even when player 0 owns it. */
         if (next->special_player_f10[i] != 0 ||
             !rich4_tool_valid_node(next, node) ||
-            !rich4_tool_in_square(next->tool_route_x[node], next->tool_route_y[node],
-                       center_x, center_y, half)) continue;
+            !tool_area_contains(next->tool_route_x[node], next->tool_route_y[node],
+                       center_x, center_y, full_destroy, map_direction)) continue;
         next->special_player_play_state[i] = 0;
         next->special_player_node[i] = 0;
     }
     for (player = 0; player < next->player_count; player++) {
         int node = next->players[player].node;
         if (!rich4_tool_active_player(next, player) || !rich4_tool_valid_node(next, node) ||
-            !rich4_tool_in_square(next->tool_route_x[node], next->tool_route_y[node],
-                       center_x, center_y, half)) continue;
+            !tool_area_contains(next->tool_route_x[node], next->tool_route_y[node],
+                       center_x, center_y, full_destroy, map_direction)) continue;
         if (!rich4_tool_valid_node(next, next->hospital_node) ||
             !rich4_tool_add_relation(&next->players[player], actor,
                           90 * next->price_index)) return 0;
@@ -392,7 +409,8 @@ static GameToolUseResult tool_apply_command(GameState *state,
                 full_destroy ? 530 : 528,
                 full_destroy ? 83 : 81, 0) ||
             !tool_area_effect(&next, command->player, command->target,
-                         full_destroy, &staged, defer_confinement))
+                         full_destroy, &staged, defer_confinement,
+                         command->value2))
             return GAME_TOOL_USE_INVALID;
     } else if (tool == 7) {
         player->remote_dice_value = command->value;

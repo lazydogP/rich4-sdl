@@ -302,6 +302,13 @@ GameCommand rich4_game_command_with_turn_token(
     return command;
 }
 
+GameCommand rich4_game_command_with_missile_direction(
+    GameCommand command, int direction)
+{
+    command.value2 = direction;
+    return command;
+}
+
 static int is_property(GameDomainRef ref)
 {
     return rich4_game_domain_ref_is_valid(ref) &&
@@ -323,8 +330,14 @@ int rich4_game_command_is_valid(const GameCommand *command)
     if (command->type != GAME_COMMAND_USE_TOOL &&
         !rich4_game_domain_ref_is_none(command->target2)) return 0;
     if (command->type != GAME_COMMAND_USE_CARD &&
-        command->type != GAME_COMMAND_CREATE_MARKET_LISTING &&
-        (command->value2 != 0 || command->flags != 0)) return 0;
+        command->type != GAME_COMMAND_CREATE_MARKET_LISTING) {
+        if (command->flags != 0) return 0;
+        if (command->type == GAME_COMMAND_USE_TOOL &&
+            command->subject.kind == GAME_DOMAIN_TOOL &&
+            command->subject.id == 6) {
+            if (command->value2 < 0 || command->value2 >= 8) return 0;
+        } else if (command->value2 != 0) return 0;
+    }
     if (command->type == GAME_COMMAND_CREATE_MARKET_LISTING &&
         command->flags != 0) return 0;
     if (command->type == GAME_COMMAND_SELECT_DICE_COUNT) {

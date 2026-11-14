@@ -137,6 +137,9 @@ GameCommand rich4_game_command_load_game(
     GameCommandSource source, int player, int slot);
 GameCommand rich4_game_command_with_turn_token(
     GameCommand command, unsigned int turn_token);
+/* Normal missile: value2 carries the map direction used by 0x40829D. */
+GameCommand rich4_game_command_with_missile_direction(
+    GameCommand command, int direction);
 int rich4_game_command_is_valid(const GameCommand *command);
 
 #endif

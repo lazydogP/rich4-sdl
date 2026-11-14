@@ -5,6 +5,7 @@
 #include "core/game_event_payload.h"
 #include "core/tool.h"
 #include "core/rng.h"
+#include "core/map_projection.h"
 
 static GameDomainRef none(void)
 {
@@ -175,6 +176,179 @@ static void vehicles_and_deferred(void)
     command.subject = rich4_game_domain_ref(GAME_DOMAIN_TOOL, 12);
     command.target = rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 4);
     assert(rich4_tool_inspect(&state, &command) == GAME_TOOL_USE_APPLIED);
+}
+
+/* Golden offsets read from the original IDB: grid 0x46CCF0, signed
+ * coefficients 0x474910, focus (647,659). Includes sub-tile rounding and
+ * both sides of each edge of 0x40A45C(100), in all eight directions. */
+static void missile_projected_area(void)
+{
+    static const struct {
+        int direction, x, y, screen_dx, screen_dy, hit;
+    } cases[] = {
+        {0,572,630,-101,0,0},
+        {0,573,630,-100,0,1},
+        {0,573,631,-99,0,1},
+        {0,723,692,99,0,1},
+        {0,724,692,100,0,0},
+        {0,725,692,101,-1,0},
+        {0,693,552,0,-101,0},
+        {0,693,553,0,-100,1},
+        {0,692,554,0,-99,1},
+        {0,606,767,0,99,1},
+        {0,605,767,-1,100,0},
+        {0,605,769,0,101,0},
+        {1,573,689,-101,0,0},
+        {1,574,689,-100,0,1},
+        {1,575,689,-99,0,1},
+        {1,725,628,99,0,1},
+        {1,725,626,100,-1,0},
+        {1,726,626,101,0,0},
+        {1,605,550,0,-101,0},
+        {1,605,551,0,-100,1},
+        {1,606,552,0,-99,1},
+        {1,694,766,0,99,1},
+        {1,694,767,0,100,0},
+        {1,694,768,0,101,0},
+        {2,617,734,-101,0,0},
+        {2,617,733,-100,0,1},
+        {2,618,733,-99,0,1},
+        {2,680,583,99,0,1},
+        {2,679,582,100,-1,0},
+        {2,680,582,101,0,0},
+        {2,541,613,0,-101,0},
+        {2,542,614,0,-100,1},
+        {2,543,614,0,-99,1},
+        {2,757,701,0,99,1},
+        {2,758,701,0,100,0},
+        {2,760,702,0,101,0},
+        {3,680,733,-101,1,0},
+        {3,679,733,-100,0,1},
+        {3,679,732,-99,0,1},
+        {3,616,583,99,0,1},
+        {3,616,582,100,0,0},
+        {3,616,581,101,1,0},
+        {3,540,700,0,-101,0},
+        {3,541,700,0,-100,1},
+        {3,542,699,0,-99,1},
+        {3,754,614,0,99,1},
+        {3,754,613,1,100,0},
+        {3,756,613,0,101,0},
+        {4,722,690,-101,0,0},
+        {4,722,688,-100,1,1},
+        {4,721,688,-99,0,1},
+        {4,570,627,99,0,1},
+        {4,569,628,100,-1,0},
+        {4,569,627,101,0,0},
+        {4,601,766,0,-101,0},
+        {4,601,765,1,-100,1},
+        {4,601,764,1,-99,1},
+        {4,690,551,0,99,1},
+        {4,691,549,0,100,0},
+        {4,691,548,0,101,0},
+        {5,721,627,-101,0,0},
+        {5,720,627,-100,0,1},
+        {5,719,626,-99,1,1},
+        {5,568,688,99,0,1},
+        {5,568,689,100,0,0},
+        {5,567,688,101,1,0},
+        {5,690,767,-1,-101,0},
+        {5,689,767,0,-100,1},
+        {5,689,766,0,-99,1},
+        {5,601,552,0,99,1},
+        {5,601,551,0,100,0},
+        {5,600,549,0,101,0},
+        {6,677,583,-101,0,0},
+        {6,677,584,-100,0,1},
+        {6,676,585,-99,0,1},
+        {6,613,734,99,0,1},
+        {6,613,735,100,0,0},
+        {6,613,736,101,1,0},
+        {6,752,704,0,-101,0},
+        {6,752,703,-1,-100,1},
+        {6,751,703,0,-99,1},
+        {6,538,616,-1,99,1},
+        {6,537,616,0,100,0},
+        {6,536,616,0,101,0},
+        {7,615,584,-101,0,0},
+        {7,615,585,-100,0,1},
+        {7,615,586,-99,0,1},
+        {7,677,736,99,-1,1},
+        {7,676,737,100,1,0},
+        {7,677,737,101,0,0},
+        {7,755,616,0,-101,0},
+        {7,754,617,0,-100,1},
+        {7,753,617,0,-99,1},
+        {7,540,704,-1,99,1},
+        {7,540,705,1,100,0},
+        {7,538,705,0,101,0},
+    };
+    GameState state;
+    GameCommand command;
+    GameEventQueue events;
+    size_t n;
+    int kind;
+    for (n = 0; n < sizeof(cases) / sizeof(cases[0]); n++) {
+        int dx, dy;
+        assert(rich4_map_project_offset(cases[n].direction, 647, 659,
+            cases[n].x, cases[n].y, &dx, &dy));
+        assert(dx == cases[n].screen_dx && dy == cases[n].screen_dy);
+        /* Isolate categories: the original raw object table ORs IDs that
+         * share a pixel, so do not overlay synthetic properties/actors. */
+        for (kind = 0; kind < 5; kind++) {
+            setup(&state);
+            state.price_index = 1;
+            state.tool_route_x[3] = 647;
+            state.tool_route_y[3] = 659;
+            state.tool_route_x[4] = (int16_t)cases[n].x;
+            state.tool_route_y[4] = (int16_t)cases[n].y;
+            state.tool_route_x[7] = state.tool_route_y[7] = 3000;
+            state.players[0].node = state.players[1].node = 7;
+            state.players[0].tool_inventory[6] = 1;
+            if (kind == 0) {
+                state.land_count = 1;
+                state.tool_land_x[0] = (int16_t)cases[n].x;
+                state.tool_land_y[0] = (int16_t)cases[n].y;
+                state.land_owner[0] = 1;
+                state.land_level[0] = 3;
+            } else if (kind == 1) {
+                state.facility_count = 1;
+                state.tool_facility_x[0] = (int16_t)cases[n].x;
+                state.tool_facility_y[0] = (int16_t)cases[n].y;
+                state.facility_owner[0] = 1;
+                state.facility_level[0] = 3;
+            } else if (kind == 2) {
+                state.tool_placed_objects[0].kind = 0x10;
+                state.tool_placed_objects[0].node = 4;
+            } else if (kind == 3) {
+                state.special_player_node[0] = 4;
+                state.special_player_play_state[0] = 1;
+            } else {
+                state.players[1].node = 4;
+            }
+            command = rich4_game_command_with_missile_direction(
+                use_tool(6, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 3)),
+                cases[n].direction);
+            rich4_game_event_queue_reset(&events);
+            assert(rich4_tool_apply_command(&state, &command, &events) ==
+                GAME_TOOL_USE_APPLIED);
+            assert(state.players[0].tool_inventory[6] == 0);
+            if (kind == 0)
+                assert(state.land_level[0] == 3 - cases[n].hit);
+            else if (kind == 1)
+                assert(state.facility_level[0] == 3 - cases[n].hit);
+            else if (kind == 2)
+                assert(state.tool_placed_objects[0].kind ==
+                    (cases[n].hit ? 0 : 0x10));
+            else if (kind == 3)
+                assert(state.special_player_node[0] ==
+                    (cases[n].hit ? 0 : 4));
+            else {
+                assert(state.players[1].days_in_hospital == 3 * cases[n].hit);
+                assert(state.players[1].node == (cases[n].hit ? 7 : 4));
+            }
+        }
+    }
 }
 
 static void area_time_and_transfer(void)
@@ -602,6 +776,7 @@ int main(void)
     placement_and_rejection();
     vehicles_and_deferred();
     robot_worker();
+    missile_projected_area();
     area_time_and_transfer();
     triggers();
     attached_bomb_first_occupant();

@@ -3,7 +3,56 @@
 #include <string.h>
 
 #include "app/tool_panel_flow.h"
+#include "app/game_command_flow.h"
 #include "core/tool.h"
+
+static void missile_uses_live_map_direction(void)
+{
+    static GameSession session;
+    GameCommand command;
+    GameEventQueue events;
+    int direction, source;
+    for (source = 0; source < 2; source++) {
+        for (direction = 0; direction < 2; direction++) {
+            memset(&session, 0, sizeof(session));
+            session.state.active = 1;
+            session.state.player_count = 2;
+            session.state.price_index = 1;
+            session.state.tool_route_node_count = 8;
+            session.state.tool_route_x[7] = 3000;
+            session.state.tool_route_y[7] = 3000;
+            session.state.players[0].node = session.state.players[1].node = 7;
+            session.state.players[0].play_state =
+                session.state.players[1].play_state = 1;
+            session.state.players[0].is_ai = source;
+            session.state.players[0].tool_inventory[6] = 1;
+            session.state.land_count = 2;
+            session.state.tool_land_x[0] = 647;
+            session.state.tool_land_y[0] = 659;
+            session.state.tool_land_x[1] = 724;
+            session.state.tool_land_y[1] = 692;
+            session.state.land_level[0] = session.state.land_level[1] = 3;
+            session.presentation.map_direction = direction;
+            /* Selection can leave a scrolled camera. Original 0x446FBC
+             * always refocuses the target before scanning the window. */
+            session.presentation.has_view_override = 1;
+            session.presentation.view_world_x = 1500;
+            session.presentation.view_world_y = 1500;
+            command = rich4_game_command_use_tool(
+                (GameCommandSource)source, 0,
+                rich4_game_domain_ref(GAME_DOMAIN_TOOL, 6), 0,
+                rich4_game_domain_ref(GAME_DOMAIN_LAND, 0),
+                rich4_game_domain_ref(GAME_DOMAIN_NONE, -1));
+            command = rich4_game_command_with_missile_direction(
+                command, direction ^ 1);
+            assert(rich4_app_apply_game_command(&session, &command, &events));
+            assert(session.state.land_level[0] == 2);
+            /* Original IDB: direction 0 puts the second anchor at dx=100
+             * (excluded); direction 1 projects it inside the square. */
+            assert(session.state.land_level[1] == (direction == 0 ? 3 : 2));
+        }
+    }
+}
 
 int main(void)
 {
@@ -16,6 +65,7 @@ int main(void)
         GAME_DOMAIN_ROUTE_NODE, 4);
     ToolPanelState reset_panel;
 
+    missile_uses_live_map_direction();
     memset(&reset_panel, 0xA5, sizeof(reset_panel));
     rich4_tool_panel_reset(&reset_panel);
     assert(reset_panel.phase == TOOL_PANEL_CLOSED);

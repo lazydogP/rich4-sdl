@@ -98,6 +98,7 @@ CORE_OBJS += $(BUILD_DIR)/game_event_payload_request_accessors.o
 CORE_OBJS += $(BUILD_DIR)/game_event_typed.o
 CORE_OBJS += $(ROUTE_EXECUTOR_OBJS)
 CORE_OBJS += $(BUILD_DIR)/tool_flow.o
+CORE_OBJS += $(BUILD_DIR)/map_projection.o
 CORE_OBJS += $(BUILD_DIR)/card_command.o
 CORE_OBJS += $(BUILD_DIR)/turn_flow.o $(BUILD_DIR)/first_turn_dispatch.o
 CORE_OBJS += $(BUILD_DIR)/character_speech_rules.o

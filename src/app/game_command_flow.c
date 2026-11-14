@@ -12,13 +12,20 @@ int rich4_app_dispatch_game_command(GameSession *session,
                                     const Rich4AppCommand *command,
                                     GameEventQueue *events)
 {
+    GameCommand resolved_command;
     if (session == NULL || command == NULL ||
         command->type != RICH4_APP_COMMAND_GAME ||
         !rich4_app_command_is_valid(command)) {
         return 0;
     }
+    resolved_command = command->game;
+    if (resolved_command.type == GAME_COMMAND_USE_TOOL &&
+        resolved_command.subject.kind == GAME_DOMAIN_TOOL &&
+        resolved_command.subject.id == 6)
+        resolved_command = rich4_game_command_with_missile_direction(
+            resolved_command, session->presentation.map_direction & 7);
     return rich4_game_dispatch_command_deferred_confinement(
-        &session->state, &session->flow, &command->game, events);
+        &session->state, &session->flow, &resolved_command, events);
 }
 
 int rich4_app_apply_command(GameSession *session,
