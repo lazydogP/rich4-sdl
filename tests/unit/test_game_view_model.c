@@ -477,6 +477,21 @@ int main(void)
     assert(model.lands[0].price_status == 0 && model.lands[1].price_status == 0 &&
            model.facilities[0].price_status == 0 && model.lands[1].flash_adjust == 0);
     assert(!model.facilities[0].flash_selected);
+    /* 0x4087BE/0x4089CB: winter sleep changes the palette independently
+     * of +21 bit 0x40, without changing the selected character resource. */
+    state.players[0].play_state = 1;
+    state.players[0].traffic_method = 0;
+    state.players[0].days_in_hospital = 0;
+    state.players[0].days_sleeping = 4;
+    state.special_player_status[0][0] = GAME_STATUS_PENDING_BIT;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.actors[0].sleeping && model.actors[0].primary_part == 0);
+    assert(model.special_actors[0].sleeping);
+    assert(!model.actors[1].sleeping && !model.special_actors[1].sleeping);
+    state.players[0].days_sleeping = 0;
+    state.special_player_status[0][0] = 0;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(!model.actors[0].sleeping && !model.special_actors[0].sleeping);
     puts("game view model: ok");
     return 0;
 }

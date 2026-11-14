@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "app/special_place_notice_flow.h"
+#include "core/rng.h"
+#include "data/character_speech.h"
+
 #include "app/turn_status_flow.h"
 #include "core/game_constants.h"
 #include "core/game_event_payload.h"
@@ -112,6 +116,43 @@ int main(void)
                session.presentation.ending.ending_video_pending);
     }
 
+    /* 0x40CB1B consumes one RNG value; 0x44EF93 suppresses the speech
+     * after remembering its text. The status notice itself always appears. */
+    {
+        uint32_t seed;
+        for (seed = 1; seed <= 4; seed++) {
+            uint32_t expected = seed;
+            unsigned int roll = rich4_rng_next_at(&expected);
+            setup(&session);
+            session.state.ai_rng_state = seed;
+            session.state.players[0].character = 3;
+            session.state.players[0].days_sleeping = 4;
+            assert(rich4_app_begin_confinement_status_presentation(
+                &session, 0, 54, 5000));
+            assert(session.presentation.confinement_status.active);
+            assert(session.presentation.confinement_status.days == 5);
+            assert(session.state.ai_rng_state == expected);
+            assert(!session.presentation.speech.active);
+            if (roll & 1u)
+                assert(session.presentation.speech.last_text ==
+                    rich4_character_sleepwalking_speech(3)->big5);
+            assert(!rich4_special_place_notice_skip(&session, 5000));
+            assert(rich4_app_update_confinement_status_presentation(
+                &session, 5000, 0) == 1);
+            assert(session.presentation.confinement_status.until == 6500);
+            assert(rich4_app_update_confinement_status_presentation(
+                &session, 6499, 0) == 1);
+            assert(rich4_app_update_confinement_status_presentation(
+                &session, 6500, 0) == 2);
+            assert(rich4_special_place_notice_skip(&session, 5100));
+            assert(rich4_app_update_confinement_status_presentation(
+                &session, 5100, 0) == 2);
+        }
+        session.state.players[0].days_sleeping = GAME_STATUS_PENDING_BIT;
+        assert(rich4_app_begin_confinement_status_presentation(
+            &session, 0, 54, 7000));
+        assert(session.presentation.confinement_status.days == 1);
+    }
     puts("app turn status flow: ok");
     return 0;
 }

@@ -1100,6 +1100,7 @@ SDL_TESTS := \
 	test_game_catalog_text \
 	test_game_view_model_input \
 	test_god_sdl \
+	test_hibernation_sdl \
 	test_hud_layout \
 	test_insurance_building_sdl \
 	test_machine_doll \
@@ -1252,6 +1253,7 @@ TEST_UNIT_TESTS := \
 	test_text_backend \
 	test_big5_utf8 \
 	test_sdl1_blit \
+	test_hibernation_sdl \
 	test_file_line_budget \
 	test_no_debug_ui \
 	test_audio_event \
@@ -1309,6 +1311,7 @@ $(eval $(call RICH4_TEST_SUITE,test-audio-loops,,test_audio_event test_magic_hou
 $(eval $(call RICH4_TEST_SUITE,test-music,,test_music))
 $(eval $(call RICH4_TEST_SUITE,test-bank,,test_bank))
 $(eval $(call RICH4_TEST_SUITE,test-card,,test_card))
+$(eval $(call RICH4_TEST_SUITE,test-hibernation,,test_sdl1_blit test_hibernation_sdl test_turn_start_flow test_turn_status_flow test_game_view_model test_app_input_flow))
 $(eval $(call RICH4_TEST_SUITE,test-dice-flow,,test_dice_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-panel-flow,,test_card_panel_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-presentation,,test_card_presentation))

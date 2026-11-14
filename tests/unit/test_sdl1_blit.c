@@ -19,6 +19,70 @@ static uint16_t original_rgb555_to_rgb565(uint16_t pixel)
                       ((pixel & 0x03e0u) << 1) | (pixel & 0x001fu));
 }
 
+static uint16_t shrd16(uint16_t dst, uint16_t src, int bits)
+{
+    return (uint16_t)((dst >> bits) | ((unsigned int)src << (16 - bits)));
+}
+
+/* Register-level reference for 0x4555EB/628/66E/6AB, including overflow.
+ * Inputs are resource RGB555 words, before 0x451801 surface conversion. */
+static uint16_t original_sleeping_pixel(uint16_t pixel, int format)
+{
+    static const unsigned char lut[32] = {
+        8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+        8,8,8,8,8,8,8,8,7,6,5,4,3,2,1,0
+    };
+    unsigned int p = pixel, mask = format == 3 ? 15u : 31u;
+    unsigned int ax, bx;
+    if (format == 1) p = original_rgb555_to_rgb565(pixel);
+    else if (format == 2)
+        p = ((pixel & 31u) << 11) | ((pixel & 0x03e0u) << 1) |
+            ((pixel & 0x7c00u) >> 10);
+    else if (format == 3)
+        p = ((pixel & 0x7800u) >> 3) | ((pixel & 0x03c0u) >> 2) |
+            ((pixel & 0x001eu) >> 1);
+    ax = p & mask;
+    bx = (p >> (format == 0 ? 5 : format == 3 ? 4 : 6)) & mask;
+    ax += bx;
+    bx = (p >> (format == 0 ? 10 : format == 3 ? 8 : 11)) & mask;
+    ax += bx;
+    ax = (ax + (format == 1 ? 31 : format == 3 ? 20 : 40)) >> 2;
+    if (format == 1) ax = (ax & 31u) + lut[ax & 31u];
+    if (format == 2) {
+        bx = shrd16((uint16_t)bx, (uint16_t)ax, 6);
+        bx = shrd16((uint16_t)bx, (uint16_t)ax, 5);
+        return shrd16((uint16_t)bx, 31, 5);
+    }
+    bx = shrd16((uint16_t)bx, 31, format == 0 ? 5 : format == 3 ? 4 : 6);
+    bx = shrd16((uint16_t)bx, (uint16_t)ax, format == 3 ? 4 : 5);
+    return shrd16((uint16_t)bx, (uint16_t)ax,
+        format == 0 ? 6 : format == 3 ? 8 : 5);
+}
+
+static void check_original_sleeping_palette(void)
+{
+    static const Uint32 masks[4][3] = {
+        {0x7c00,0x03e0,0x001f}, {0xf800,0x07e0,0x001f},
+        {0x001f,0x07e0,0xf800}, {0x0f00,0x00f0,0x000f}
+    };
+    int format;
+    unsigned int color;
+    for (format = 0; format < 4; format++) {
+        SDL_Surface *s = SDL_CreateRGBSurface(SDL_SWSURFACE, 640, 480, 16,
+            masks[format][0], masks[format][1], masks[format][2], 0);
+        assert(s);
+        for (color = 0; color <= 65535; color++) {
+            uint16_t actual = map_resource_pixel_sleeping(s, (uint16_t)color);
+            uint16_t expected = original_sleeping_pixel((uint16_t)color, format);
+            if (actual != expected)
+                fprintf(stderr, "sleep palette: format=%d color=%04x actual=%04x expected=%04x\n",
+                    format, color, actual, expected);
+            assert(actual == expected);
+        }
+        SDL_FreeSurface(s);
+    }
+}
+
 static void check_clipped_color_blits(void)
 {
     static uint16_t source[256 * 256];
@@ -103,6 +167,7 @@ int main(void)
 
     check_clipped_color_blits();
     check_original_catcher_scale();
+    check_original_sleeping_palette();
 
     memset(&chunk, 0, sizeof(chunk));
     chunk.width = 2;

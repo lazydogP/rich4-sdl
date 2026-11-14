@@ -353,6 +353,7 @@ int rich4_game_view_model_build(const GameState *state,
             (map->routes[resource_route_node].flags & 0x80000000u) != 0;
         actor->player = i;
         actor->character = player->character;
+        actor->sleeping = (player->days_sleeping & 0xff) != 0;
         /* 0x4090BA checks +63 only; a bomb alone uses the small offset. */
         actor->has_dynamic_attachment = player->god_info != 0;
         actor->attachments_hidden = player->delayed_status_block != 0 ||
@@ -456,6 +457,7 @@ int rich4_game_view_model_build(const GameState *state,
         int direction = 0;
         int sleepwalking = (state->special_player_status[i][1] & 0xff) != 0;
         actor->slot = i;
+        actor->sleeping = (state->special_player_status[i][0] & 0xff) != 0;
         actor->overlay_chunk = -1;
         if (map == NULL || state->special_player_f10[i] != 0 ||
             node <= 0 || (size_t)node >= map->route_count)

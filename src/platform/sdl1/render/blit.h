@@ -20,6 +20,8 @@ void stroke_rect(SDL_Surface *screen, int x, int y, int w, int h, uint16_t color
 void stroke_rect_thin(SDL_Surface *screen, int x, int y, int w, int h, uint16_t color);
 
 uint16_t map_resource_pixel(SDL_Surface *screen, uint16_t pixel);
+/* 0x4555C5: blue winter-sleep palette, using the surface's original format. */
+uint16_t map_resource_pixel_sleeping(SDL_Surface *screen, uint16_t pixel);
 uint16_t map_resource_pixel_adjusted(SDL_Surface *screen, uint16_t pixel, int adjust);
 uint16_t map_surface_pixel_property_flash(SDL_Surface *screen, uint16_t pixel, int adjust);
 uint16_t map_resource_pixel_jump_darken_minus20(SDL_Surface *screen, uint16_t pixel);
@@ -116,6 +118,9 @@ int draw_spr_smp_center(SDL_Surface *screen,
                         size_t chunk_index,
                         int center_x,
                         int center_y);
+int draw_spr_smp_center_sleeping(SDL_Surface *screen,
+    const unsigned char *data, size_t size, const Rich4SprSmpInfo *spr,
+    size_t chunk_index, int center_x, int center_y, int sleeping);
 int draw_spr_smp_center_owner(SDL_Surface *screen,
                               const unsigned char *data,
                               size_t size,

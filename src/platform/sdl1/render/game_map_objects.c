@@ -434,7 +434,7 @@ void draw_game_map_objects(SDL_Surface *screen,
                                         actor->moving,
                                         actor->walk_frame,
                                         visible[i].x,
-                                        visible[i].y);
+                                        visible[i].y, 0);
             continue;
         }
         if (sprite == GAME_MAP_RENDER_SPECIAL_ACTOR_SPRITE) {
@@ -449,13 +449,13 @@ void draw_game_map_objects(SDL_Surface *screen,
             chunk = actor->visual_direction * frames_per_direction +
                     wrap_index(actor->animation_frame,
                                frames_per_direction);
-            draw_spr_smp_center(
+            draw_spr_smp_center_sleeping(
                 screen,
                 assets->character.map_special_actor_data[actor_index][part],
                 assets->character.map_special_actor_size[actor_index][part],
                 &assets->character.map_special_actor_spr[actor_index][part],
                 (size_t)wrap_index(chunk, chunks),
-                visible[i].x, visible[i].y);
+                visible[i].x, visible[i].y, actor->sleeping);
             continue;
         }
         if (sprite == GAME_MAP_RENDER_SPECIAL_ACTOR_OVERLAY_SPRITE) {

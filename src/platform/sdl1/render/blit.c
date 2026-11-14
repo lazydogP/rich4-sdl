@@ -72,6 +72,40 @@ uint16_t map_resource_pixel(SDL_Surface *screen, uint16_t pixel)
     return (uint16_t)SDL_MapRGB(screen->format, r, g, b);
 }
 
+uint16_t map_resource_pixel_sleeping(SDL_Surface *screen, uint16_t pixel)
+{
+    unsigned int r = (pixel >> 10) & 31u;
+    unsigned int g = (pixel >> 5) & 31u;
+    unsigned int b = pixel & 31u;
+    unsigned int shade;
+    const SDL_PixelFormat *format = screen->format;
+
+    /* 0x455628: the RGB565 path uses +31 and byte_486168, whose
+     * entries are min(8, 31-shade). Preserve its green low bit (zero). */
+    if (format->Rmask == 0xf800 && format->Gmask == 0x07e0 &&
+        format->Bmask == 0x001f) {
+        shade = (r + g + b + 31u) >> 2;
+        shade += shade < 24u ? 8u : 31u - shade;
+        return (uint16_t)((shade << 11) | (shade << 6) | 31u);
+    }
+    /* 0x4555EB / 0x45566E / 0x4556AB: the other native formats. */
+    shade = (r + g + b + 40u) >> 2;
+    if (format->Rmask == 0x7c00 && format->Gmask == 0x03e0 &&
+        format->Bmask == 0x001f)
+        return (uint16_t)((shade << 10) | ((shade & 31u) << 5) | 31u);
+    if (format->Rmask == 0x001f && format->Gmask == 0x07e0 &&
+        format->Bmask == 0xf800)
+        return (uint16_t)((31u << 11) | (shade << 6) | shade);
+    if (format->Rmask == 0x0f00 && format->Gmask == 0x00f0 &&
+        format->Bmask == 0x000f) {
+        shade = ((r >> 1) + (g >> 1) + (b >> 1) + 20u) >> 2;
+        return (uint16_t)((shade << 8) | ((shade & 15u) << 4) | 15u);
+    }
+    if (shade > 31u) shade = 31u;
+    return (uint16_t)SDL_MapRGB(screen->format,
+        (Uint8)(shade * 255u / 31u), (Uint8)(shade * 255u / 31u), 255);
+}
+
 uint16_t map_resource_pixel_adjusted(SDL_Surface *screen, uint16_t pixel, int adjust)
 {
     int r = (int)((pixel >> 10) & 0x1f);
@@ -214,14 +248,15 @@ int draw_chunk_at_jump_darken_minus20(SDL_Surface *screen,
                              center_y - chunk->y, transparent_zero, 1);
 }
 
-int draw_spr_chunk_at(SDL_Surface *screen,
+static int draw_spr_chunk_at_sleeping(SDL_Surface *screen,
                       const unsigned char *data,
                       size_t size,
                       const Rich4SprSmpInfo *spr,
                       const Rich4SprSmpChunk *chunk,
                       int center_x,
                       int center_y,
-                      int transparent_zero)
+                      int transparent_zero,
+                      int sleeping)
 {
     int x;
     int y;
@@ -246,7 +281,9 @@ int draw_spr_chunk_at(SDL_Surface *screen,
     src = data + chunk->data_offset;
     palette = (const uint16_t *)(const void *)(data + spr->start_offset);
     for (color = 0; color < 256; color++)
-        mapped_palette[color] = map_resource_pixel(screen, palette[color]);
+        mapped_palette[color] = sleeping
+            ? map_resource_pixel_sleeping(screen, palette[color])
+            : map_resource_pixel(screen, palette[color]);
     SDL_LockSurface(screen);
     for (y = 0; y < chunk->height && dst_y + y < SCREEN_H; y++) {
         uint16_t *row;
@@ -265,6 +302,15 @@ int draw_spr_chunk_at(SDL_Surface *screen,
     }
     SDL_UnlockSurface(screen);
     return 1;
+}
+
+int draw_spr_chunk_at(SDL_Surface *screen,
+    const unsigned char *data, size_t size, const Rich4SprSmpInfo *spr,
+    const Rich4SprSmpChunk *chunk, int center_x, int center_y,
+    int transparent_zero)
+{
+    return draw_spr_chunk_at_sleeping(screen, data, size, spr, chunk,
+        center_x, center_y, transparent_zero, 0);
 }
 
 int draw_spr_chunk_scaled(SDL_Surface *screen, const unsigned char *data,
@@ -709,13 +755,14 @@ SDL_Surface *create_game_work_surface(SDL_Surface *screen)
                                 screen->format->Amask);
 }
 
-int draw_spr_smp_center(SDL_Surface *screen,
+int draw_spr_smp_center_sleeping(SDL_Surface *screen,
                         const unsigned char *data,
                         size_t size,
                         const Rich4SprSmpInfo *spr,
                         size_t chunk_index,
                         int center_x,
-                        int center_y)
+                        int center_y,
+                        int sleeping)
 {
     Rich4SprSmpChunk chunk;
 
@@ -724,9 +771,18 @@ int draw_spr_smp_center(SDL_Surface *screen,
         return 0;
     }
     if (memcmp(spr->signature, "SPR", 4) == 0) {
-        return draw_spr_chunk_at(screen, data, size, spr, &chunk, center_x, center_y, 1);
+        return draw_spr_chunk_at_sleeping(screen, data, size, spr, &chunk,
+            center_x, center_y, 1, sleeping);
     }
     return draw_chunk_at(screen, data, &chunk, center_x, center_y, 1);
+}
+
+int draw_spr_smp_center(SDL_Surface *screen,
+    const unsigned char *data, size_t size, const Rich4SprSmpInfo *spr,
+    size_t chunk_index, int center_x, int center_y)
+{
+    return draw_spr_smp_center_sleeping(screen, data, size, spr, chunk_index,
+        center_x, center_y, 0);
 }
 
 int draw_spr_smp_center_owner(SDL_Surface *screen,

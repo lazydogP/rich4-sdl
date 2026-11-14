@@ -29,7 +29,8 @@ int draw_game_player_model_part(SDL_Surface *screen,
                                 int moving,
                                 int walk_frame,
                                 int center_x,
-                                int center_y);
+                                int center_y,
+                                int sleeping);
 
 int draw_game_player_model(SDL_Surface *screen,
                            const GamePreviewAssets *assets,

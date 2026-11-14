@@ -68,7 +68,8 @@ Rich4TurnStartAction rich4_turn_start_prepare(GameSession *session,
     session->flow.player_status_decision = decision;
     if (decision.result == 0 && decision.status_slot >= 50 &&
         decision.status_slot <= 54) {
-        if (decision.status_slot >= 50 && decision.status_slot <= 53) {
+        if (decision.status_slot <= 53 ||
+            (decision.events & PLAYER_STATUS_EVENT_TEXT) != 0) {
             /* 0x418C55 clears the pending camera target before the status
              * presentation. With no override, the ViewModel centers the
              * status owner (using a facility anchor for prison/hospital). */

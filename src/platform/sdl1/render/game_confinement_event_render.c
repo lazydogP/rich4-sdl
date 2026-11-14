@@ -41,6 +41,9 @@ void draw_confinement_status_presentation(
     /* 0x4631F5 / 0x40CA08: "%s消失中\n\n還剩%d天！". */
     static const char disappearing_format[] =
         "%s\xae\xf8\xa5\xa2\xa4\xa4\n\n\xc1\xd9\xb3\xd1%d\xa4\xd1\xa1\x49";
+    /* 0x463234 / 0x40CB7C: winter-sleep countdown. */
+    static const char sleeping_format[] =
+        "%s\xa5\x56\xaf\x76\xa4\xa4\n\n\xc1\xd9\xb3\xd1%d\xa4\xd1\xa1\x49";
     Rich4SprSmpChunk background;
     char message[128];
     char player_name[64];
@@ -64,7 +67,8 @@ void draw_confinement_status_presentation(
     format = view->confinement_status_slot == 50 ? hotel_format
         : view->confinement_status_slot == 51 ? disappearing_format
         : view->confinement_status_slot == 52 ? prison_format
-        : hospital_format;
+        : view->confinement_status_slot == 53 ? hospital_format
+        : sleeping_format;
     /* 0x40C97C calls 0x452946 once before formatting every status case. */
     game_compact_display_name(
         player_name, sizeof(player_name),

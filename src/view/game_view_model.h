@@ -22,6 +22,8 @@ typedef struct GameViewportModel {
 typedef struct GameActorView {
     int player;
     int character;
+    /* 0x4087BE -> 0x4555C5: recolor the primary sprite palette for +54. */
+    int sleeping;
     /* Original player +63 (god slot), distinct from bomb slot +64. */
     int has_dynamic_attachment;
     /* 0x408FBD: attached objects require all of player +50..+53 zero. */
@@ -52,6 +54,8 @@ typedef struct GameActorView {
 typedef struct GameSpecialActorView {
     int slot;
     int visible;
+    /* 0x4089CB applies the same palette transform to special actor +4. */
+    int sleeping;
     int world_x;
     int world_y;
     int visual_direction;

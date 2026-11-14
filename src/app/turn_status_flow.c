@@ -350,12 +350,13 @@ int rich4_app_begin_confinement_status_presentation(
 
     if (session == NULL || player_index < 0 ||
         player_index >= session->state.player_count ||
-        status_slot < 50 || status_slot > 53)
+        status_slot < 50 || status_slot > 54)
         return 0;
     player = &session->state.players[player_index];
     counter = status_slot == 50 ? player->delayed_status_block : status_slot == 51
         ? player->days_disappearing : status_slot == 52
-        ? player->days_in_prison : player->days_in_hospital;
+        ? player->days_in_prison : status_slot == 53
+        ? player->days_in_hospital : player->days_sleeping;
     session->presentation.confinement_status.active = 1;
     session->presentation.confinement_status.player = player_index;
     session->presentation.confinement_status.slot = status_slot;
@@ -366,10 +367,14 @@ int rich4_app_begin_confinement_status_presentation(
     /* 0x40C9D2/0x40CA08: hotel and disappearance show text only. */
     if (status_slot == 50 || status_slot == 51) return 1;
     if ((rich4_rng_next_at(&session->state.ai_rng_state) & 1u) == 0) return 1;
-    speech = rich4_character_confinement_speech(
-        player->character, status_slot == 53);
+    /* 0x40CB4C uses the same 0x48089E entry as the sleepwalking card.
+     * player_say remembers that text before +54 suppresses its modal. */
+    speech = status_slot == 54
+        ? rich4_character_sleepwalking_speech(player->character)
+        : rich4_character_confinement_speech(
+            player->character, status_slot == 53);
     game_start_speech_entry(
-        session, player_index, speech, 2,
+        session, player_index, speech, status_slot == 54 ? 1 : 2,
         GAME_PROPERTY_PRESENT_NONE, now);
     return 1;
 }

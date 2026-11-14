@@ -44,6 +44,7 @@
 | `0x40A4E1`, `0x40A801`, `0x40A9BD`, `0x417D65`, `0x417E26` | [顶部“地图”按钮与全地图模态 UI](40a9bd-small-map-ui.md) | `confirmed` |
 | `0x40AF12` | [地图对象解析](40af12-map-object.md) | `confirmed` |
 | `0x40B93B` | [玩家 actor 资源状态](40b93b-player-actor.md) | `partial` |
+| `0x4087BE`、`0x4555C5`、`0x40CB02` | [冬眠精灵调色与回合提醒](hibernation-presentation.md) | `confirmed` |
 | `0x41A421`, `0x41A4DB`, `0x40D5A5`, `0x40C05C` | [加油站、旅馆收费及入住/退房](hotel-gas-station.md) | `confirmed` |
 | `0x40C912` | [玩家行动/阻塞状态](40c912-player-status.md) | `confirmed` |
 | `0x415872` | [开局动画流程](415872-intro.md) | `confirmed` |

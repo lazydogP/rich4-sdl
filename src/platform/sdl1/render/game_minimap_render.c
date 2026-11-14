@@ -270,7 +270,8 @@ int draw_game_player_model_part(SDL_Surface *screen,
                                 int moving,
                                 int walk_frame,
                                 int center_x,
-                                int center_y)
+                                int center_y,
+                                int sleeping)
 {
     int frames;
     int chunk_index = 0;
@@ -298,13 +299,13 @@ int draw_game_player_model_part(SDL_Surface *screen,
     if (chunk_index < 0 || chunk_index >= frames) {
         chunk_index = 0;
     }
-    return draw_spr_smp_center(screen,
+    return draw_spr_smp_center_sleeping(screen,
                                assets->character.map_player_data[character][part],
                                assets->character.map_player_size[character][part],
                                &assets->character.map_player_spr[character][part],
                                (size_t)chunk_index,
                                center_x,
-                               center_y);
+                               center_y, sleeping);
 }
 
 int draw_game_player_model(SDL_Surface *screen,
@@ -352,13 +353,13 @@ int draw_game_player_model(SDL_Surface *screen,
             if (assets->character.map_player_spr[character][action_part].num_chunks >= 8) {
                 action_frame += visual_direction * action_frames;
             }
-            if (draw_spr_smp_center(screen,
+            if (draw_spr_smp_center_sleeping(screen,
                                     assets->character.map_player_data[character][action_part],
                                     assets->character.map_player_size[character][action_part],
                                     &assets->character.map_player_spr[character][action_part],
                                     (size_t)action_frame,
                                     center_x,
-                                    center_y)) {
+                                    center_y, actor->sleeping)) {
                 return 1;
             }
         }
@@ -372,7 +373,7 @@ int draw_game_player_model(SDL_Surface *screen,
                                     actor->moving,
                                     actor->walk_frame,
                                     center_x,
-                                    center_y)) {
+                                    center_y, actor->sleeping)) {
         /* In 0x40B93B, parts 13, 14, and 15 are alternate primary
          * resources selected by the actor state.  Part 15 is not a water
          * overlay; compositing it here made the water movement look like the
@@ -386,7 +387,7 @@ int draw_game_player_model(SDL_Surface *screen,
                                         actor->moving,
                                         actor->walk_frame,
                                         center_x,
-                                        center_y);
+                                        center_y, 0);
         }
         return 1;
     }
@@ -403,36 +404,36 @@ int draw_game_player_model(SDL_Surface *screen,
         if (chunk_index < 0) {
             chunk_index = visual_direction * frames_per_direction;
         }
-        return draw_spr_smp_center(screen,
+        return draw_spr_smp_center_sleeping(screen,
                                    assets->character.map_player_data[character][1],
                                    assets->character.map_player_size[character][1],
                                    &assets->character.map_player_spr[character][1],
                                    (size_t)chunk_index,
                                    center_x,
-                                   center_y);
+                                   center_y, actor->sleeping);
     }
     if (game_asset_ready(assets, &assets->character.has_map_player[character][0]) &&
         assets->character.map_player_spr[character][0].num_chunks >= 8) {
-        return draw_spr_smp_center(screen,
+        return draw_spr_smp_center_sleeping(screen,
                                    assets->character.map_player_data[character][0],
                                    assets->character.map_player_size[character][0],
                                    &assets->character.map_player_spr[character][0],
                                    (size_t)visual_direction,
                                    center_x,
-                                   center_y);
+                                   center_y, actor->sleeping);
     }
     part = game_player_model_part(actor);
     if (part < 0 || part >= GAME_CHARACTER_MODEL_RESOURCES ||
         !game_asset_ready(assets, &assets->character.has_map_player[character][part])) {
         return 0;
     }
-    return draw_spr_smp_center(screen,
+    return draw_spr_smp_center_sleeping(screen,
                                assets->character.map_player_data[character][part],
                                assets->character.map_player_size[character][part],
                                &assets->character.map_player_spr[character][part],
                                0,
                                center_x,
-                               center_y);
+                               center_y, actor->sleeping);
 }
 
 /* 0x40A723..0x40A7F3 -> 0x456384: stamp every nonzero word of the

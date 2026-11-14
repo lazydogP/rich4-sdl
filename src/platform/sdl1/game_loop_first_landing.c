@@ -2,6 +2,8 @@
 #include <stdint.h>
 
 #include "app/first_turn_flow.h"
+#include "app/turn_status_flow.h"
+#include "core/player_status.h"
 #include "core/game_constants.h"
 #include "app/game_session.h"
 #include "app/new_game_setup_flow.h"
@@ -93,7 +95,13 @@ int game_update_first_landing(
                 landing_delay_ms, now, &request))
             return 0;
         if (request == RICH4_FIRST_TURN_PRESENTATION_CONTROL_LOCKED) {
-            game_finish_control_locked_turn(session, assets, settings, now);
+            if (session->flow.player_status_decision.status_slot == 54 &&
+                (session->flow.player_status_decision.events &
+                 PLAYER_STATUS_EVENT_TEXT) != 0)
+                rich4_app_begin_confinement_status_presentation(
+                    session, landed_player, 54, now);
+            else
+                game_finish_control_locked_turn(session, assets, settings, now);
         }
         return 1;
     }

@@ -119,6 +119,9 @@ int rich4_special_place_notice_skip(GameSession *session, uint32_t now)
     if (p->special_place_notice.queue.count > 0) {
         if (p->special_place_notice.speech_pending) return 0;
         p->special_place_notice.until = now;
+    } else if (p->confinement_status.active &&
+               p->confinement_status.until != 0 && !p->speech.active) {
+        p->confinement_status.until = now ? now : 1;
     } else if (p->bank_rejection.active) {
         p->bank_rejection.until = now;
     } else if (p->point_minigame.active && p->point_minigame.automatic &&
