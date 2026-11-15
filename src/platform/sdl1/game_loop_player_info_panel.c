@@ -106,20 +106,21 @@ static const char *const player_info_facility_development[5] = {
 
 static int player_info_god_panel_chunk(const GamePlayerState *player)
 {
-    /* 0x475464 maps the original player +63 god type to Panel.mkf[9].
-     * Types without a panel image intentionally map to zero. */
+    /* 0x423109..0x42314A indexes 0x475464 with player +63, the one-based
+     * dynamic-object slot, rather than the object's type. */
     static const unsigned char chunks[] = {
         0, 13, 14, 15, 16, 17, 18, 19, 20, 21,
         22, 0, 23, 0, 0, 24, 24
     };
-    int type;
+    int slot;
 
-    if (player == NULL || player->god_info == 0)
+    if (player == NULL || player->god_info <= 0 ||
+        player->god_info > GAME_MAP_DYNAMIC_OBJECT_COUNT)
         return 0;
-    type = player->god_type;
-    if (type < 0 || type >= (int)(sizeof(chunks) / sizeof(chunks[0])))
+    slot = player->god_info;
+    if (slot >= (int)(sizeof(chunks) / sizeof(chunks[0])))
         return 0;
-    return chunks[type];
+    return chunks[slot];
 }
 
 static void player_info_draw_number(SDL_Surface *screen,
@@ -215,9 +216,13 @@ static void player_info_draw_header(SDL_Surface *screen,
                                  60, 188, 1);
     if (god_chunk != 0) {
         char text[24];
+        int days = session->presentation.dynamic_objects[
+            player->god_info - 1].countdown;
         /* 0x42315F..0x4231B2: the god panel also carries its remaining
-         * duration, centred below the portrait at (60,234). */
-        snprintf(text, sizeof(text), "%d\xa4\xd1", player->god_status_days);
+         * duration, centred below the portrait at (60,234). It reads the
+         * byte at 0x496D08 + 24 * (player +63 - 1) +4; player +61 is the
+         * unrelated alliance duration. */
+        snprintf(text, sizeof(text), "%d\xa4\xd1", days);
         draw_big5_text(screen, 60, 234, text, 16, 0x1082, 0, 2, 2);
     }
     draw_game_panel_chunk_at(
@@ -409,6 +414,28 @@ static const char *player_info_property_kind(const GameState *state,
     }
 }
 
+static int player_info_land_fee(const GameState *state, int land)
+{
+    int total = 0;
+    int i;
+    /* 0x42277D/0x4227A0 -> 0x419744: converted facilities share a
+     * flat 2000 per owned converted plot; residential plots share the
+     * current tolls of owned, same-name residential plots. Unlike the
+     * landing charge, this list does not apply price-status doubling. */
+    for (i = 0; i < state->land_count && i < GAME_MAX_MAP_PROPERTIES; i++) {
+        if (state->land_owner[i] != state->land_owner[land]) continue;
+        if (state->land_type[land] != 0) {
+            if (state->land_type[i] != 0) total += 2000;
+        } else if (state->land_type[i] == 0 &&
+                   state->land_group[i] == state->land_group[land]) {
+            int level = state->land_level[i];
+            if (level >= 0 && level <= 5)
+                total += state->land_toll_by_level[i][level];
+        }
+    }
+    return total * state->price_index;
+}
+
 static void player_info_draw_property_page(SDL_Surface *screen,
                                            const GamePreviewAssets *assets,
                                            const GameSession *session,
@@ -455,18 +482,30 @@ static void player_info_draw_property_page(SDL_Surface *screen,
         int y = 144 + (i - page * PLAYER_INFO_PROPERTY_ROWS_PER_PAGE) * 32;
         int price;
         int fee;
+        unsigned int lease_date = 0;
+        /* 0x4227E8/0x422950 use the raw price fields and current price
+         * index, not the unscaled values used by 0x4239B9 asset totals. */
         if (row.kind == PLAYER_INFO_PROPERTY_LAND) {
             int level = state->land_level[row.index];
             if (level < 0) level = 0;
             if (level > 5) level = 5;
-            price = state->land_value[row.index];
-            fee = state->land_toll_by_level[row.index][level];
+            price = (state->land_price[row.index] +
+                     state->land_price_per_level[row.index] * level) *
+                    state->price_index;
+            fee = player_info_land_fee(state, row.index);
+            lease_date = state->land_lease_date[row.index];
         } else {
             int level = state->facility_level[row.index];
             if (level < 0) level = 0;
             if (level > 5) level = 5;
-            price = state->facility_value[row.index];
-            fee = state->facility_charge_by_level[row.index][level];
+            price = (state->facility_price[row.index] +
+                     state->facility_price_per_level[row.index] * level) *
+                    state->price_index;
+            /* 0x42297B..0x422999: parks and undeveloped plots list 0. */
+            fee = state->facility_type[row.index] != 0 && level != 0
+                ? state->facility_charge_by_level[row.index][level] *
+                  state->price_index : 0;
+            lease_date = state->facility_last_change[row.index];
         }
         player_info_property_name(name, map, row);
         draw_big5_text(screen, 168, y, name,
@@ -475,8 +514,19 @@ static void player_info_draw_property_page(SDL_Surface *screen,
                        16, 0x1082, 0, 2, 2);
         player_info_draw_number(screen, 394, y, price, 16);
         player_info_draw_number(screen, 490, y, fee, 16);
-        draw_big5_text(screen, 540, y, "\xb5\x4c\xad\xad\xb4\xc1", /* 無限期 */
-                       16, 0x1082, 0, 2, 2);
+        if (lease_date != 0) {
+            char date[24];
+            /* 0x42280D/0x4229C6: residential +0x30 and commercial +0x34
+             * carry the same packed lease date. */
+            snprintf(date, sizeof(date), "%02u/%u/%u",
+                     (lease_date >> 16) % 100u,
+                     (lease_date >> 8) & 0x0fu, lease_date & 0xffu);
+            draw_big5_text(screen, 540, y, date, 16, 0x1082, 0, 2, 2);
+        } else {
+            draw_big5_text(screen, 540, y,
+                           "\xb5\x4c\xad\xad\xb4\xc1", /* 無限期 */
+                           16, 0x1082, 0, 2, 2);
+        }
     }
 }
 
@@ -491,7 +541,9 @@ static void player_info_draw_stock_page(SDL_Surface *screen,
     for (i = 0; i < GAME_STOCK_COUNT; i++) {
         int y = 100 + i * 32;
         int amount = state->player_stock_amount[player][i];
-        int market_value = (int)(amount * state->stocks[i].f20);
+        /* 0x42394D -> 0x457DBC: multiply the float32 quote at x87
+         * precision before truncating, with no intermediate float32. */
+        int market_value = (int)((double)amount * state->stocks[i].f20);
         draw_big5_text(screen, 204, y, game_stock_name_for_state(state, i),
                        16, 0x1082, 0, 2, 2);
         player_info_draw_number(screen, 384, y, amount, 16);

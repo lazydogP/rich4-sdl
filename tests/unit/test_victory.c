@@ -97,6 +97,24 @@ int main(void)
     assert(rich4_victory_evaluate_events(&state, &result, &events));
     assert(result.event == VICTORY_EVENT_NONE && state.win_candidate_player == -1);
     assert(events.count == 0);
+    /* 0x42340E/0x4239E0 keep the product in x87 precision before
+     * 0x457DBC truncates; float32(1.3) * 10 is just below 13. */
+    memset(&state, 0, sizeof(state));
+    state.player_count = 1;
+    state.players[0].cash = 1001;
+    state.player_stock_amount[0][0] = 10;
+    state.stocks[0].f20 = 1.3f;
+    assert(rich4_player_stock_assets(&state, 0) == 12);
+    assert(rich4_player_total_assets(&state, 0, &assets) == 1013);
+    assert(assets.stock_value == 12);
+
+    /* 0x4239E0 seeds the stock loop with cash + bank - loan, converts
+     * the running total to float32 on each iteration, then adds property
+     * values. Summing separately rounded categories differs here. */
+    state.player_stock_amount[0][0] = 0;
+    state.players[0].cash = 16777217;
+    assert(rich4_player_total_assets(&state, 0, &assets) == 16777216);
+    assert(assets.cash_and_bank == 16777217 && assets.stock_value == 0);
     puts("victory 0x41D89E: ok");
     return 0;
 }

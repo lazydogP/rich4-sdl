@@ -1354,6 +1354,8 @@ $(eval $(call RICH4_TEST_SUITE,test-new-game-loading,,test_game_loop_frame_end t
 $(eval $(call RICH4_TEST_SUITE,test-news-selection,,test_special_event test_special_presentation_flow test_special_event_text))
 $(eval $(call RICH4_TEST_SUITE,test-options-sale,,test_options_sale))
 $(eval $(call RICH4_TEST_SUITE,test-player-info-name-spacing,,test_player_info_name_spacing))
+$(eval $(call RICH4_TEST_SUITE,test-player-info,,test_player_info_name_spacing test_victory test_app_map_input_flow))
+$(eval $(call RICH4_TEST_SUITE,test-property-lease,,test_property_lease test_property test_facility test_auction test_card test_confinement_god test_game_session_map_init test_map_data test_save_load_replay test_player_info_name_spacing test_turn_rotation test_turn_rotation_flow test_game_event_payload))
 $(eval $(call RICH4_TEST_SUITE,test-present-pixels,,test_present_pixels))
 $(eval $(call RICH4_TEST_SUITE,test-preview-assets-lifetime,,test_preview_asset_lifetime))
 $(eval $(call RICH4_TEST_SUITE,test-property,,test_property test_property_lease))

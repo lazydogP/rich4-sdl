@@ -18,16 +18,24 @@ int rich4_player_cash_bank_assets(const GameState *state, int player)
     return value->cash + value->bank - value->loan;
 }
 
-int rich4_player_stock_assets(const GameState *state, int player)
+static int stock_assets_with_base(const GameState *state, int player, int total)
 {
-    int total = 0;
     int i;
-    if (!valid_player(state, player)) return 0;
+    /* 0x4233EE and 0x4239E0: only the previous integer accumulator is
+     * stored as float32. The quote product and following addition stay
+     * in x87 precision until 0x457DBC truncates toward zero. */
     for (i = 0; i < GAME_STOCK_COUNT; i++) {
         total = (int)((float)total +
-                      state->player_stock_amount[player][i] * state->stocks[i].f20);
+                      (double)state->player_stock_amount[player][i] *
+                      state->stocks[i].f20);
     }
     return total;
+}
+
+int rich4_player_stock_assets(const GameState *state, int player)
+{
+    if (!valid_player(state, player)) return 0;
+    return stock_assets_with_base(state, player, 0);
 }
 
 int rich4_player_land_assets(const GameState *state, int player)
@@ -67,8 +75,12 @@ int rich4_player_total_assets(const GameState *state,
     value.stock_value = rich4_player_stock_assets(state, player);
     value.land_value = rich4_player_land_assets(state, player);
     value.facility_value = rich4_player_facility_assets(state, player);
-    value.total = value.cash_and_bank - value.loan_deduction + value.stock_value +
-                  value.land_value + value.facility_value;
+    /* 0x4239B9 seeds the stock loop with liquid assets, then adds the
+     * unscaled property values; the separately displayed stock subtotal
+     * starts at zero and cannot replace that running calculation. */
+    value.total = stock_assets_with_base(
+        state, player, value.cash_and_bank - value.loan_deduction) +
+        value.land_value + value.facility_value;
     if (out_breakdown != NULL) *out_breakdown = value;
     return value.total;
 }
