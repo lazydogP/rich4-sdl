@@ -9,7 +9,12 @@
 
 int game_init_runtime_sdl(RuntimeSdlBootstrapContext *context)
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO) != 0) {
+    Uint32 flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
+#if !defined(RICH4_PLATFORM_PORTMASTER)
+    /* PortMaster's gptokeyb owns the pad and supplies keyboard/mouse events. */
+    flags |= SDL_INIT_JOYSTICK;
+#endif
+    if (SDL_Init(flags) != 0) {
         fprintf(stderr, "error: SDL_Init failed: %s\n", SDL_GetError());
         game_free_preview_assets(context->game_preview_assets);
         game_free_cursor_assets(context->cursor_assets);

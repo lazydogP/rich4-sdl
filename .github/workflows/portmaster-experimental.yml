@@ -1,0 +1,32 @@
+name: PortMaster experimental
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Verify package isolation and launcher
+        run: python scripts/make_minimal.py test-portmaster-package --progress
+      - name: Build aarch64 experimental package
+        run: python scripts/make_minimal.py package-portmaster --progress
+      - name: Upload experimental package and ABI report
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: PortMaster-aarch64-experimental
+          path: |
+            build/portmaster/rich4.zip
+            build/portmaster/package-validation.json
+          if-no-files-found: error
+          retention-days: 14

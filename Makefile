@@ -242,6 +242,23 @@ sdl-handheld:
 
 # Host remains Windows; only compiler, headers and link libraries are ARM.
 .PHONY: setup-miyoo test-miyoo-toolchain
+.PHONY: setup-portmaster portmaster package-portmaster test-portmaster-package test-portmaster
+PORTMASTER_ARGS ?=
+setup-portmaster:
+	$(PYTHON) scripts/build_portmaster.py --dependencies-only $(PORTMASTER_ARGS)
+
+portmaster:
+	$(PYTHON) scripts/build_portmaster.py $(PORTMASTER_ARGS)
+
+package-portmaster: portmaster
+	$(PYTHON) packaging/portmaster/package.py
+
+test-portmaster-package:
+	$(PYTHON) tests/unit/test_portmaster_package.py
+
+test-portmaster: package-portmaster
+	$(PYTHON) scripts/build_portmaster.py --verify $(PORTMASTER_ARGS)
+
 MIYOO_SETUP_ARGS ?=
 setup-miyoo:
 	$(PYTHON) scripts/setup_miyoo_toolchain.py $(MIYOO_SETUP_ARGS)

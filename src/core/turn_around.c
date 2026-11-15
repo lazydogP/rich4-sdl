@@ -1,6 +1,7 @@
 #include "core/turn_around.h"
 
 #include "core/rng.h"
+#include <stddef.h>
 
 static int route_node_valid(const GameState *state, int node)
 {

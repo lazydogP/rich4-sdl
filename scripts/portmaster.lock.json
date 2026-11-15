@@ -1,0 +1,81 @@
+{
+  "description": "Project-local Linux x86_64 build tools and aarch64 dependencies; no SDL2 or core system libraries are shipped.",
+  "packages": {
+    "libc6": {
+      "filename": "libc6.deb",
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc6_2.31-0ubuntu9.18_arm64.deb",
+      "sha256": "4ff60d84ad78f3aa598297dc6966549fa6489f57599f197562ad91547f388da0"
+    },
+    "libc6-dev": {
+      "filename": "libc6-dev.deb",
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc6-dev_2.31-0ubuntu9.18_arm64.deb",
+      "sha256": "a690787a4ed5ad1bb9ce6aebe0bef3300e483e7ed97d11a6af3cdb107e642292"
+    },
+    "linux-libc-dev": {
+      "filename": "linux-libc-dev.deb",
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux-libc-dev_5.4.0-216.236_arm64.deb",
+      "sha256": "9f487e7f3a9fff7f42f67172e139fd23c11b30e9b70bf6ae5a2e90b099547990"
+    },
+    "pm-builder": {
+      "filename": "pm-build_release.py",
+      "url": "https://raw.githubusercontent.com/PortsMaster/PortMaster-New/45a5358515a65016435f12f67164cacc0db404ef/tools/build_release.py",
+      "sha256": "5d404ad7f0e8e378457927346d16fc70f129c2e8f42827f038461969397058b6"
+    },
+    "pm-util": {
+      "filename": "pm-util.py",
+      "url": "https://raw.githubusercontent.com/PortsMaster/PortMaster-New/45a5358515a65016435f12f67164cacc0db404ef/tools/libs/util.py",
+      "sha256": "afae0fa007f8cf1cd47fbe043fb87bb7a097078c05fb2f3b396442b7a2ed9310"
+    },
+    "gcc": {
+      "filename": "gcc.tar.xz",
+      "url": "https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz",
+      "sha256": "1e33d53dea59c8de823bbdfe0798280bdcd138636c7060da9d77a97ded095a84"
+    },
+    "sdl12-compat": {
+      "filename": "sdl12-compat.tar.gz",
+      "url": "https://codeload.github.com/libsdl-org/sdl12-compat/tar.gz/refs/tags/release-1.2.68",
+      "sha256": "63c6e4dcc1154299e6f363c872900be7f3dcb3e42b9f8f57e05442ec3d89d02d"
+    },
+    "SDL2": {
+      "filename": "SDL2.tar.gz",
+      "url": "https://www.libsdl.org/release/SDL2-2.0.20.tar.gz",
+      "sha256": "c56aba1d7b5b0e7e999e4a7698c70b63a3394ff9704b5f6e1c57e0c16f04dd06"
+    },
+    "SDL_mixer": {
+      "filename": "SDL_mixer.tar.gz",
+      "url": "https://www.libsdl.org/projects/SDL_mixer/release/SDL_mixer-1.2.12.tar.gz",
+      "sha256": "1644308279a975799049e4826af2cfc787cad2abb11aa14562e402521f86992a"
+    },
+    "SDL_ttf": {
+      "filename": "SDL_ttf.tar.gz",
+      "url": "https://www.libsdl.org/projects/SDL_ttf/release/SDL_ttf-2.0.11.tar.gz",
+      "sha256": "724cd895ecf4da319a3ef164892b72078bd92632a5d812111261cde248ebcdb7"
+    },
+    "freetype": {
+      "filename": "freetype.tar.xz",
+      "url": "https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz",
+      "sha256": "0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289"
+    },
+    "libogg": {
+      "filename": "libogg.tar.xz",
+      "url": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.xz",
+      "sha256": "c4d91be36fc8e54deae7575241e03f4211eb102afb3fc0775fbbc1b740016705"
+    },
+    "libvorbis": {
+      "filename": "libvorbis.tar.xz",
+      "url": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz",
+      "sha256": "b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b"
+    },
+    "host-python": {
+      "filename": "host-python.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20241206/cpython-3.12.8%2B20241206-x86_64-unknown-linux-gnu-install_only.tar.gz",
+      "sha256": "b9d6ee5ddac1198e72d53112698773fc8bb597de095592eb849ca794306699ba"
+    },
+    "qemu": {
+      "filename": "qemu-aarch64-static",
+      "url": "https://github.com/multiarch/qemu-user-static/releases/download/v7.2.0-1/qemu-aarch64-static",
+      "sha256": "dce64b2dc6b005485c7aa735a7ea39cb0006bf7e5badc28b324b2cd0c73d883f"
+    }
+  },
+  "portmaster_commit": "45a5358515a65016435f12f67164cacc0db404ef"
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gameList>
+  <game>
+    <path>./Rich4 SDL.sh</path>
+    <name>Rich4 SDL (Experimental)</name>
+    <desc>Experimental Richman 4 engine. Requires user-supplied V3.11 MKF files and a CJK font. aarch64, 640x480; device compatibility has not yet been verified.</desc>
+    <releasedate>20261115T000000</releasedate>
+    <developer>rich4-sdl contributors; original game by Softstar</developer>
+    <publisher>rich4-sdl contributors</publisher>
+    <genre>Strategy</genre>
+    <image>./rich4/screenshot.png</image>
+  </game>
+</gameList>

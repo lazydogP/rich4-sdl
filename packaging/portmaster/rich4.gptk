@@ -1,0 +1,27 @@
+# Button names follow PortMaster's effective SDL controller mapping.
+up = mouse_movement_up
+down = mouse_movement_down
+left = mouse_movement_left
+right = mouse_movement_right
+left_analog_up = mouse_movement_up
+left_analog_down = mouse_movement_down
+left_analog_left = mouse_movement_left
+left_analog_right = mouse_movement_right
+a = mouse_left
+b = mouse_right
+x = d
+y = enter
+start = enter
+back = tab
+l1 = pageup
+r1 = pagedown
+l2 = c
+r2 = w
+l3 = mouse_slow
+r3 = esc
+dpad_mouse_step = 5
+mouse_slow_scale = 50
+deadzone_mode = scaled_radial
+deadzone = 2000
+deadzone_scale = 5
+deadzone_delay = 16

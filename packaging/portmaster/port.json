@@ -1,0 +1,22 @@
+{
+  "version": 4,
+  "name": "rich4.zip",
+  "items": ["Rich4 SDL.sh", "rich4"],
+  "items_opt": [],
+  "attr": {
+    "title": "Rich4 SDL (Experimental)",
+    "desc": "Experimental SDL reimplementation of Richman 4. Requires user-supplied V3.11 game data and a CJK font. Device compatibility is not yet verified.",
+    "desc_md": null,
+    "inst": "Copy Data.mkf, Map.mkf, Panel.mkf, Effect.mkf, Speaking.mkf, Jump.mkf and Help.mkf into ports/rich4/assets/original/. Supply a CJK font at ports/rich4/assets/fonts/rich4.ttc. Optional OGG/WAV music goes into ports/rich4/assets/music/. See rich4.md for music layout and controls.",
+    "inst_md": null,
+    "genres": ["strategy"],
+    "porter": ["rich4-sdl contributors"],
+    "image": null,
+    "rtr": false,
+    "exp": true,
+    "runtime": [],
+    "min_glibc": "2.31",
+    "reqs": ["!lowres"],
+    "arch": ["aarch64"]
+  }
+}

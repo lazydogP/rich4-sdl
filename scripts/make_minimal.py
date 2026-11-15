@@ -34,6 +34,10 @@ WARNING = re.compile(r"\bwarning\b", re.IGNORECASE)
 NOTICE = re.compile(r"\bNOT EXECUTED\b|\bSKIP\b|^macOS original-resource|^Development bundle:|^Original Big5 text font coverage:")
 FORCE_REBUILD = re.compile(r"^(?:--always-make|-[^-]*B[^=]*)$")
 LONG_TARGETS = {
+    "setup-portmaster",
+    "portmaster",
+    "package-portmaster",
+    "test-portmaster",
     "setup-macos",
     "macos",
     "package-macos",

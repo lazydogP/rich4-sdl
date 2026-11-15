@@ -56,6 +56,8 @@ SDL_Surface *rich4_sdl1_create_window(int width,
         width, height, bits_per_pixel == 16 ? 32 : bits_per_pixel,
 #if defined(RICH4_PLATFORM_MIYOO)
         SDL_HWSURFACE | SDL_DOUBLEBUF);
+#elif defined(RICH4_PLATFORM_PORTMASTER)
+        SDL_SWSURFACE | SDL_FULLSCREEN);
 #else
         SDL_SWSURFACE);
 #endif

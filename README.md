@@ -62,6 +62,13 @@ python scripts/make_minimal.py package-miyoo --progress
 
 Unix 只安装 SDL1 而没有 SDL_mixer 开发包时仍可构建，程序会明确使用静音 adapter；安装 mixer 后自动启用完整音效/音乐后端。
 
+PortMaster 的 aarch64、640×480 试验包使用独立的工具链、glibc 2.31 sysroot
+和 SDL1 兼容层。Linux x86_64 或 Windows/WSL 下运行
+`python scripts/make_minimal.py package-portmaster --progress`，输出
+`build/portmaster/rich4.zip`。包内不含原版资源、音乐、字体或个人存档；用户需自行提供。
+构建、安装、按键与尚待完成的真机验收见
+[PortMaster 试验包](packaging/portmaster/README.md)。
+
 ## 运行
 
 GitHub Actions 的标签自动发布、手动构建和发布包说明见
