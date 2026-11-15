@@ -1103,6 +1103,7 @@ SDL_TESTS := \
 	test_game_view_model_input \
 	test_god_sdl \
 	test_hibernation_sdl \
+	test_sleepwalking_sdl \
 	test_hud_layout \
 	test_insurance_building_sdl \
 	test_machine_doll \
@@ -1256,6 +1257,7 @@ TEST_UNIT_TESTS := \
 	test_big5_utf8 \
 	test_sdl1_blit \
 	test_hibernation_sdl \
+	test_sleepwalking_sdl \
 	test_file_line_budget \
 	test_no_debug_ui \
 	test_audio_event \
@@ -1316,6 +1318,7 @@ $(eval $(call RICH4_TEST_SUITE,test-bank-loan-enforcement,,test_bank test_ledger
 $(eval $(call RICH4_TEST_SUITE,test-bank-loan-presentation,,test_bank_loan_presentation))
 $(eval $(call RICH4_TEST_SUITE,test-card,,test_card))
 $(eval $(call RICH4_TEST_SUITE,test-hibernation,,test_sdl1_blit test_hibernation_sdl test_turn_start_flow test_turn_status_flow test_game_view_model test_app_input_flow))
+$(eval $(call RICH4_TEST_SUITE,test-sleepwalking,,test_sleepwalking_sdl test_turn_start_flow test_turn_movement_flow test_special_actor_flow test_game_view_model test_game_view_model_input test_save_load_replay))
 $(eval $(call RICH4_TEST_SUITE,test-dice-flow,,test_dice_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-panel-flow,,test_card_panel_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-presentation,,test_card_presentation))

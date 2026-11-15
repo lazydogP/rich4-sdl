@@ -517,6 +517,9 @@ typedef struct GamePresentationState {
     GameCardUsePresentationState card_use;
     GamePropertyPresentationState property;
     GameActorPresentationState actors[GAME_MAX_PLAYERS];
+    /* 0x498EA4: six-frame Map[25] overlay, independent of the body frame.
+     * Transient render state: 0x407F83 clears it when a map/save is loaded. */
+    int sleepwalking_frame[GAME_MAX_PLAYERS + GAME_SPECIAL_PLAYER_COUNT];
     GameEngineeringAttackState engineering_attack;
     GameSpecialActorPresentationState special_actor;
     GameConfinementExitPresentationState confinement_exit;

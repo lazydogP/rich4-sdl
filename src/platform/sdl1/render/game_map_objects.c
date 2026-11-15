@@ -158,6 +158,7 @@ void draw_game_map_objects(SDL_Surface *screen,
 #define GAME_MAP_RENDER_SPECIAL_ACTOR_SPRITE (-4)
 #define GAME_MAP_RENDER_TOOL_ROBOT_SPRITE (-5)
 #define GAME_MAP_RENDER_SPECIAL_ACTOR_OVERLAY_SPRITE (-6)
+#define GAME_MAP_RENDER_SLEEPWALKING_OVERLAY_SPRITE (-7)
 #define GAME_MAP_RENDER_DYNAMIC_BASE (-100)
     int background_index;
     int i;
@@ -194,6 +195,19 @@ void draw_game_map_objects(SDL_Surface *screen,
         inputs[input_count].sort_bias = i == view->hud.current_player ? 0x0d : 0x0c;
         inputs[input_count].drawable = actor->visible && actor->world_x != 0;
         input_count++;
+        if (actor->sleepwalking && input_count < GAME_MAP_RENDER_QUEUE_CAPACITY) {
+            inputs[input_count].asset_index = i;
+            inputs[input_count].sprite = GAME_MAP_RENDER_SLEEPWALKING_OVERLAY_SPRITE;
+            /* 0x4088D5: decorative overlay has no target object ID. */
+            inputs[input_count].object_id = 0;
+            inputs[input_count].owner = -1;
+            inputs[input_count].variant = actor->sleepwalking_frame;
+            inputs[input_count].world_x = actor->world_x;
+            inputs[input_count].world_y = actor->world_y;
+            inputs[input_count].sort_bias = i == view->hud.current_player ? 0x0f : 0x0e;
+            inputs[input_count].drawable = actor->visible && actor->world_x != 0;
+            input_count++;
+        }
         if (actor->overlay_part >= 0 && input_count < GAME_MAP_RENDER_QUEUE_CAPACITY) {
             inputs[input_count].asset_index = i;
             inputs[input_count].sprite = GAME_MAP_RENDER_ACTOR_OVERLAY_SPRITE;
@@ -230,7 +244,7 @@ void draw_game_map_objects(SDL_Surface *screen,
             inputs[input_count].asset_index = i;
             inputs[input_count].sprite =
                 GAME_MAP_RENDER_SPECIAL_ACTOR_OVERLAY_SPRITE;
-            inputs[input_count].object_id = 0x8000 | (0x10 << i);
+            inputs[input_count].object_id = 0; /* 0x408B34, decorative only. */
             inputs[input_count].owner = -1;
             inputs[input_count].variant = actor->overlay_chunk;
             inputs[input_count].world_x = actor->world_x;
@@ -458,16 +472,9 @@ void draw_game_map_objects(SDL_Surface *screen,
                 visible[i].x, visible[i].y, actor->sleeping);
             continue;
         }
-        if (sprite == GAME_MAP_RENDER_SPECIAL_ACTOR_OVERLAY_SPRITE) {
-            int chunks;
-            if (!assets->map.has_map_common_graph[1]) continue;
-            chunks = (int)assets->map.map_common_spr[1].num_chunks;
-            if (chunks <= 0) continue;
-            chunk = wrap_index(visible[i].variant, chunks);
-            draw_spr_smp_center(
-                screen, assets->map.map_common_data[1],
-                assets->map.map_common_size[1],
-                &assets->map.map_common_spr[1], (size_t)chunk,
+        if (sprite == GAME_MAP_RENDER_SPECIAL_ACTOR_OVERLAY_SPRITE ||
+            sprite == GAME_MAP_RENDER_SLEEPWALKING_OVERLAY_SPRITE) {
+            draw_game_sleepwalking_overlay(screen, assets, visible[i].variant,
                 visible[i].x, visible[i].y);
             continue;
         }

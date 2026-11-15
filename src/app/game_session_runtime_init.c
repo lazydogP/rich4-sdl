@@ -192,6 +192,8 @@ void rich4_app_initialize_session_runtime(
         session->presentation.actors[i].first_turn_landing_pending = 1;
         session->presentation.actors[i].dirty_flags = 0;
     }
+    memset(session->presentation.sleepwalking_frame, 0,
+           sizeof(session->presentation.sleepwalking_frame));
     if (count > 0)
         session->flow.landing_pending_player =
             session->state.current_player + 1;

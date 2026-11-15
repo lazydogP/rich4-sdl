@@ -24,6 +24,9 @@ typedef struct GameActorView {
     int character;
     /* 0x4087BE -> 0x4555C5: recolor the primary sprite palette for +54. */
     int sleeping;
+    /* 0x408870: separate Map[25] marker above a sleepwalking player. */
+    int sleepwalking;
+    int sleepwalking_frame;
     /* Original player +63 (god slot), distinct from bomb slot +64. */
     int has_dynamic_attachment;
     /* 0x408FBD: attached objects require all of player +50..+53 zero. */
@@ -184,6 +187,7 @@ typedef struct GameViewModelInput {
     int minimap_rotate_pressed;
     int top_button_hover;
     GameViewActorInput actors[GAME_MAX_PLAYERS];
+    int sleepwalking_frame[GAME_MAX_PLAYERS + GAME_SPECIAL_PLAYER_COUNT];
     /* Zero keeps the turn owner; otherwise the temporary magic recipient + 1. */
     int presentation_player;
     GameViewSpecialActorInput special_actor;

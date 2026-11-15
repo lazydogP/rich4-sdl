@@ -51,6 +51,27 @@ static void setup_short_route(GameSession *session, MapData *map,
         &session->flow.route_move, map, 1, 0, 2, steps) == ROUTE_MOVE_READY);
 }
 
+static void sleepwalking_marker_pulses(void)
+{
+    static GameSession session;
+    MapData map;
+    MapRouteNode nodes[5];
+    Rich4AppTurnMovementResult result;
+    setup_short_route(&session, &map, nodes, 3);
+    session.state.players[0].days_sleep_walking = 4;
+    session.presentation.sleepwalking_frame[0] = 5;
+    assert(rich4_app_update_turn_movement(&session, &map, 20, 120, &result));
+    assert(session.presentation.sleepwalking_frame[0] == 0);
+    assert(session.presentation.actors[0].walk_frame == 1);
+    assert(rich4_app_update_turn_movement(&session, &map, 20, 140, &result));
+    assert(session.presentation.sleepwalking_frame[0] == 1);
+    assert(rich4_app_update_turn_movement(&session, &map, 20, 160, &result));
+    assert(session.presentation.sleepwalking_frame[0] == 2);
+    assert(rich4_app_update_turn_movement(&session, &map, 20, 180, &result));
+    assert(session.presentation.sleepwalking_frame[0] == 2);
+    assert(session.presentation.sleepwalking_frame[1] == 0);
+}
+
 static void confinement_exit_arrival(void)
 {
     static GameSession s;
@@ -760,6 +781,7 @@ int main(void)
     movement_bomb_audio_lifecycle();
     property_tail_order();
     landing_gates();
+    sleepwalking_marker_pulses();
     puts("app turn movement flow: ok");
     return 0;
 }

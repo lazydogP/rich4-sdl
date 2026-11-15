@@ -214,6 +214,12 @@ Rich4SpecialActorUpdateResult rich4_special_actor_update(
         return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;
     }
     {
+        /* 0x40C71F..0x40C744 uses the same persistent EA4 counter. */
+        if ((session->state.special_player_status[flow->slot][1] & 0xff) != 0) {
+            int *frame = &session->presentation.sleepwalking_frame[
+                GAME_MAX_PLAYERS + flow->slot];
+            *frame = (*frame + 1) % 6;
+        }
         flow->move_progress++;
         flow->animation_frame++;
         if (flow->move_progress >= flow->move_distance) {

@@ -49,7 +49,9 @@ static void test_begin_and_interpolation(void)
     session.presentation.view_world_x = 900;
     session.presentation.view_world_y = 1000;
     setup_map(&map, routes);
+    session.presentation.sleepwalking_frame[4] = 5;
     rich4_special_actor_begin(&session, &map, &action);
+    assert(session.presentation.sleepwalking_frame[4] == 5);
     /* Camera reset belongs to shared turn rotation, not movement startup. */
     assert(session.presentation.has_view_override);
     assert(session.presentation.view_world_x == 900 &&
@@ -68,6 +70,7 @@ static void test_begin_and_interpolation(void)
     assert(rich4_special_actor_update(&session, &map, 10, 110) ==
            RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE);
     assert(session.presentation.special_actor.move_progress == 1);
+    assert(session.presentation.sleepwalking_frame[4] == 0);
     assert(session.presentation.special_actor.visual_x == 8);
     assert(session.presentation.special_actor.visual_y == 0);
 }

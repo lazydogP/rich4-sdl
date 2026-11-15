@@ -495,6 +495,13 @@ int rich4_app_update_turn_movement(
         prepare_route_for_step(session, player);
         start_player_step(player, actor, map);
     }
+    /* 0x40C455..0x40C47E advances EA4 only on a movement pulse while
+     * +55 is set. The counter persists through idle/action/other turns. */
+    if (actor->move_active && (player->days_sleep_walking & 0xff) != 0) {
+        int *frame = &session->presentation.sleepwalking_frame[
+            session->state.current_player];
+        *frame = (*frame + 1) % 6;
+    }
     if (update_player_step(player, actor, map)) {
         RouteMoveResult result = rich4_route_move_commit_with_rng(
             &session->flow.route_move, map, &session->state.ai_rng_state);

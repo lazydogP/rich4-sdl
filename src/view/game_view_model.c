@@ -354,6 +354,8 @@ int rich4_game_view_model_build(const GameState *state,
         actor->player = i;
         actor->character = player->character;
         actor->sleeping = (player->days_sleeping & 0xff) != 0;
+        actor->sleepwalking = (player->days_sleep_walking & 0xff) != 0;
+        actor->sleepwalking_frame = wrap_index_view(input->sleepwalking_frame[i], 6);
         /* 0x4090BA checks +63 only; a bomb alone uses the small offset. */
         actor->has_dynamic_attachment = player->god_info != 0;
         actor->attachments_hidden = player->delayed_status_block != 0 ||
@@ -458,7 +460,8 @@ int rich4_game_view_model_build(const GameState *state,
         int sleepwalking = (state->special_player_status[i][1] & 0xff) != 0;
         actor->slot = i;
         actor->sleeping = (state->special_player_status[i][0] & 0xff) != 0;
-        actor->overlay_chunk = -1;
+        actor->overlay_chunk = sleepwalking ? wrap_index_view(
+            input->sleepwalking_frame[GAME_MAX_PLAYERS + i], 6) : -1;
         if (map == NULL || state->special_player_f10[i] != 0 ||
             node <= 0 || (size_t)node >= map->route_count)
             continue;
@@ -472,9 +475,6 @@ int rich4_game_view_model_build(const GameState *state,
                  input->special_actor.direction) & 7;
             actor->resource_part = input->special_actor.resource_part;
             actor->animation_frame = input->special_actor.animation_frame;
-            if (sleepwalking)
-                actor->overlay_chunk = wrap_index_view(
-                    input->special_actor.animation_frame, 6);
             continue;
         }
         actor->world_x = map->routes[node].x;
@@ -489,7 +489,6 @@ int rich4_game_view_model_build(const GameState *state,
          * signed/high-bit route.  Idle rescued actors use part 0 elsewhere. */
         actor->resource_part =
             (map->routes[node].flags & 0x80000000u) != 0 ? 2 : 0;
-        if (sleepwalking) actor->overlay_chunk = 0;
     }
     model.hud.active_tab = input->active_info_tab >= 0 && input->active_info_tab <= 3
         ? input->active_info_tab : 0;

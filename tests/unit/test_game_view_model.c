@@ -312,12 +312,13 @@ int main(void)
     flow.special_actor.direction = 5;
     flow.special_actor.resource_part = 1;
     flow.special_actor.animation_frame = 7;
+    flow.sleepwalking_frame[4] = 3;
     flow.special_actor.steps_remaining = 4;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.special_actors[0].world_x == 450 &&
            model.special_actors[0].world_y == 700 &&
            model.special_actors[0].resource_part == 1 &&
-           model.special_actors[0].overlay_chunk == 1 &&
+           model.special_actors[0].overlay_chunk == 3 &&
            model.special_actors[0].animation_frame == 7 &&
            model.special_actors[0].visual_direction == 4 &&
            model.viewport.center_world_x == 450 &&
@@ -492,6 +493,24 @@ int main(void)
     state.special_player_status[0][0] = 0;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(!model.actors[0].sleeping && !model.special_actors[0].sleeping);
+    state.players[0].days_sleep_walking = 4;
+    flow.sleepwalking_frame[0] = 5;
+    state.special_player_status[0][1] = 3;
+    flow.sleepwalking_frame[4] = 4;
+    flow.special_actor.active = 0;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.actors[0].primary_part == 16);
+    assert(model.actors[0].sleepwalking && model.actors[0].sleepwalking_frame == 5);
+    assert(model.special_actors[0].overlay_chunk == 4);
+    flow.actors[0].move_active = 1;
+    flow.actors[0].walk_frame = 2;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(model.actors[0].primary_part == 17 && model.actors[0].walk_frame == 2);
+    assert(model.actors[0].sleepwalking_frame == 5);
+    state.players[0].days_sleep_walking = 0;
+    state.special_player_status[0][1] = 0;
+    assert(rich4_game_view_model_build(&state, &flow, &map, &model));
+    assert(!model.actors[0].sleepwalking && model.special_actors[0].overlay_chunk == -1);
     puts("game view model: ok");
     return 0;
 }

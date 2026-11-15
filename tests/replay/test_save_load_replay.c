@@ -757,6 +757,16 @@ int main(void)
     test_auto_save_waits_for_original_turn_boundary();
     test_failed_write_preserves_slot(directory, source);
 
+    /* 0x407F83 clears EA4 on load. These render-only counters do not
+     * extend the save format or replace either stored body-animation frame. */
+    source->presentation.sleepwalking_frame[0] = 5;
+    source->presentation.sleepwalking_frame[4] = 3;
+    round_trip_case(directory, "sleepwalking-render-reset", source, 2, &map);
+    assert(loaded->presentation.sleepwalking_frame[0] == 0);
+    assert(loaded->presentation.sleepwalking_frame[4] == 0);
+    memset(source->presentation.sleepwalking_frame, 0,
+           sizeof(source->presentation.sleepwalking_frame));
+
     source->state.special_player_actor_type[0] = 0x81;
     source->presentation.special_actor.active = 1;
     source->presentation.special_actor.path_count = 2;

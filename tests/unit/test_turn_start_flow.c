@@ -95,6 +95,28 @@ int main(void)
                    RICH4_TURN_START_CONTROL_LOCKED);
         }
     }
+    /* 0x40CBA5 returns -1 for +55: both control modes start automatically
+     * without a status notice. EA4 survives the body-frame reset. */
+    {
+        int ai;
+        for (ai = 0; ai < 2; ai++) {
+            memset(&session, 0, sizeof(session));
+            session.state.active = 1;
+            session.state.player_count = 1;
+            session.state.players[0].play_state = ai ? 2 : 1;
+            session.state.players[0].is_ai = ai;
+            session.state.players[0].days_sleep_walking = 4;
+            session.presentation.actors[0].dirty_flags = GAME_PLAYER_DIRTY_TURN;
+            session.presentation.sleepwalking_frame[0] = 5;
+            assert(rich4_turn_start_prepare_request(&session, 800, &request));
+            assert(request.action == RICH4_TURN_START_STARTED);
+            assert(request.status_result == -1 && request.status_slot == 55);
+            assert(session.flow.turn_state == GAME_TURN_STATE_PREROLL);
+            assert(!session.presentation.confinement_status.active);
+            assert(!session.presentation.dice.status_visible);
+            assert(session.presentation.sleepwalking_frame[0] == 5);
+        }
+    }
     puts("app turn-start flow: ok");
     return 0;
 }

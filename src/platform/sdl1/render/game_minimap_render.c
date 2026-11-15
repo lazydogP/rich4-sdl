@@ -308,6 +308,16 @@ int draw_game_player_model_part(SDL_Surface *screen,
                                center_y, sleeping);
 }
 
+void draw_game_sleepwalking_overlay(SDL_Surface *screen,
+    const GamePreviewAssets *assets, int frame, int center_x, int center_y)
+{
+    if (assets == NULL || !assets->map.has_map_common_graph[1]) return;
+    frame = wrap_index(frame, 6);
+    draw_spr_smp_center(screen, assets->map.map_common_data[1],
+        assets->map.map_common_size[1], &assets->map.map_common_spr[1],
+        (size_t)frame, center_x, center_y);
+}
+
 int draw_game_player_model(SDL_Surface *screen,
                            const GamePreviewAssets *assets,
                            const GameViewModel *view,
@@ -360,6 +370,9 @@ int draw_game_player_model(SDL_Surface *screen,
                                     (size_t)action_frame,
                                     center_x,
                                     center_y, actor->sleeping)) {
+                if (include_overlay && actor->sleepwalking)
+                    draw_game_sleepwalking_overlay(screen, assets,
+                        actor->sleepwalking_frame, center_x, center_y);
                 return 1;
             }
         }
@@ -389,6 +402,9 @@ int draw_game_player_model(SDL_Surface *screen,
                                         center_x,
                                         center_y, 0);
         }
+        if (include_overlay && actor->sleepwalking)
+            draw_game_sleepwalking_overlay(screen, assets,
+                actor->sleepwalking_frame, center_x, center_y);
         return 1;
     }
     if (actor->moving &&

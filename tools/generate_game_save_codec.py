@@ -209,8 +209,12 @@ class CodecGenerator:
             # Preserve the existing format-4..8 layout: these are runtime
             # clocks or blocking-modal continuation fields, not durable data.
             transient = {
-                "GameSession": {"pending_turn_events"},
-                "GamePresentationState": {"animation_clock", "special_place_notice", "card_use"},
+                "GameSession": {"pending_turn_events", "loaded_music_restart_pending"},
+                "GamePresentationState": {"animation_clock", "special_place_notice", "card_use",
+                    "sleepwalking_frame", "turn_around_sound_pending"},
+                "GameAuctionPresentationState": {"speech_visible", "speech_clock_started",
+                    "speech_skipped", "speech_until", "animation_clock_started", "animation_tick",
+                    "mouth_ticks", "mouth_drawn", "expression_kind", "expression_frame"},
                 "GamePropertyPresentationState": {"flash_presented_frame"},
                 "GameEndingPresentationState": {"continuation_confirmation_frame"},
                 "GameSpecialEventPresentationState": {

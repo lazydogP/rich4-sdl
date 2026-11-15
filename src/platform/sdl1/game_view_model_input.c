@@ -123,6 +123,8 @@ void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
         out_input->actors[i].dirty_flags = presentation->actors[i].dirty_flags;
     }
     if (presentation != NULL) {
+        memcpy(out_input->sleepwalking_frame, presentation->sleepwalking_frame,
+               sizeof(out_input->sleepwalking_frame));
         out_input->special_actor.active = presentation->special_actor.active;
         out_input->special_actor.slot = presentation->special_actor.slot;
         out_input->special_actor.visual_x = presentation->special_actor.visual_x;
