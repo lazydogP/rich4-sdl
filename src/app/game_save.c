@@ -51,7 +51,7 @@ static int save_game_state_matches_map(const GameState *state,
 }
 
 enum {
-    GAME_SAVE_FORMAT_VERSION = 10,
+    GAME_SAVE_FORMAT_VERSION = 11,
     GAME_SAVE_HEADER_SIZE = 20,
     GAME_SAVE_MAX_FILE_SIZE = 64 * 1024 * 1024
 };
@@ -677,6 +677,7 @@ int rich4_game_save_read(const char *path, int slot,
     if (fclose(file) != 0) ok = 0;
     if (!ok || memcmp(bytes, magic, sizeof(magic)) != 0 ||
         (save_get_u32(bytes + 4) != GAME_SAVE_FORMAT_VERSION &&
+         save_get_u32(bytes + 4) != 10 &&
          save_get_u32(bytes + 4) != 9 &&
          save_get_u32(bytes + 4) != 8 &&
          save_get_u32(bytes + 4) != 7 &&

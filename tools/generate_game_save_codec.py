@@ -223,6 +223,9 @@ class CodecGenerator:
             if field.name in transient.get(alias, set()):
                 continue
             emitted = self._emit_field(ctype, "value", field.name, field.type)
+            if alias == "GameState" and field.name == "land_lease_date":
+                emitted = ["if (codec->version >= 11) {"] + [
+                    "    " + line for line in emitted] + ["}"]
             if alias == "GamePointMinigamePresentationState" and field.name == "catcher":
                 emitted = ["if (codec->version >= 9) {"] + [
                     "    " + line for line in emitted] + ["}"]

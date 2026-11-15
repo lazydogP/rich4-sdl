@@ -136,7 +136,7 @@ GameDomainRef rich4_game_event_target_ref(const GameEvent *event)
 int rich4_game_event_kind_is_valid(GameEventType type)
 {
     return type > GAME_EVENT_NONE &&
-           type <= GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED;
+           type <= GAME_EVENT_PROPERTY_DAY_END_REQUESTED;
 }
 
 int rich4_game_event_is_valid(const GameEvent *event)

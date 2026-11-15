@@ -10,6 +10,7 @@
 #include "core/god.h"
 #include "core/confinement.h"
 #include "core/insurance.h"
+#include "core/property.h"
 #include "core/stock.h"
 #include "core/rng.h"
 #include "core/game_event_payload.h"
@@ -689,6 +690,8 @@ int rich4_card_apply_property_card(GameState *state, const GameCommand *command,
         state->players[owner].cash += price;
         if (facility) state->facility_owner[id] = actor;
         else state->land_owner[id] = actor;
+        /* 0x442455/0x4425D2: the purchase card renews even an owned plot. */
+        rich4_property_begin_lease(state, command->target);
     } else if (card == 3 || card == 4) {
         if (source < 0 || source == id || facility != source_facility) return 0;
         if (facility) {

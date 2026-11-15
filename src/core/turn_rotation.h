@@ -53,6 +53,8 @@ typedef struct TurnSpecialAutoActionResult {
 } TurnSpecialAutoActionResult;
 
 int rich4_turn_advance_once(GameState *state, TurnAdvanceResult *out_result);
+/* 0x41D0FF..0x41D19D, after the blocking 15th/monthly settlement returns. */
+int rich4_turn_finish_property_day(GameState *state, GameEventQueue *events);
 /* 0x40118F: called on configured cancel-key release in the main callback. */
 int rich4_turn_request_ai_cancel(GameState *state);
 int rich4_turn_advance_once_events(GameState *state,

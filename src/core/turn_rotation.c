@@ -333,6 +333,49 @@ static void tick_property_statuses(GameState *state)
     }
 }
 
+int rich4_turn_finish_property_day(GameState *state, GameEventQueue *events)
+{
+    GameState next;
+    uint32_t date = 0;
+    int year, month, day, family, i, changed = 0;
+    if (state == NULL || events == NULL) return 0;
+    next = *state;
+    tick_property_statuses(&next);
+    if (rich4_stock_calendar_date(&next, &year, &month, &day, NULL))
+        date = ((uint32_t)year << 16) | ((uint32_t)month << 8) | (uint32_t)day;
+    if (date != 0) {
+        for (family = 0; family < 2; family++) {
+            int count = family ? next.facility_count : next.land_count;
+            int *owners = family ? next.facility_owner : next.land_owner;
+            uint32_t *dates = family ? next.facility_last_change : next.land_lease_date;
+            for (i = 0; i < count && i < GAME_MAX_MAP_PROPERTIES; i++) {
+                /* Original equality check, not overdue <= current date.
+                 * Buildings, level, income and price status survive. */
+                if (dates[i] == date) {
+                    owners[i] = -1;
+                    dates[i] = 0;
+                    changed = 1;
+                }
+            }
+        }
+    }
+    if (changed) {
+        /* 0x41D19D -> 0x40A4E1(0): recalculate the ownership totals once,
+         * even when more plots expire than the event queue can hold. */
+        memset(next.fixed_asset_value, 0, sizeof(next.fixed_asset_value));
+        for (i = 0; i < next.land_count && i < GAME_MAX_MAP_PROPERTIES; i++)
+            if (next.land_owner[i] >= 0 && next.land_owner[i] < GAME_MAX_PLAYERS)
+                next.fixed_asset_value[next.land_owner[i]] += next.land_value[i];
+        for (i = 0; i < next.facility_count && i < GAME_MAX_MAP_PROPERTIES; i++)
+            if (next.facility_owner[i] >= 0 && next.facility_owner[i] < GAME_MAX_PLAYERS)
+                next.fixed_asset_value[next.facility_owner[i]] += next.facility_value[i];
+        if (!push_typed_turn_event(events, rich4_game_event_scene_refresh_requested_from_fields,
+                                  -1, 0, 0, 0, 0)) return 0;
+    }
+    *state = next;
+    return 1;
+}
+
 static int turn_advance_events_impl(GameState *state,
                                    TurnAdvanceResult *out_result,
                                    GameEventQueue *events, const uint32_t *tick)
@@ -367,6 +410,7 @@ static int turn_advance_events_impl(GameState *state,
             Rich4BankSettlement settlement;
             GameStockDayResult stock_result;
             int player;
+            int defer_property_day = 0;
             rich4_stock_tick_status(&next);
             /* 0x41D066/0x41D06E reseeds after counters, before 0x4291D6. */
             if (tick != NULL) next.ai_rng_state = *tick;
@@ -377,6 +421,13 @@ static int turn_advance_events_impl(GameState *state,
              * holidays therefore give cards from the freshly seeded stream,
              * while an open day first consumes the stock-update draws. */
             if (!apply_calendar_special_effects(&next, &staged)) return 0;
+            for (int event_index = 0; event_index < staged.count; event_index++) {
+                const GameEvent *event = &staged.events[event_index];
+                if (event->type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED ||
+                    (event->type == GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED &&
+                     rich4_game_event_subject(event) == GAME_SPECIAL_NOTICE_HOLIDAY_GIFT))
+                    defer_property_day = 1;
+            }
             {
                 int day;
                 if (rich4_stock_calendar_date(&next, NULL, NULL, &day, NULL) &&
@@ -384,9 +435,11 @@ static int turn_advance_events_impl(GameState *state,
                     GameEvent event = rich4_game_event_periodic_finance_requested_from_fields(
                         (Rich4GameEventFields){.player=-1, .subject=15});
                     if (!rich4_game_event_queue_push(&staged, &event)) return 0;
+                    defer_property_day = 1;
                 }
             }
             if (rich4_stock_elapsed_months(&next) > previous_months) {
+                defer_property_day = 1;
                 if (!rich4_bank_monthly_settle(&next, &settlement)) return 0;
                 for (player = 0; player < GAME_MAX_PLAYERS; player++) {
                     unsigned int bit = 1u << player;
@@ -401,7 +454,11 @@ static int turn_advance_events_impl(GameState *state,
                     }
                 }
             }
-            tick_property_statuses(&next);
+            if (defer_property_day) {
+                if (!push_typed_turn_event(
+                        &staged, rich4_game_event_property_day_end_requested_from_fields,
+                        -1, 0, next.elapsed_days, 0, 0)) return 0;
+            } else if (!rich4_turn_finish_property_day(&next, &staged)) return 0;
         }
     }
     /* 0x41C86D checks loans before status ticks; status-return turns skip

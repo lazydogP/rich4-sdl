@@ -5,6 +5,7 @@
 #include "core/god.h"
 #include "core/insurance.h"
 #include "core/stock.h"
+#include "core/property.h"
 #include "core/game_event_payload.h"
 
 #include <limits.h>
@@ -242,6 +243,8 @@ int rich4_facility_apply_command(GameState *state, const GameCommand *command,
             !rich4_ledger_spend_cash(&next, command->player, price, &staged) ||
             !rich4_facility_asset_value(&next, facility, &value)) return 0;
         next.facility_owner[facility] = command->player;
+        /* 0x41A958..0x41A978 uses the same lease setting as residential. */
+        rich4_property_begin_lease(&next, command->subject);
         next.facility_value[facility] = value;
         if (!rich4_game_event_emit_typed_domain(
                 &staged, rich4_game_event_property_owner_changed_from_fields,

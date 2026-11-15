@@ -40,6 +40,10 @@ typedef struct GameLandAction {
 } GameLandAction;
 
 int rich4_land_purchase_price(const GameState *state, int land, int *out_price);
+/* 0x4751F0 / 0x4521CB: packed calendar addition using the setup index.
+ * A zero index leaves any existing date unchanged at the original call sites. */
+uint32_t rich4_property_lease_deadline(const GameState *state);
+void rich4_property_begin_lease(GameState *state, GameDomainRef property);
 int rich4_land_upgrade_price(const GameState *state, int land, int *out_price);
 int rich4_land_toll(const GameState *state, int land, int *out_toll);
 int rich4_land_inspect(const GameState *state, int actor, int land,

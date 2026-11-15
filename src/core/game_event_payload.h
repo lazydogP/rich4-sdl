@@ -80,7 +80,8 @@ int rich4_game_event_emit_typed_domain(
     X(beggar_donation_presentation_requested, GAME_EVENT_BEGGAR_DONATION_PRESENTATION_REQUESTED) \
     X(god_trade_rejection_presentation_requested, GAME_EVENT_GOD_TRADE_REJECTION_PRESENTATION_REQUESTED) \
     X(periodic_finance_requested, GAME_EVENT_PERIODIC_FINANCE_REQUESTED) \
-    X(special_place_notice_requested, GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED)
+    X(special_place_notice_requested, GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED) \
+    X(property_day_end_requested, GAME_EVENT_PROPERTY_DAY_END_REQUESTED)
 
 GameEvent rich4_game_event_special_place_notice(
     int player, GameSpecialPlaceNoticeKind kind, GameDomainRef target,

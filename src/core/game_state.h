@@ -159,6 +159,8 @@ typedef struct GameState {
     int land_price_per_level[GAME_MAX_MAP_PROPERTIES];
     int land_toll_by_level[GAME_MAX_MAP_PROPERTIES][6];
     uint32_t land_runtime_value[GAME_MAX_MAP_PROPERTIES];
+    /* Original residential record +0x30: packed year/month/day lease end. */
+    uint32_t land_lease_date[GAME_MAX_MAP_PROPERTIES];
     int land_value[GAME_MAX_MAP_PROPERTIES];
     int facility_count;
     int facility_owner[GAME_MAX_MAP_PROPERTIES];

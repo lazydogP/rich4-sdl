@@ -1041,6 +1041,7 @@ CORE_TESTS := \
 	test_player_status \
 	test_point_minigame_flow \
 	test_property \
+	test_property_lease \
 	test_property_flow \
 	test_public_api_contract \
 	test_real_map_bootstrap \
@@ -1355,7 +1356,7 @@ $(eval $(call RICH4_TEST_SUITE,test-options-sale,,test_options_sale))
 $(eval $(call RICH4_TEST_SUITE,test-player-info-name-spacing,,test_player_info_name_spacing))
 $(eval $(call RICH4_TEST_SUITE,test-present-pixels,,test_present_pixels))
 $(eval $(call RICH4_TEST_SUITE,test-preview-assets-lifetime,,test_preview_asset_lifetime))
-$(eval $(call RICH4_TEST_SUITE,test-property,,test_property))
+$(eval $(call RICH4_TEST_SUITE,test-property,,test_property test_property_lease))
 $(eval $(call RICH4_TEST_SUITE,test-property-map-presentation,,test_property_map_presentation))
 $(eval $(call RICH4_TEST_SUITE,test-real-map-bootstrap,,test_real_map_bootstrap))
 $(eval $(call RICH4_TEST_SUITE,test-render,,test_map_renderer test_flc_player))

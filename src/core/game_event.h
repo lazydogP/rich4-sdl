@@ -159,7 +159,9 @@ typedef enum GameEventType {
     /* Original timed map notices in automatic special-place handlers.
      * subject=GameSpecialPlaceNoticeKind, value=amount/price,
      * value2=hold ms, target_ref=rescued actor or owner gift. */
-    GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED
+    GAME_EVENT_SPECIAL_PLACE_NOTICE_REQUESTED,
+    /* 0x41D0FF: resume property status/lease day-end after monthly modals. */
+    GAME_EVENT_PROPERTY_DAY_END_REQUESTED
 } GameEventType;
 
 typedef enum GameSpecialPlaceNoticeKind {

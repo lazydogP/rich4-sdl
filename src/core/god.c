@@ -7,6 +7,7 @@
 #include "core/card_internal.h"
 #include "core/game_event_payload.h"
 #include "core/ledger.h"
+#include "core/property.h"
 #include "core/rng.h"
 
 /* These are the three signed words written by 0x40EAD7 and undone by
@@ -672,6 +673,11 @@ static int apply_god_landing_type10_or_12(
         level = facility ? next.facility_level[property] : next.land_level[property];
     }
     if (owner_changed) {
+        /* 0x40F725/0x40F806 starts a lease only for previously unowned
+         * property. Taking an opponent's property preserves its date. */
+        if (owner < 0)
+            rich4_property_begin_lease(&next, rich4_game_domain_ref(
+                facility ? GAME_DOMAIN_FACILITY : GAME_DOMAIN_LAND, property));
         old_value = facility ? next.facility_value[property] :
             next.land_value[property];
         if (old_value <= 0 && !god_property_value(facility, &next, property,

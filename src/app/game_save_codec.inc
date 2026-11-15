@@ -56,9 +56,9 @@ static void codec_GameInsurancePresentationState(SaveCodec *codec, GameInsurance
 static void codec_GameInsuranceNoticeEntry(SaveCodec *codec, GameInsuranceNoticeEntry *value);
 static void codec_GameLotteryPresentationState(SaveCodec *codec, GameLotteryPresentationState *value);
 static void codec_GameShopPresentationState(SaveCodec *codec, GameShopPresentationState *value);
-static void codec_GameCatcherMinigameState(SaveCodec *codec, GameCatcherMinigameState *value);
 static void codec_GamePointMinigamePresentationState(SaveCodec *codec, GamePointMinigamePresentationState *value);
 static void codec_PointMinigameObject(SaveCodec *codec, PointMinigameObject *value);
+static void codec_GameCatcherMinigameState(SaveCodec *codec, GameCatcherMinigameState *value);
 static void codec_GameMagicHousePresentationState(SaveCodec *codec, GameMagicHousePresentationState *value);
 static void codec_GameAuctionPresentationState(SaveCodec *codec, GameAuctionPresentationState *value);
 static void codec_GameAuctionState(SaveCodec *codec, GameAuctionState *value);
@@ -154,8 +154,8 @@ static void codec_GameState(SaveCodec *codec, GameState *value)
     codec_scalar(codec, &(value->tool_company_geometry_available), SAVE_CODEC_I32);
     codec_array(codec, value->tool_company_x, 384, sizeof(value->tool_company_x[0]), SAVE_CODEC_I16);
     codec_array(codec, value->tool_company_y, 384, sizeof(value->tool_company_y[0]), SAVE_CODEC_I16);
-    for (size_t index_18 = 0; index_18 < 30; ++index_18) {
-        codec_tag_GameToolPlacedObjectState(codec, &(value->tool_placed_objects[index_18]));
+    for (size_t index_1 = 0; index_1 < 30; ++index_1) {
+        codec_tag_GameToolPlacedObjectState(codec, &(value->tool_placed_objects[index_1]));
     }
     codec_tag_GameToolRobotState(codec, &(value->tool_robot));
     codec_scalar(codec, &(value->prison_node), SAVE_CODEC_I32);
@@ -202,6 +202,9 @@ static void codec_GameState(SaveCodec *codec, GameState *value)
     codec_array(codec, value->land_price_per_level, 384, sizeof(value->land_price_per_level[0]), SAVE_CODEC_I32);
     codec_array(codec, value->land_toll_by_level, 2304, sizeof(value->land_toll_by_level[0][0]), SAVE_CODEC_I32);
     codec_array(codec, value->land_runtime_value, 384, sizeof(value->land_runtime_value[0]), SAVE_CODEC_U32);
+    if (codec->version >= 11) {
+        codec_array(codec, value->land_lease_date, 384, sizeof(value->land_lease_date[0]), SAVE_CODEC_U32);
+    }
     codec_array(codec, value->land_value, 384, sizeof(value->land_value[0]), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->facility_count), SAVE_CODEC_I32);
     codec_array(codec, value->facility_owner, 384, sizeof(value->facility_owner[0]), SAVE_CODEC_I32);
@@ -230,8 +233,8 @@ static void codec_GameState(SaveCodec *codec, GameState *value)
     codec_array(codec, value->stock_company_available, 12, sizeof(value->stock_company_available[0]), SAVE_CODEC_U32);
     codec_array(codec, value->stock_company_owner, 12, sizeof(value->stock_company_owner[0]), SAVE_CODEC_I32);
     codec_array(codec, value->stock_company_ranking, 48, sizeof(value->stock_company_ranking[0][0]), SAVE_CODEC_I32);
-    for (size_t index_77 = 0; index_77 < 12; ++index_77) {
-        codec_GameStockInfo(codec, &(value->stocks[index_77]));
+    for (size_t index_2 = 0; index_2 < 12; ++index_2) {
+        codec_GameStockInfo(codec, &(value->stocks[index_2]));
     }
     codec_array(codec, value->stock_history, 1728, sizeof(value->stock_history[0][0]), SAVE_CODEC_F32);
     codec_scalar(codec, &(value->stock_history_cursor), SAVE_CODEC_I32);
@@ -240,13 +243,13 @@ static void codec_GameState(SaveCodec *codec, GameState *value)
     codec_scalar(codec, &(value->stock_rng_state), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->ai_rng_state), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->stock_market_total_x10), SAVE_CODEC_I32);
-    for (size_t index_80 = 0; index_80 < 4; ++index_80) {
-        for (size_t index_81 = 0; index_81 < 7; ++index_81) {
-            codec_GameMarketListing(codec, &(value->market_listings[index_80][index_81]));
+    for (size_t index_3 = 0; index_3 < 4; ++index_3) {
+        for (size_t index_4 = 0; index_4 < 7; ++index_4) {
+            codec_GameMarketListing(codec, &(value->market_listings[index_3][index_4]));
         }
     }
-    for (size_t index_82 = 0; index_82 < 4; ++index_82) {
-        codec_GamePlayerState(codec, &(value->players[index_82]));
+    for (size_t index_5 = 0; index_5 < 4; ++index_5) {
+        codec_GamePlayerState(codec, &(value->players[index_5]));
     }
 }
 
@@ -374,9 +377,9 @@ static void codec_GameFlowState(SaveCodec *codec, GameFlowState *value)
 
 static void codec_VictoryResult(SaveCodec *codec, VictoryResult *value)
 {
-    int32_t enum_value_86 = (int32_t)(value->event);
-    codec_scalar(codec, &enum_value_86, SAVE_CODEC_I32);
-    if (codec->reading) (value->event) = (VictoryDomainEvent)enum_value_86;
+    int32_t enum_value_6 = (int32_t)(value->event);
+    codec_scalar(codec, &enum_value_6, SAVE_CODEC_I32);
+    if (codec->reading) (value->event) = (VictoryDomainEvent)enum_value_6;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->reason), SAVE_CODEC_I32);
     codec_PlayerAssetBreakdown(codec, &(value->assets));
@@ -419,8 +422,8 @@ static void codec_RouteEventExecutor(SaveCodec *codec, RouteEventExecutor *value
 
 static void codec_RouteEventQueue(SaveCodec *codec, RouteEventQueue *value)
 {
-    for (size_t index_88 = 0; index_88 < 66; ++index_88) {
-        codec_RouteEvent(codec, &(value->events[index_88]));
+    for (size_t index_7 = 0; index_7 < 66; ++index_7) {
+        codec_RouteEvent(codec, &(value->events[index_7]));
     }
     codec_scalar(codec, &(value->head), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->tail), SAVE_CODEC_I32);
@@ -429,9 +432,9 @@ static void codec_RouteEventQueue(SaveCodec *codec, RouteEventQueue *value)
 
 static void codec_RouteEvent(SaveCodec *codec, RouteEvent *value)
 {
-    int32_t enum_value_89 = (int32_t)(value->phase);
-    codec_scalar(codec, &enum_value_89, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase) = (RouteEventPhase)enum_value_89;
+    int32_t enum_value_8 = (int32_t)(value->phase);
+    codec_scalar(codec, &enum_value_8, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase) = (RouteEventPhase)enum_value_8;
     codec_scalar(codec, &(value->node), SAVE_CODEC_I32);
     codec_MapObjectRef(codec, &(value->object_ref));
     codec_RouteEventSnapshot(codec, &(value->snapshot));
@@ -439,9 +442,9 @@ static void codec_RouteEvent(SaveCodec *codec, RouteEvent *value)
 
 static void codec_MapObjectRef(SaveCodec *codec, MapObjectRef *value)
 {
-    int32_t enum_value_90 = (int32_t)(value->kind);
-    codec_scalar(codec, &enum_value_90, SAVE_CODEC_I32);
-    if (codec->reading) (value->kind) = (MapObjectKind)enum_value_90;
+    int32_t enum_value_9 = (int32_t)(value->kind);
+    codec_scalar(codec, &enum_value_9, SAVE_CODEC_I32);
+    if (codec->reading) (value->kind) = (MapObjectKind)enum_value_9;
     codec_scalar(codec, &(value->index), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->raw_object_id), SAVE_CODEC_U16);
 }
@@ -461,9 +464,9 @@ static void codec_RouteEventExecutorState(SaveCodec *codec, RouteEventExecutorSt
 {
     codec_scalar(codec, &(value->turn_token), SAVE_CODEC_U32);
     codec_RouteEventDispatchState(codec, &(value->dispatch));
-    int32_t enum_value_91 = (int32_t)(value->last_result);
-    codec_scalar(codec, &enum_value_91, SAVE_CODEC_I32);
-    if (codec->reading) (value->last_result) = (RouteEventHandlerResult)enum_value_91;
+    int32_t enum_value_10 = (int32_t)(value->last_result);
+    codec_scalar(codec, &enum_value_10, SAVE_CODEC_I32);
+    if (codec->reading) (value->last_result) = (RouteEventHandlerResult)enum_value_10;
     codec_scalar(codec, &(value->execution_started), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->waiting_for_command), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->waiting_for_liquidation), SAVE_CODEC_I32);
@@ -501,12 +504,12 @@ static void codec_RouteEventDispatchState(SaveCodec *codec, RouteEventDispatchSt
 
 static void codec_GameCommand(SaveCodec *codec, GameCommand *value)
 {
-    int32_t enum_value_92 = (int32_t)(value->type);
-    codec_scalar(codec, &enum_value_92, SAVE_CODEC_I32);
-    if (codec->reading) (value->type) = (GameCommandType)enum_value_92;
-    int32_t enum_value_93 = (int32_t)(value->source);
-    codec_scalar(codec, &enum_value_93, SAVE_CODEC_I32);
-    if (codec->reading) (value->source) = (GameCommandSource)enum_value_93;
+    int32_t enum_value_11 = (int32_t)(value->type);
+    codec_scalar(codec, &enum_value_11, SAVE_CODEC_I32);
+    if (codec->reading) (value->type) = (GameCommandType)enum_value_11;
+    int32_t enum_value_12 = (int32_t)(value->source);
+    codec_scalar(codec, &enum_value_12, SAVE_CODEC_I32);
+    if (codec->reading) (value->source) = (GameCommandSource)enum_value_12;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->value), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->value2), SAVE_CODEC_I32);
@@ -519,28 +522,28 @@ static void codec_GameCommand(SaveCodec *codec, GameCommand *value)
 
 static void codec_GameDomainRef(SaveCodec *codec, GameDomainRef *value)
 {
-    int32_t enum_value_94 = (int32_t)(value->kind);
-    codec_scalar(codec, &enum_value_94, SAVE_CODEC_I32);
-    if (codec->reading) (value->kind) = (GameDomainKind)enum_value_94;
+    int32_t enum_value_13 = (int32_t)(value->kind);
+    codec_scalar(codec, &enum_value_13, SAVE_CODEC_I32);
+    if (codec->reading) (value->kind) = (GameDomainKind)enum_value_13;
     codec_scalar(codec, &(value->id), SAVE_CODEC_I32);
 }
 
 static void codec_RouteEventCollection(SaveCodec *codec, RouteEventCollection *value)
 {
-    for (size_t index_95 = 0; index_95 < 66; ++index_95) {
-        codec_RouteEvent(codec, &(value->events[index_95]));
+    for (size_t index_14 = 0; index_14 < 66; ++index_14) {
+        codec_RouteEvent(codec, &(value->events[index_14]));
     }
     codec_scalar(codec, &(value->count), SAVE_CODEC_I32);
 }
 
 static void codec_GamePresentationState(SaveCodec *codec, GamePresentationState *value)
 {
-    int32_t enum_value_96 = (int32_t)(value->mode);
-    codec_scalar(codec, &enum_value_96, SAVE_CODEC_I32);
-    if (codec->reading) (value->mode) = (Rich4PresentationMode)enum_value_96;
-    int32_t enum_value_97 = (int32_t)(value->previous_mode);
-    codec_scalar(codec, &enum_value_97, SAVE_CODEC_I32);
-    if (codec->reading) (value->previous_mode) = (Rich4PresentationMode)enum_value_97;
+    int32_t enum_value_15 = (int32_t)(value->mode);
+    codec_scalar(codec, &enum_value_15, SAVE_CODEC_I32);
+    if (codec->reading) (value->mode) = (Rich4PresentationMode)enum_value_15;
+    int32_t enum_value_16 = (int32_t)(value->previous_mode);
+    codec_scalar(codec, &enum_value_16, SAVE_CODEC_I32);
+    if (codec->reading) (value->previous_mode) = (Rich4PresentationMode)enum_value_16;
     codec_Rich4PresentationPayload(codec, &(value->payload));
     codec_scalar(codec, &(value->transition_serial), SAVE_CODEC_U32);
     codec_GameIntroPresentationState(codec, &(value->intro));
@@ -548,8 +551,8 @@ static void codec_GamePresentationState(SaveCodec *codec, GamePresentationState 
     codec_GameSpeechPresentationState(codec, &(value->speech));
     codec_GameAiToolPresentationState(codec, &(value->ai_tool));
     codec_GamePropertyPresentationState(codec, &(value->property));
-    for (size_t index_104 = 0; index_104 < 4; ++index_104) {
-        codec_GameActorPresentationState(codec, &(value->actors[index_104]));
+    for (size_t index_20 = 0; index_20 < 4; ++index_20) {
+        codec_GameActorPresentationState(codec, &(value->actors[index_20]));
     }
     codec_GameEngineeringAttackState(codec, &(value->engineering_attack));
     codec_GameSpecialActorPresentationState(codec, &(value->special_actor));
@@ -575,8 +578,8 @@ static void codec_GamePresentationState(SaveCodec *codec, GamePresentationState 
     codec_GamePointMinigamePresentationState(codec, &(value->point_minigame));
     codec_GameMagicHousePresentationState(codec, &(value->magic_house));
     codec_GameAuctionPresentationState(codec, &(value->auction));
-    for (size_t index_140 = 0; index_140 < 32; ++index_140) {
-        codec_GameToolAnimationRequest(codec, &(value->tool_animation[index_140]));
+    for (size_t index_31 = 0; index_31 < 32; ++index_31) {
+        codec_GameToolAnimationRequest(codec, &(value->tool_animation[index_31]));
     }
     codec_scalar(codec, &(value->tool_animation_head), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->tool_animation_count), SAVE_CODEC_I32);
@@ -593,8 +596,8 @@ static void codec_GamePresentationState(SaveCodec *codec, GamePresentationState 
     codec_scalar(codec, &(value->tool_robot_motion.world_y), SAVE_CODEC_I32);
     codec_GameMonsterCardPresentationState(codec, &(value->monster_card));
     codec_GameSpecialEventPresentationState(codec, &(value->special_event));
-    for (size_t index_144 = 0; index_144 < 46; ++index_144) {
-        codec_GameMapDynamicObjectState(codec, &(value->dynamic_objects[index_144]));
+    for (size_t index_33 = 0; index_33 < 46; ++index_33) {
+        codec_GameMapDynamicObjectState(codec, &(value->dynamic_objects[index_33]));
     }
     codec_GameMapInfoPresentationState(codec, &(value->map_info));
     codec_GameRouteInteractionPresentationState(codec, &(value->route_interaction));
@@ -703,9 +706,9 @@ static void codec_Rich4CharacterSpeech(SaveCodec *codec, Rich4CharacterSpeech *v
 
 static void codec_GameAiToolPresentationState(SaveCodec *codec, GameAiToolPresentationState *value)
 {
-    int32_t enum_value_101 = (int32_t)(value->phase);
-    codec_scalar(codec, &enum_value_101, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase) = (GameAiToolPhase)enum_value_101;
+    int32_t enum_value_17 = (int32_t)(value->phase);
+    codec_scalar(codec, &enum_value_17, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase) = (GameAiToolPhase)enum_value_17;
     codec_GameCommand(codec, &(value->command));
     codec_scalar(codec, &(value->started), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->skip_requested), SAVE_CODEC_I32);
@@ -719,15 +722,15 @@ static void codec_GamePropertyPresentationState(SaveCodec *codec, GamePropertyPr
     codec_scalar(codec, &(value->max_level_frame), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->max_level_tick), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->max_level_sound_pending), SAVE_CODEC_I32);
-    int32_t enum_value_102 = (int32_t)(value->phase);
-    codec_scalar(codec, &enum_value_102, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase) = (Rich4PropertyPresentationPhase)enum_value_102;
+    int32_t enum_value_18 = (int32_t)(value->phase);
+    codec_scalar(codec, &enum_value_18, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase) = (Rich4PropertyPresentationPhase)enum_value_18;
     codec_scalar(codec, &(value->tick), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->actor), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->owner), SAVE_CODEC_I32);
-    int32_t enum_value_103 = (int32_t)(value->property_kind);
-    codec_scalar(codec, &enum_value_103, SAVE_CODEC_I32);
-    if (codec->reading) (value->property_kind) = (GameDomainKind)enum_value_103;
+    int32_t enum_value_19 = (int32_t)(value->property_kind);
+    codec_scalar(codec, &enum_value_19, SAVE_CODEC_I32);
+    if (codec->reading) (value->property_kind) = (GameDomainKind)enum_value_19;
     codec_scalar(codec, &(value->land), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->group), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->amount), SAVE_CODEC_I32);
@@ -812,6 +815,8 @@ static void codec_GameSpecialActorPresentationState(SaveCodec *codec, GameSpecia
     codec_scalar(codec, &(value->action_until), SAVE_CODEC_U32);
     if (codec->version >= 10) {
         codec_scalar(codec, &(value->arrival_pending), SAVE_CODEC_I32);
+    }
+    if (codec->version >= 10) {
         codec_scalar(codec, &(value->end_ticks_remaining), SAVE_CODEC_I32);
     }
 }
@@ -819,16 +824,16 @@ static void codec_GameSpecialActorPresentationState(SaveCodec *codec, GameSpecia
 static void codec_GameSpecialActorActionBatch(SaveCodec *codec, GameSpecialActorActionBatch *value)
 {
     codec_scalar(codec, &(value->count), SAVE_CODEC_I32);
-    for (size_t index_106 = 0; index_106 < 5; ++index_106) {
-        codec_GameSpecialActorAction(codec, &(value->action[index_106]));
+    for (size_t index_21 = 0; index_21 < 5; ++index_21) {
+        codec_GameSpecialActorAction(codec, &(value->action[index_21]));
     }
 }
 
 static void codec_GameSpecialActorAction(SaveCodec *codec, GameSpecialActorAction *value)
 {
-    int32_t enum_value_107 = (int32_t)(value->kind);
-    codec_scalar(codec, &enum_value_107, SAVE_CODEC_I32);
-    if (codec->reading) (value->kind) = (GameSpecialActorActionKind)enum_value_107;
+    int32_t enum_value_22 = (int32_t)(value->kind);
+    codec_scalar(codec, &enum_value_22, SAVE_CODEC_I32);
+    if (codec->reading) (value->kind) = (GameSpecialActorActionKind)enum_value_22;
     codec_scalar(codec, &(value->special_slot), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->owner_player), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->target_player), SAVE_CODEC_I32);
@@ -1104,8 +1109,8 @@ static void codec_GameConfinementVisitPresentationState(SaveCodec *codec, GameCo
 
 static void codec_GameInsurancePresentationState(SaveCodec *codec, GameInsurancePresentationState *value)
 {
-    for (size_t index_122 = 0; index_122 < 8; ++index_122) {
-        codec_GameInsuranceNoticeEntry(codec, &(value->queue[index_122]));
+    for (size_t index_23 = 0; index_23 < 8; ++index_23) {
+        codec_GameInsuranceNoticeEntry(codec, &(value->queue[index_23]));
     }
     codec_scalar(codec, &(value->head), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->count), SAVE_CODEC_I32);
@@ -1216,8 +1221,8 @@ static void codec_GamePointMinigamePresentationState(SaveCodec *codec, GamePoint
     codec_scalar(codec, &(value->catcher_secondary_active), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->catcher_secondary_frame), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->catcher_bomb_active), SAVE_CODEC_I32);
-    for (size_t index_131 = 0; index_131 < 16; ++index_131) {
-        codec_PointMinigameObject(codec, &(value->object[index_131]));
+    for (size_t index_24 = 0; index_24 < 16; ++index_24) {
+        codec_PointMinigameObject(codec, &(value->object[index_24]));
     }
     if (codec->version >= 9) {
         codec_GameCatcherMinigameState(codec, &(value->catcher));
@@ -1233,6 +1238,28 @@ static void codec_PointMinigameObject(SaveCodec *codec, PointMinigameObject *val
     codec_scalar(codec, &(value->frame), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->velocity_x), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->velocity_y), SAVE_CODEC_I32);
+}
+
+static void codec_GameCatcherMinigameState(SaveCodec *codec, GameCatcherMinigameState *value)
+{
+    codec_scalar(codec, &(value->stage), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->source_frame), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->drop_frame), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->secondary_x), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->bombs), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->explosion_frame), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->move_frames), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->mouse_anchor), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->mouse_warp), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->mouse_initialized), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->wait_ticks), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->scene_initialized), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->source_draw_x), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->source_draw_chunk), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->secondary_draw_frame), SAVE_CODEC_I32);
+    for (size_t index_25 = 0; index_25 < 16; ++index_25) {
+        codec_PointMinigameObject(codec, &(value->draw_objects[index_25]));
+    }
 }
 
 static void codec_GameMagicHousePresentationState(SaveCodec *codec, GameMagicHousePresentationState *value)
@@ -1264,9 +1291,9 @@ static void codec_GameMagicHousePresentationState(SaveCodec *codec, GameMagicHou
 static void codec_GameAuctionPresentationState(SaveCodec *codec, GameAuctionPresentationState *value)
 {
     codec_scalar(codec, &(value->active), SAVE_CODEC_I32);
-    int32_t enum_value_133 = (int32_t)(value->stage);
-    codec_scalar(codec, &enum_value_133, SAVE_CODEC_I32);
-    if (codec->reading) (value->stage) = (Rich4AuctionPresentationStage)enum_value_133;
+    int32_t enum_value_26 = (int32_t)(value->stage);
+    codec_scalar(codec, &enum_value_26, SAVE_CODEC_I32);
+    if (codec->reading) (value->stage) = (Rich4AuctionPresentationStage)enum_value_26;
     codec_scalar(codec, &(value->pressed_action), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->speech_resource), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->speech_pending), SAVE_CODEC_I32);
@@ -1278,11 +1305,11 @@ static void codec_GameAuctionPresentationState(SaveCodec *codec, GameAuctionPres
     codec_scalar(codec, &(value->bidder_mask), SAVE_CODEC_U32);
     codec_GameAuctionState(codec, &(value->bidding));
     codec_GameAuctionPresentationRequest(codec, &(value->request));
-    int32_t enum_value_138 = (int32_t)(value->last_settlement);
-    codec_scalar(codec, &enum_value_138, SAVE_CODEC_I32);
-    if (codec->reading) (value->last_settlement) = (GameAuctionSettlementResult)enum_value_138;
-    for (size_t index_139 = 0; index_139 < 32; ++index_139) {
-        codec_GameAuctionPresentationRequest(codec, &(value->pending[index_139]));
+    int32_t enum_value_29 = (int32_t)(value->last_settlement);
+    codec_scalar(codec, &enum_value_29, SAVE_CODEC_I32);
+    if (codec->reading) (value->last_settlement) = (GameAuctionSettlementResult)enum_value_29;
+    for (size_t index_30 = 0; index_30 < 32; ++index_30) {
+        codec_GameAuctionPresentationRequest(codec, &(value->pending[index_30]));
     }
     codec_scalar(codec, &(value->pending_head), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->pending_count), SAVE_CODEC_I32);
@@ -1291,9 +1318,9 @@ static void codec_GameAuctionPresentationState(SaveCodec *codec, GameAuctionPres
 static void codec_GameAuctionState(SaveCodec *codec, GameAuctionState *value)
 {
     codec_scalar(codec, &(value->active), SAVE_CODEC_I32);
-    int32_t enum_value_134 = (int32_t)(value->phase);
-    codec_scalar(codec, &enum_value_134, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase) = (GameAuctionPhase)enum_value_134;
+    int32_t enum_value_27 = (int32_t)(value->phase);
+    codec_scalar(codec, &enum_value_27, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase) = (GameAuctionPhase)enum_value_27;
     codec_scalar(codec, &(value->seller), SAVE_CODEC_I32);
     codec_GameDomainRef(codec, &(value->target));
     codec_scalar(codec, &(value->manage_music), SAVE_CODEC_I32);
@@ -1305,9 +1332,9 @@ static void codec_GameAuctionState(SaveCodec *codec, GameAuctionState *value)
     codec_array(codec, value->participant, 4, sizeof(value->participant[0]), SAVE_CODEC_I32);
     codec_array(codec, value->ai_ceiling, 4, sizeof(value->ai_ceiling[0]), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->last_player), SAVE_CODEC_I32);
-    int32_t enum_value_137 = (int32_t)(value->last_action);
-    codec_scalar(codec, &enum_value_137, SAVE_CODEC_I32);
-    if (codec->reading) (value->last_action) = (GameAuctionAction)enum_value_137;
+    int32_t enum_value_28 = (int32_t)(value->last_action);
+    codec_scalar(codec, &enum_value_28, SAVE_CODEC_I32);
+    if (codec->reading) (value->last_action) = (GameAuctionAction)enum_value_28;
     codec_scalar(codec, &(value->last_bid), SAVE_CODEC_I32);
 }
 
@@ -1411,8 +1438,8 @@ static void codec_GameSpecialEventPresentationState(SaveCodec *codec, GameSpecia
     codec_scalar(codec, &(value->until), SAVE_CODEC_U32);
     codec_GameState(codec, &(value->pre_state));
     codec_scalar(codec, &(value->pre_state_valid), SAVE_CODEC_I32);
-    for (size_t index_142 = 0; index_142 < 4; ++index_142) {
-        codec_GamePlayerState(codec, &(value->original_players[index_142]));
+    for (size_t index_32 = 0; index_32 < 4; ++index_32) {
+        codec_GamePlayerState(codec, &(value->original_players[index_32]));
     }
     codec_scalar(codec, &(value->original_players_valid), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->commit_seen), SAVE_CODEC_I32);
@@ -1476,9 +1503,9 @@ static void codec_GameBankInteractionPresentationState(SaveCodec *codec, GameBan
     codec_scalar(codec, &(value->eye_phase), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->eye_current), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->animation_page), SAVE_CODEC_I32);
-    int32_t enum_value_145 = (int32_t)(value->stage);
-    codec_scalar(codec, &enum_value_145, SAVE_CODEC_I32);
-    if (codec->reading) (value->stage) = (Rich4BankInteractionStage)enum_value_145;
+    int32_t enum_value_34 = (int32_t)(value->stage);
+    codec_scalar(codec, &enum_value_34, SAVE_CODEC_I32);
+    if (codec->reading) (value->stage) = (Rich4BankInteractionStage)enum_value_34;
     codec_scalar(codec, &(value->success_close), SAVE_CODEC_I32);
     codec_Rich4CharacterSpeechSnapshot(codec, &(value->speech_snapshot));
     codec_Rich4CharacterSpeech(codec, &(value->restored_speech));
@@ -1492,16 +1519,16 @@ static void codec_GameBankInteractionPresentationState(SaveCodec *codec, GameBan
 static void codec_GameStockInteractionPresentationState(SaveCodec *codec, GameStockInteractionPresentationState *value)
 {
     codec_scalar(codec, &(value->active), SAVE_CODEC_I32);
-    int32_t enum_value_146 = (int32_t)(value->page);
-    codec_scalar(codec, &enum_value_146, SAVE_CODEC_I32);
-    if (codec->reading) (value->page) = (Rich4StockPanelPage)enum_value_146;
+    int32_t enum_value_35 = (int32_t)(value->page);
+    codec_scalar(codec, &enum_value_35, SAVE_CODEC_I32);
+    if (codec->reading) (value->page) = (Rich4StockPanelPage)enum_value_35;
     codec_scalar(codec, &(value->selected_stock), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->pressed_control), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->quantity_active), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->quantity_pressed_control), SAVE_CODEC_I32);
-    int32_t enum_value_147 = (int32_t)(value->trade_type);
-    codec_scalar(codec, &enum_value_147, SAVE_CODEC_I32);
-    if (codec->reading) (value->trade_type) = (GameCommandType)enum_value_147;
+    int32_t enum_value_36 = (int32_t)(value->trade_type);
+    codec_scalar(codec, &enum_value_36, SAVE_CODEC_I32);
+    if (codec->reading) (value->trade_type) = (GameCommandType)enum_value_36;
     codec_scalar(codec, &(value->quantity), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->maximum), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->message), SAVE_CODEC_I32);
@@ -1510,12 +1537,12 @@ static void codec_GameStockInteractionPresentationState(SaveCodec *codec, GameSt
 static void codec_GameSaleInteractionPresentationState(SaveCodec *codec, GameSaleInteractionPresentationState *value)
 {
     codec_scalar(codec, &(value->active), SAVE_CODEC_I32);
-    int32_t enum_value_148 = (int32_t)(value->page);
-    codec_scalar(codec, &enum_value_148, SAVE_CODEC_I32);
-    if (codec->reading) (value->page) = (Rich4SaleInteractionPage)enum_value_148;
-    int32_t enum_value_149 = (int32_t)(value->category);
-    codec_scalar(codec, &enum_value_149, SAVE_CODEC_I32);
-    if (codec->reading) (value->category) = (Rich4SaleInteractionCategory)enum_value_149;
+    int32_t enum_value_37 = (int32_t)(value->page);
+    codec_scalar(codec, &enum_value_37, SAVE_CODEC_I32);
+    if (codec->reading) (value->page) = (Rich4SaleInteractionPage)enum_value_37;
+    int32_t enum_value_38 = (int32_t)(value->category);
+    codec_scalar(codec, &enum_value_38, SAVE_CODEC_I32);
+    if (codec->reading) (value->category) = (Rich4SaleInteractionCategory)enum_value_38;
     codec_scalar(codec, &(value->selected_row), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->page_offset), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->selected_seller), SAVE_CODEC_I32);
@@ -1546,17 +1573,17 @@ static void codec_Rich4AiSettingsState(SaveCodec *codec, Rich4AiSettingsState *v
 
 static void codec_CardPanelState(SaveCodec *codec, CardPanelState *value)
 {
-    int32_t enum_value_156 = (int32_t)(value->phase);
-    codec_scalar(codec, &enum_value_156, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase) = (CardPanelPhase)enum_value_156;
+    int32_t enum_value_39 = (int32_t)(value->phase);
+    codec_scalar(codec, &enum_value_39, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase) = (CardPanelPhase)enum_value_39;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->selected_slot), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->selected_card), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->hover), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->primary_target), SAVE_CODEC_I32);
-    int32_t enum_value_157 = (int32_t)(value->primary_kind);
-    codec_scalar(codec, &enum_value_157, SAVE_CODEC_I32);
-    if (codec->reading) (value->primary_kind) = (GameDomainKind)enum_value_157;
+    int32_t enum_value_40 = (int32_t)(value->primary_kind);
+    codec_scalar(codec, &enum_value_40, SAVE_CODEC_I32);
+    if (codec->reading) (value->primary_kind) = (GameDomainKind)enum_value_40;
     codec_scalar(codec, &(value->effect_started), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->effect_until), SAVE_CODEC_U32);
     codec_scalar(codec, &(value->effect_precedes_handler), SAVE_CODEC_I32);
@@ -1584,16 +1611,16 @@ static void codec_Rich4OptionsPanelState(SaveCodec *codec, Rich4OptionsPanelStat
     codec_scalar(codec, &(value->pressed_control), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->pending_action), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->confirm_hover), SAVE_CODEC_I32);
-    int32_t enum_value_158 = (int32_t)(value->return_app_state);
-    codec_scalar(codec, &enum_value_158, SAVE_CODEC_I32);
-    if (codec->reading) (value->return_app_state) = (Rich4SceneId)enum_value_158;
+    int32_t enum_value_41 = (int32_t)(value->return_app_state);
+    codec_scalar(codec, &enum_value_41, SAVE_CODEC_I32);
+    if (codec->reading) (value->return_app_state) = (Rich4SceneId)enum_value_41;
     codec_scalar(codec, &(value->music_track), SAVE_CODEC_I32);
-    int32_t enum_value_159 = (int32_t)(value->music_bank);
-    codec_scalar(codec, &enum_value_159, SAVE_CODEC_I32);
-    if (codec->reading) (value->music_bank) = (Rich4MusicBank)enum_value_159;
-    int32_t enum_value_160 = (int32_t)(value->saved_music_bank);
-    codec_scalar(codec, &enum_value_160, SAVE_CODEC_I32);
-    if (codec->reading) (value->saved_music_bank) = (Rich4MusicBank)enum_value_160;
+    int32_t enum_value_42 = (int32_t)(value->music_bank);
+    codec_scalar(codec, &enum_value_42, SAVE_CODEC_I32);
+    if (codec->reading) (value->music_bank) = (Rich4MusicBank)enum_value_42;
+    int32_t enum_value_43 = (int32_t)(value->saved_music_bank);
+    codec_scalar(codec, &enum_value_43, SAVE_CODEC_I32);
+    if (codec->reading) (value->saved_music_bank) = (Rich4MusicBank)enum_value_43;
     codec_scalar(codec, &(value->music_preview_changed), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->child), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->child_left), SAVE_CODEC_I32);
@@ -1628,24 +1655,24 @@ static void codec_Rich4Config(SaveCodec *codec, Rich4Config *value)
     codec_scalar(codec, &(value->year), SAVE_CODEC_U16);
     codec_scalar(codec, &(value->calendar_view), SAVE_CODEC_U8);
     codec_array(codec, value->dummy2, 3, sizeof(value->dummy2[0]), SAVE_CODEC_U8);
-    for (size_t index_163 = 0; index_163 < 28; ++index_163) {
-        codec_Rich4Key(codec, &(value->hotkeys[index_163]));
+    for (size_t index_44 = 0; index_44 < 28; ++index_44) {
+        codec_Rich4Key(codec, &(value->hotkeys[index_44]));
     }
 }
 
 static void codec_ToolPanelState(SaveCodec *codec, ToolPanelState *value)
 {
-    int32_t enum_value_164 = (int32_t)(value->phase);
-    codec_scalar(codec, &enum_value_164, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase) = (ToolPanelPhase)enum_value_164;
+    int32_t enum_value_45 = (int32_t)(value->phase);
+    codec_scalar(codec, &enum_value_45, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase) = (ToolPanelPhase)enum_value_45;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->selected_tool), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->pressed_tool), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->pending_tool_release), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->hover), SAVE_CODEC_I32);
-    int32_t enum_value_165 = (int32_t)(value->phase_after_speech);
-    codec_scalar(codec, &enum_value_165, SAVE_CODEC_I32);
-    if (codec->reading) (value->phase_after_speech) = (ToolPanelPhase)enum_value_165;
+    int32_t enum_value_46 = (int32_t)(value->phase_after_speech);
+    codec_scalar(codec, &enum_value_46, SAVE_CODEC_I32);
+    if (codec->reading) (value->phase_after_speech) = (ToolPanelPhase)enum_value_46;
     codec_GameDomainRef(codec, &(value->primary_target));
     codec_Rich4MapEdgeScrollState(codec, &(value->edge_scroll));
     codec_scalar(codec, &(value->dice_status_hidden), SAVE_CODEC_I32);
@@ -1654,8 +1681,8 @@ static void codec_ToolPanelState(SaveCodec *codec, ToolPanelState *value)
 
 static void codec_GameEventQueue(SaveCodec *codec, GameEventQueue *value)
 {
-    for (size_t index_167 = 0; index_167 < 32; ++index_167) {
-        codec_GameEvent(codec, &(value->events[index_167]));
+    for (size_t index_47 = 0; index_47 < 32; ++index_47) {
+        codec_GameEvent(codec, &(value->events[index_47]));
     }
     codec_scalar(codec, &(value->head), SAVE_CODEC_I32);
     codec_scalar(codec, &(value->count), SAVE_CODEC_I32);
@@ -1664,22 +1691,22 @@ static void codec_GameEventQueue(SaveCodec *codec, GameEventQueue *value)
 
 static void codec_GameEvent(SaveCodec *codec, GameEvent *value)
 {
-    int32_t enum_value_168 = (int32_t)(value->type);
-    codec_scalar(codec, &enum_value_168, SAVE_CODEC_I32);
-    if (codec->reading) (value->type) = (GameEventType)enum_value_168;
+    int32_t enum_value_48 = (int32_t)(value->type);
+    codec_scalar(codec, &enum_value_48, SAVE_CODEC_I32);
+    if (codec->reading) (value->type) = (GameEventType)enum_value_48;
     codec_GameCommand(codec, &(value->command));
-    int32_t enum_value_169 = (int32_t)(value->reject_reason);
-    codec_scalar(codec, &enum_value_169, SAVE_CODEC_I32);
-    if (codec->reading) (value->reject_reason) = (GameCommandRejectReason)enum_value_169;
+    int32_t enum_value_49 = (int32_t)(value->reject_reason);
+    codec_scalar(codec, &enum_value_49, SAVE_CODEC_I32);
+    if (codec->reading) (value->reject_reason) = (GameCommandRejectReason)enum_value_49;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
     codec_Rich4GameEventPayload(codec, &(value->payload));
 }
 
 static void codec_Rich4GameEventPayload(SaveCodec *codec, Rich4GameEventPayload *value)
 {
-    int32_t enum_value_170 = (int32_t)(value->kind);
-    codec_scalar(codec, &enum_value_170, SAVE_CODEC_I32);
-    if (codec->reading) (value->kind) = (Rich4GameEventPayloadKind)enum_value_170;
+    int32_t enum_value_50 = (int32_t)(value->kind);
+    codec_scalar(codec, &enum_value_50, SAVE_CODEC_I32);
+    if (codec->reading) (value->kind) = (Rich4GameEventPayloadKind)enum_value_50;
     codec_tag_Rich4GameEventPayloadFields(codec, &(value->data.scalar));
 }
 
@@ -1695,31 +1722,8 @@ static void codec_tag_Rich4GameEventPayloadFields(SaveCodec *codec, struct Rich4
 
 static void codec_Rich4AppLifecycleRequest(SaveCodec *codec, Rich4AppLifecycleRequest *value)
 {
-    int32_t enum_value_171 = (int32_t)(value->code);
-    codec_scalar(codec, &enum_value_171, SAVE_CODEC_I32);
-    if (codec->reading) (value->code) = (Rich4AppLifecycleCode)enum_value_171;
+    int32_t enum_value_51 = (int32_t)(value->code);
+    codec_scalar(codec, &enum_value_51, SAVE_CODEC_I32);
+    if (codec->reading) (value->code) = (Rich4AppLifecycleCode)enum_value_51;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
-}
-
-
-static void codec_GameCatcherMinigameState(SaveCodec *codec, GameCatcherMinigameState *value)
-{
-    codec_scalar(codec, &(value->stage), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->source_frame), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->drop_frame), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->secondary_x), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->bombs), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->explosion_frame), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->move_frames), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->mouse_anchor), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->mouse_warp), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->mouse_initialized), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->wait_ticks), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->scene_initialized), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->source_draw_x), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->source_draw_chunk), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->secondary_draw_frame), SAVE_CODEC_I32);
-    for (size_t index_25 = 0; index_25 < 16; ++index_25) {
-        codec_PointMinigameObject(codec, &(value->draw_objects[index_25]));
-    }
 }

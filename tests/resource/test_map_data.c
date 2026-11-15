@@ -44,6 +44,7 @@ int main(void)
     put_u16(data + 120 + 52 + 0x1c, 600); put_u16(data + 120 + 52 + 0x1e, 70);
     put_u16(data + 120 + 52 + 0x20, 80); put_u16(data + 120 + 52 + 0x2a, 130);
     put_u32(data + 120 + 52 + 0x2c, 0x89abcdefu);
+    put_u32(data + 120 + 52 + 0x30, 0x07d00c0fu);
     data[224 + 56 + 0x18] = 6; data[224 + 56 + 0x19] = 2;
     data[224 + 56 + 0x1c] = 3;
     data[224 + 56 + 0x1d] = 4; data[224 + 56 + 0x1e] = 5;
@@ -74,7 +75,8 @@ int main(void)
            map.lands[1].parity_overlay == 1 && map.lands[1].price == 600);
     assert(map.lands[1].toll_by_level[0] == 80 &&
            map.lands[1].toll_by_level[5] == 130 &&
-           map.lands[1].runtime_value == 0x89abcdefu);
+           map.lands[1].runtime_value == 0x89abcdefu &&
+           map.lands[1].lease_date == 0x07d00c0fu);
     assert(map.facilities[1].type == 6 && map.facilities[1].parity_overlay == 3 &&
            map.facilities[1].price_per_level == 90 &&
            map.facilities[1].research_selection == 4 &&

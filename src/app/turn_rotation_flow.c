@@ -116,10 +116,22 @@ static void consume_turn_events(GameSession *session, const MapData *map,
                 &session->pending_turn_events, &event);
             continue;
         }
+        if (event.type == GAME_EVENT_PROPERTY_DAY_END_REQUESTED &&
+            (session->presentation.tool_animation_count > 0 ||
+             session->presentation.special_place_notice.queue.count > 0 ||
+             session->presentation.auction.active)) {
+            /* 0x452444 and nested finance/auction windows return before
+             * 0x41D0FF; keep the following actor status events behind it. */
+            (void)rich4_game_event_queue_push(&session->pending_turn_events, &event);
+            while (rich4_game_event_queue_pop(events, &event))
+                (void)rich4_game_event_queue_push(&session->pending_turn_events, &event);
+            break;
+        }
         if (((session->presentation.periodic_finance.active ||
               session->presentation.bank_settlement.active ||
               session->presentation.bank_loan_due.active) &&
             (event.type == GAME_EVENT_STATUS_TICK_REQUESTED ||
+             event.type == GAME_EVENT_PROPERTY_DAY_END_REQUESTED ||
              event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED ||
              event.type == GAME_EVENT_BANK_LOAN_DUE_PRESENTATION_REQUESTED ||
              event.type == GAME_EVENT_AUCTION_REQUESTED ||
@@ -128,12 +140,17 @@ static void consume_turn_events(GameSession *session, const MapData *map,
             ((session->presentation.bankruptcy.active ||
               session->presentation.bankruptcy.awaiting_auction) &&
              (event.type == GAME_EVENT_STATUS_TICK_REQUESTED ||
+              event.type == GAME_EVENT_PROPERTY_DAY_END_REQUESTED ||
               event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED))) {
             (void)rich4_game_event_queue_push(&session->pending_turn_events, &event);
             continue;
         }
         if (rich4_bankruptcy_capture_event(session, &event, now)) continue;
-        if (event.type == GAME_EVENT_FULL_ROUND_COMPLETED) {
+        if (event.type == GAME_EVENT_PROPERTY_DAY_END_REQUESTED) {
+            GameEventQueue refresh;
+            rich4_game_event_queue_reset(&refresh);
+            (void)rich4_turn_finish_property_day(&session->state, &refresh);
+        } else if (event.type == GAME_EVENT_FULL_ROUND_COMPLETED) {
             rich4_app_update_win_candidate(session);
         } else if (event.type == GAME_EVENT_ACTOR_DIRTY_REQUESTED &&
                    event.player >= 0 &&

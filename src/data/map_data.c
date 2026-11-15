@@ -137,6 +137,7 @@ MapDataError rich4_map_data_parse(const unsigned char *data,
         r->toll_by_level[4] = read_u16(p + 0x28);
         r->toll_by_level[5] = read_u16(p + 0x2a);
         r->runtime_value = read_u32(p + 0x2c);
+        r->lease_date = read_u32(p + 0x30);
     }
     for (i = 0; i < parsed.facility_count; i++) {
         const unsigned char *p = data + offsets[2] + i * 56;

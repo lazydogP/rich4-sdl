@@ -124,6 +124,8 @@ void rich4_game_session_load_map_state(GameSession *session,
            sizeof(session->state.land_price_per_level));
     memset(session->state.land_runtime_value, 0,
            sizeof(session->state.land_runtime_value));
+    memset(session->state.land_lease_date, 0,
+           sizeof(session->state.land_lease_date));
     memset(session->state.land_value, 0,
            sizeof(session->state.land_value));
     session->state.land_count = map->land_count > 0 ?
@@ -149,6 +151,7 @@ void rich4_game_session_load_map_state(GameSession *session,
                     (int)record->toll_by_level[toll_i];
         }
         session->state.land_runtime_value[i] = record->runtime_value;
+        session->state.land_lease_date[i] = record->lease_date;
         {
             int j;
             session->state.land_group[i] = i;

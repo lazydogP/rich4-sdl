@@ -477,20 +477,25 @@ static void test_holiday_animation_precedes_card_notice(void)
     s.state.tool_route_x[1] = 321;
     s.state.tool_route_y[1] = 654;
     s.state.card_amount[4] = 1;
+    s.state.land_count = 1;
+    s.state.land_owner[0] = 0;
+    s.state.land_lease_date[0] = (1998u << 16) | (12u << 8) | 25u;
     assert(rich4_app_advance_turn_rotation(&s, NULL, 1000, &result));
     assert(s.presentation.tool_animation_count == 1);
     animation = &s.presentation.tool_animation[
         s.presentation.tool_animation_head];
     assert(animation->resource == 554 && animation->effect == 114 &&
            animation->started == 0);
-    assert(s.pending_turn_events.count == 1);
+    assert(s.pending_turn_events.count == 4); /* gift, property day-end, status, dirty */
+    assert(s.state.land_owner[0] == 0);
     assert(s.presentation.special_place_notice.queue.count == 0);
 
     /* The platform fills the pending FLC timing, then resumes the deferred
      * 1500 ms card presentation after the queue drains. */
     s.presentation.tool_animation_count = 0;
     assert(rich4_app_resume_turn_events(&s, NULL, 2000));
-    assert(s.pending_turn_events.count == 0);
+    assert(s.pending_turn_events.count == 3);
+    assert(s.state.land_owner[0] == 0);
     assert(s.presentation.special_place_notice.queue.count == 1);
     assert(s.presentation.has_view_override &&
            s.presentation.view_world_x == 321 &&
@@ -499,6 +504,10 @@ static void test_holiday_animation_precedes_card_notice(void)
         s.presentation.special_place_notice.queue.head];
     assert(rich4_game_event_special_place_notice_requested_fields(notice).subject ==
            GAME_SPECIAL_NOTICE_HOLIDAY_GIFT);
+    /* The gift window also returns before 0x41D0FF expires the lease. */
+    rich4_game_event_queue_reset(&s.presentation.special_place_notice.queue);
+    assert(rich4_app_resume_turn_events(&s, NULL, 4000));
+    assert(s.pending_turn_events.count == 0 && s.state.land_owner[0] == -1);
 }
 
 static void test_research_completion_during_turn_rotation(void)

@@ -29,6 +29,7 @@ int main(void)
     lands[1].level = 2;
     lands[1].price = 100;
     lands[1].price_per_level = 10;
+    lands[1].lease_date = 0x07d00c0fu;
     lands[1].raw[4] = 'A';
     lands[1].raw[5] = 0;
     lands[2] = lands[1];
@@ -70,6 +71,7 @@ int main(void)
     assert(session.state.land_owner[1] == 1);
     assert(session.state.land_group[0] == session.state.land_group[1]);
     assert(session.state.land_value[0] == 120);
+    assert(session.state.land_lease_date[0] == 0x07d00c0fu);
     assert(session.state.land_value[1] == 120);
     assert(session.state.facility_count == 1);
     assert(session.state.facility_owner[0] == 1);

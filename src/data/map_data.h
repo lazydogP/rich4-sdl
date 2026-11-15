@@ -41,6 +41,8 @@ typedef struct MapLandRecord {
     uint16_t toll_by_level[6];
     /* Original record +0x2c, consumed by the spy as current toll income. */
     uint32_t runtime_value;
+    /* Original residential +0x30, distinct from toll income at +0x2c. */
+    uint32_t lease_date;
     uint8_t raw[52];
 } MapLandRecord;
 

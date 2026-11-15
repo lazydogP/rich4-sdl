@@ -298,6 +298,7 @@ static int clear_player(GameState *s, int player, GameEventQueue *q)
         if (land_first < 0) land_first = i;
         land_released++;
         s->land_owner[i] = -1;
+        s->land_lease_date[i] = 0; /* 0x40D0B3..0x40D0B7 */
         s->land_runtime_value[i] = 0;
         s->land_value[i] = 0;
     }
@@ -769,6 +770,7 @@ int rich4_ledger_sell_asset(GameState *state, const GameCommand *command,
             !transfer_fixed_asset_value(&next, player, -1, proceeds))
             return 0;
         next.land_owner[id] = -1; next.land_value[id] = 0;
+        next.land_lease_date[id] = 0;
         rich4_game_event_emit_typed_domain(
             &staged, rich4_game_event_property_owner_changed_from_fields,
             player, subject, none_ref(), -1, 0, 0);

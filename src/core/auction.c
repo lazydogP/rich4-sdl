@@ -6,6 +6,7 @@
 
 #include "core/game_event_payload.h"
 #include "core/ledger.h"
+#include "core/property.h"
 
 /* Original entry 0x43BDE5 and modal callback 0x43A2DD. */
 static int property_facts(
@@ -371,6 +372,8 @@ GameAuctionSettlementResult rich4_auction_settle(
     rich4_game_event_queue_reset(&staged);
     if (!update_fixed_assets(&next, owner, buyer, asset_value))
         return GAME_AUCTION_SETTLEMENT_REJECTED;
+    /* 0x43C7A8/0x43C7E2: a sale of owned property keeps the old lease. */
+    if (owner < 0) rich4_property_begin_lease(&next, auction->target);
     if (auction->target.kind == GAME_DOMAIN_LAND)
         next.land_owner[auction->target.id] = buyer;
     else

@@ -129,7 +129,9 @@ static void initialize_session(GameSession *session)
                    "last spoken line");
 
     session->time_machine_valid = 1;
+    session->state.land_lease_date[0] = 0x07d00c0fu;
     session->time_machine_state = session->state;
+    session->time_machine_state.land_lease_date[0] = 0x07d00b0fu;
     session->time_machine_state.elapsed_days = 4;
     session->time_machine_flow = session->flow;
     rich4_presentation_initialize(&session->time_machine_presentation);
@@ -182,6 +184,83 @@ static int file_equals(const char *left_path, const char *right_path)
     if (left != NULL) fclose(left);
     if (right != NULL) fclose(right);
     return equal;
+}
+
+static uint32_t lease_fixture_u32(const unsigned char *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static void lease_fixture_put_u32(unsigned char *p, uint32_t value)
+{
+    for (int i = 0; i < 4; i++) p[i] = (unsigned char)(value >> (8 * i));
+}
+
+static void test_format_10_lease_compatibility(const char *directory)
+{
+    static GameSession source, loaded;
+    char path[512];
+    unsigned char *bytes;
+    FILE *file;
+    long length;
+    size_t at, size, field_size = GAME_MAX_MAP_PROPERTIES * 4u;
+    uint32_t crc = 0xffffffffu;
+    int removed = 0;
+    initialize_session(&source);
+    source.state.land_period_index = source.time_machine_state.land_period_index = 5;
+    source.state.land_runtime_value[0] = 123456;
+    source.state.facility_last_change[0] = 0x07d00701u;
+    for (int i = 0; i < GAME_MAX_MAP_PROPERTIES; i++) {
+        source.state.land_lease_date[i] = 0x07d00601u;
+        source.time_machine_state.land_lease_date[i] = 0x07d00501u;
+        source.presentation.special_event.pre_state.land_lease_date[i] = 0x07d00601u;
+        source.time_machine_presentation.special_event.pre_state.land_lease_date[i] = 0x07d00501u;
+    }
+    assert(snprintf(path, sizeof(path), "%s/lease-format-10.R4S", directory) > 0);
+    assert(rich4_game_save_write(path, 2, &source));
+    file = fopen(path, "rb");
+    assert(file != NULL && fseek(file, 0, SEEK_END) == 0);
+    length = ftell(file);
+    assert(length > 20 && fseek(file, 0, SEEK_SET) == 0);
+    size = (size_t)length;
+    bytes = malloc(size);
+    assert(bytes != NULL && fread(bytes, 1, size, file) == size);
+    assert(fclose(file) == 0 && lease_fixture_u32(bytes + 4) == 11);
+    /* Format 11 adds these arrays to live/rewind state and their event snapshots.
+     * Distinct repeated dates locate them without coupling the test to the
+     * offsets of unrelated save fields. Remove them to produce format 10. */
+    for (at = 20; at + field_size <= size; at++) {
+        uint32_t marker = lease_fixture_u32(bytes + at);
+        size_t i;
+        if (marker != 0x07d00601u && marker != 0x07d00501u) continue;
+        for (i = 4; i < field_size; i += 4)
+            if (lease_fixture_u32(bytes + at + i) != marker) break;
+        if (i != field_size) continue;
+        memmove(bytes + at, bytes + at + field_size, size - at - field_size);
+        size -= field_size;
+        removed++;
+    }
+    assert(removed == 4);
+    lease_fixture_put_u32(bytes + 4, 10);
+    lease_fixture_put_u32(bytes + 12, (uint32_t)(size - 20));
+    for (at = 20; at < size; at++) {
+        crc ^= bytes[at];
+        for (int bit = 0; bit < 8; bit++)
+            crc = (crc >> 1) ^ ((crc & 1u) ? 0xedb88320u : 0);
+    }
+    lease_fixture_put_u32(bytes + 16, ~crc);
+    file = fopen(path, "wb");
+    assert(file != NULL && fwrite(bytes, 1, size, file) == size);
+    assert(fclose(file) == 0);
+    free(bytes);
+    assert(rich4_game_save_read(path, 2, &loaded));
+    assert(loaded.state.land_period_index == 5 && loaded.time_machine_state.land_period_index == 5);
+    assert(loaded.state.land_runtime_value[0] == 123456);
+    assert(loaded.state.facility_last_change[0] == 0x07d00701u);
+    for (int i = 0; i < GAME_MAX_MAP_PROPERTIES; i++)
+        assert(loaded.state.land_lease_date[i] == 0 && loaded.time_machine_state.land_lease_date[i] == 0);
+    assert(remove(path) == 0);
 }
 
 static int write_variant(const char *source_path, const char *target_path,
@@ -672,6 +751,7 @@ int main(void)
     runtime_load_reseeds_special_targets(directory);
     runtime_load_preserves_dynamic_gods(directory);
     initialize_map(&map);
+    test_format_10_lease_compatibility(directory);
     test_attached_bomb_roundtrip(directory, &map);
     initialize_session(source);
     test_auto_save_waits_for_original_turn_boundary();

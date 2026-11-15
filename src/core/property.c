@@ -3,6 +3,7 @@
 #include "core/card.h"
 #include "core/god.h"
 #include "core/game_event_payload.h"
+#include "core/stock.h"
 
 #include <limits.h>
 #include <stdint.h>
@@ -17,6 +18,37 @@ static int valid_land(const GameState *state, int land)
            state->land_level[land] >= 0 && state->land_level[land] <= 5 &&
            state->land_price[land] >= 0 &&
            state->land_price_per_level[land] >= 0;
+}
+
+uint32_t rich4_property_lease_deadline(const GameState *state)
+{
+    static const uint32_t periods[6] = {
+        0, 0x20000u, 0x10000u, 0x600u, 0x300u, 0x100u
+    };
+    uint32_t date, period;
+    int year, month, day;
+    if (state == NULL || state->land_period_index <= 0 ||
+        state->land_period_index >= 6 ||
+        !rich4_stock_calendar_date(state, &year, &month, &day, NULL)) return 0;
+    period = periods[state->land_period_index];
+    date = ((uint32_t)year << 16) | ((uint32_t)month << 8) | (uint32_t)day;
+    date += period;
+    /* 0x4521CB performs one month carry, without clamping the day. */
+    if ((period & 0xff00u) != 0 && (date & 0xff00u) > 0xc00u)
+        date += 0xf400u;
+    return date;
+}
+
+void rich4_property_begin_lease(GameState *state, GameDomainRef property)
+{
+    uint32_t date = rich4_property_lease_deadline(state);
+    if (date == 0) return;
+    if (property.kind == GAME_DOMAIN_LAND && property.id >= 0 &&
+        property.id < state->land_count)
+        state->land_lease_date[property.id] = date;
+    else if (property.kind == GAME_DOMAIN_FACILITY && property.id >= 0 &&
+             property.id < state->facility_count)
+        state->facility_last_change[property.id] = date;
 }
 
 static int bounded_price(int64_t value, int *out_value)
@@ -268,6 +300,8 @@ int rich4_land_apply_command(GameState *state, const GameCommand *command,
         else if (!asset_value(&next, land, &value)) reason = "asset_value_fail";
         else {
             next.land_owner[land] = command->player;
+            /* 0x41A10F..0x41A128: first purchase starts the setup lease. */
+            rich4_property_begin_lease(&next, command->subject);
             next.land_value[land] = value;
             if (!rich4_game_event_emit_typed_domain(
                     &staged, rich4_game_event_property_owner_changed_from_fields,

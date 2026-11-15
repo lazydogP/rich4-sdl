@@ -153,6 +153,7 @@ static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
                                ? next->land_level[i] : 1))) return 0;
         if (full_destroy) {
             next->land_owner[i] = -1;
+            next->land_lease_date[i] = 0;
             next->land_level[i] = 0;
             next->land_type[i] = 0;
             next->land_value[i] = 0;
@@ -285,6 +286,9 @@ int rich4_tool_transfer_effect(GameState *next, int actor,
         next->land_type[to] = next->land_type[from];
         next->land_level[to] = next->land_level[from];
         next->land_value[to] = next->land_value[from];
+        /* 0x447549..0x447552 moves the lease with the building. */
+        next->land_lease_date[to] = next->land_lease_date[from];
+        next->land_lease_date[from] = 0;
         next->land_owner[from] = -1;
         next->land_type[from] = 0;
         next->land_level[from] = 0;

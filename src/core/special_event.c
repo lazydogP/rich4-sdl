@@ -458,7 +458,8 @@ void clear_property(GameState *s, GameDomainRef target)
         s->land_level[target.id] = 0;
         s->land_type[target.id] = 0;
         s->land_value[target.id] = 0;
-        s->land_runtime_value[target.id] = 0; /* 0x40AB4A / 0x40AC7B, H+0x30. */
+        s->land_runtime_value[target.id] = 0;
+        s->land_lease_date[target.id] = 0; /* 0x40AB4A / 0x40AC7B, H+0x30. */
     } else {
         owner = s->facility_owner[target.id];
         old = s->facility_value[target.id];
