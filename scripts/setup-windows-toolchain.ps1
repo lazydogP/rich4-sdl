@@ -17,34 +17,40 @@ $WinLibsZip = Join-Path $CacheDir 'winlibs-x86_64-posix-seh-gcc-16.1.0-mingw-w64
 $GccExe = Join-Path $ToolchainDir 'mingw64\bin\gcc.exe'
 $MakeExe = Join-Path $ToolchainDir 'mingw64\bin\mingw32-make.exe'
 
-$SdlUrl = 'https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-SDL-1.2.15%2Br419%2Bgef3a6c05-1-any.pkg.tar.zst'
-$SdlZst = Join-Path $CacheDir 'mingw-w64-x86_64-SDL.pkg.tar.zst'
-$SdlTar = Join-Path $CacheDir 'mingw-w64-x86_64-SDL.pkg.tar'
-$SdlDll = Join-Path $SdlDir 'mingw64\bin\SDL.dll'
-$MixerHeader = Join-Path $SdlDir 'mingw64\include\SDL\SDL_mixer.h'
-$TtfHeader = Join-Path $SdlDir 'mingw64\include\SDL\SDL_ttf.h'
+$SdlUrl = 'https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-SDL-1.2.15%2Br419%2Bgef3a6c05-2-any.pkg.tar.zst'
+$SdlZst = Join-Path $CacheDir 'mingw-w64-ucrt-x86_64-SDL.pkg.tar.zst'
+$SdlTar = Join-Path $CacheDir 'mingw-w64-ucrt-x86_64-SDL.pkg.tar'
+$SdlDll = Join-Path $SdlDir 'ucrt64\bin\SDL.dll'
+$MixerHeader = Join-Path $SdlDir 'ucrt64\include\SDL\SDL_mixer.h'
+$TtfHeader = Join-Path $SdlDir 'ucrt64\include\SDL\SDL_ttf.h'
+# WinLibs uses UCRT, so SDL and every transitive runtime must use UCRT too.
+$MsysRuntimePackages = @(
+    'mingw-w64-ucrt-x86_64-libgcc',
+    'mingw-w64-ucrt-x86_64-libstdc++',
+    'mingw-w64-ucrt-x86_64-libwinpthread'
+)
 $MsysMixerPackages = @(
-    'mingw-w64-x86_64-sdl-mixer',
-    'mingw-w64-x86_64-flac',
-    'mingw-w64-x86_64-gettext-runtime',
-    'mingw-w64-x86_64-libiconv',
-    'mingw-w64-x86_64-libmad',
-    'mingw-w64-x86_64-libmikmod',
-    'mingw-w64-x86_64-libogg',
-    'mingw-w64-x86_64-libvorbis'
+    'mingw-w64-ucrt-x86_64-sdl-mixer',
+    'mingw-w64-ucrt-x86_64-flac',
+    'mingw-w64-ucrt-x86_64-gettext-runtime',
+    'mingw-w64-ucrt-x86_64-libiconv',
+    'mingw-w64-ucrt-x86_64-libmad',
+    'mingw-w64-ucrt-x86_64-libmikmod',
+    'mingw-w64-ucrt-x86_64-libogg',
+    'mingw-w64-ucrt-x86_64-libvorbis'
 )
 $MsysTtfPackages = @(
-    'mingw-w64-x86_64-sdl-ttf',
-    'mingw-w64-x86_64-freetype',
-    'mingw-w64-x86_64-harfbuzz',
-    'mingw-w64-x86_64-glib2',
-    'mingw-w64-x86_64-libffi',
-    'mingw-w64-x86_64-pcre2',
-    'mingw-w64-x86_64-graphite2',
-    'mingw-w64-x86_64-brotli',
-    'mingw-w64-x86_64-bzip2',
-    'mingw-w64-x86_64-libpng',
-    'mingw-w64-x86_64-zlib'
+    'mingw-w64-ucrt-x86_64-sdl-ttf',
+    'mingw-w64-ucrt-x86_64-freetype',
+    'mingw-w64-ucrt-x86_64-harfbuzz',
+    'mingw-w64-ucrt-x86_64-glib2',
+    'mingw-w64-ucrt-x86_64-libffi',
+    'mingw-w64-ucrt-x86_64-pcre2',
+    'mingw-w64-ucrt-x86_64-graphite2',
+    'mingw-w64-ucrt-x86_64-brotli',
+    'mingw-w64-ucrt-x86_64-bzip2',
+    'mingw-w64-ucrt-x86_64-libpng',
+    'mingw-w64-ucrt-x86_64-zlib'
 )
 
 function New-Directory($Path) {
@@ -66,7 +72,7 @@ function Resolve-Msys2PackageUrl($PackageName) {
     $Page = "https://packages.msys2.org/package/$PackageName"
     Write-Host "Resolving $PackageName"
     $Html = (Invoke-WebRequest -Uri $Page).Content
-    $Match = [regex]::Match($Html, 'https://mirror\.msys2\.org/mingw/mingw64/[^"<]+\.pkg\.tar\.zst')
+    $Match = [regex]::Match($Html, 'https://mirror\.msys2\.org/mingw/ucrt64/[^"<]+\.pkg\.tar\.zst')
     if (!$Match.Success) {
         throw "Could not resolve MSYS2 package URL for $PackageName"
     }
@@ -174,12 +180,30 @@ Expand-Zip $WinLibsZip $ToolchainDir $GccExe
 Save-Url $SdlUrl $SdlZst
 Expand-ZstdTar $SdlZst $SdlTar $SdlDir $SdlDll
 
+foreach ($PackageName in $MsysRuntimePackages) {
+    Install-Msys2Package $PackageName $SdlDir
+}
+
 foreach ($PackageName in $MsysMixerPackages) {
     Install-Msys2Package $PackageName $SdlDir
 }
 
 foreach ($PackageName in $MsysTtfPackages) {
     Install-Msys2Package $PackageName $SdlDir
+}
+
+$RequiredSdlFiles = @(
+    $SdlDll,
+    $MixerHeader,
+    $TtfHeader,
+    (Join-Path $SdlDir 'ucrt64\bin\libgcc_s_seh-1.dll'),
+    (Join-Path $SdlDir 'ucrt64\bin\libstdc++-6.dll'),
+    (Join-Path $SdlDir 'ucrt64\bin\libwinpthread-1.dll')
+)
+foreach ($RequiredFile in $RequiredSdlFiles) {
+    if (!(Test-Path $RequiredFile)) {
+        throw "Required UCRT runtime file was not installed: $RequiredFile"
+    }
 }
 
 if (!$SkipVerify) {

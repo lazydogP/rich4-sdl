@@ -29,7 +29,7 @@ def package(root, output_dir, platform, version):
                      'libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll'):
             files[name] = root / 'bin' / name
         # stage-sdl-runtime copies the SDL toolchain's transitive DLLs here.
-        for source in sorted((root / '.local/sdl1/mingw64/bin').glob('*.dll')):
+        for source in sorted((root / '.local/sdl1/ucrt64/bin').glob('*.dll')):
             files[source.name] = root / 'bin' / source.name
         readme = '''Rich4 SDL - Windows x64
 Extract this archive to a writable directory.

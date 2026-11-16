@@ -21,7 +21,7 @@ class ReleasePackageTests(unittest.TestCase):
                 'bin/rich4_sdl.exe': b'windows executable',
                 'bin/miyoo/rich4_sdl': b'arm executable',
                 'packaging/miyoo/launch.sh': b'#!/bin/sh\r\nexec ./rich4_sdl\r\n',
-                '.local/sdl1/mingw64/bin/zlib1.dll': b'zlib',
+                '.local/sdl1/ucrt64/bin/zlib1.dll': b'zlib',
                 'assets/original/Data.mkf': b'private game data',
                 'assets/fonts/rich4.ttc': b'private font',
                 'assets/music/track.wav': b'private music',

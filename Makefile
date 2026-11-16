@@ -17,25 +17,31 @@ CC = gcc
 LOCAL_TOOLCHAIN_BIN =
 endif
 SDL_CONFIG ?= sdl-config
-ifneq ($(wildcard .local/sdl1/mingw64/include/SDL/SDL.h),)
-SDL_PREFIX ?= .local/sdl1/mingw64
+ifneq ($(wildcard .local/sdl1/ucrt64/include/SDL/SDL.h),)
+SDL_PREFIX ?= .local/sdl1/ucrt64
 else
 SDL_PREFIX ?=
 endif
-ifneq ($(wildcard .local/sdl1/mingw64/include/SDL/SDL_mixer.h),)
-MIXER_PREFIX ?= .local/sdl1/mingw64
+ifneq ($(wildcard .local/sdl1/ucrt64/include/SDL/SDL_mixer.h),)
+MIXER_PREFIX ?= .local/sdl1/ucrt64
 else
 MIXER_PREFIX ?=
 endif
-ifneq ($(wildcard .local/sdl1/mingw64/include/SDL/SDL_ttf.h),)
-TTF_PREFIX ?= .local/sdl1/mingw64
+ifneq ($(wildcard .local/sdl1/ucrt64/include/SDL/SDL_ttf.h),)
+TTF_PREFIX ?= .local/sdl1/ucrt64
 else
 TTF_PREFIX ?=
+endif
+ifneq ($(strip $(SDL_PREFIX)),)
+WINDOWS_RUNTIME_BIN = $(SDL_PREFIX)/bin
+else
+WINDOWS_RUNTIME_BIN = $(LOCAL_TOOLCHAIN_BIN)
 endif
 else
 CC = gcc
 SDL_CONFIG ?= sdl-config
 LOCAL_TOOLCHAIN_BIN =
+WINDOWS_RUNTIME_BIN =
 SDL_PREFIX ?=
 ifneq ($(and $(wildcard .local/sdl1/include/SDL/SDL_mixer.h),$(wildcard .local/sdl1/lib/libSDL_mixer.dylib .local/sdl1/lib/libSDL_mixer.so .local/sdl1/lib/libSDL_mixer.a)),)
 MIXER_PREFIX ?= .local/sdl1
@@ -321,8 +327,8 @@ ifeq ($(OS),Windows_NT)
 ifneq ($(strip $(SDL_PREFIX)),)
 	@for %%f in ("$(subst /,\\,$(SDL_PREFIX))\\bin\\*.dll") do copy /Y "%%f" "$(BIN_DIR)\\" >NUL
 endif
-ifneq ($(strip $(LOCAL_TOOLCHAIN_BIN)),)
-	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\\,$(LOCAL_TOOLCHAIN_BIN))\\%%f" copy /Y "$(subst /,\\,$(LOCAL_TOOLCHAIN_BIN))\\%%f" "$(BIN_DIR)\\%%f" >NUL
+ifneq ($(strip $(WINDOWS_RUNTIME_BIN)),)
+	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\\,$(WINDOWS_RUNTIME_BIN))\\%%f" copy /Y "$(subst /,\\,$(WINDOWS_RUNTIME_BIN))\\%%f" "$(BIN_DIR)\\%%f" >NUL
 endif
 endif
 
@@ -388,16 +394,16 @@ endif
 $(BIN_DIR)/mkf_dump: $(MKF_OBJS) $(SPR_SMP_OBJS) $(TOOL_OBJS) | dirs
 	$(CC) $(CFLAGS) $(WARNFLAGS) -o $@ $(TOOL_OBJS) $(MKF_OBJS) $(SPR_SMP_OBJS)
 ifeq ($(OS),Windows_NT)
-ifneq ($(strip $(LOCAL_TOOLCHAIN_BIN)),)
-	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" copy /Y "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
+ifneq ($(strip $(WINDOWS_RUNTIME_BIN)),)
+	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" copy /Y "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
 endif
 endif
 
 $(BIN_DIR)/mkf_dump_flc_frames: $(MKF_OBJS) $(FLC_OBJS) $(FLC_TOOL_OBJS) | dirs
 	$(CC) $(CFLAGS) $(WARNFLAGS) -o $@ $(FLC_TOOL_OBJS) $(MKF_OBJS) $(FLC_OBJS)
 ifeq ($(OS),Windows_NT)
-ifneq ($(strip $(LOCAL_TOOLCHAIN_BIN)),)
-	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" copy /Y "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
+ifneq ($(strip $(WINDOWS_RUNTIME_BIN)),)
+	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" copy /Y "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
 endif
 endif
 
@@ -413,8 +419,8 @@ $(BIN_DIR)/mkf_validate_m37_resources: $(MKF_OBJS) $(SPR_SMP_OBJS) $(FLC_OBJS) $
 $(BIN_DIR)/mkf_contact_sheet: $(MKF_OBJS) $(SPR_SMP_OBJS) $(CONTACT_TOOL_OBJS) | dirs
 	$(CC) $(CFLAGS) $(WARNFLAGS) -o $@ $(CONTACT_TOOL_OBJS) $(MKF_OBJS) $(SPR_SMP_OBJS)
 ifeq ($(OS),Windows_NT)
-ifneq ($(strip $(LOCAL_TOOLCHAIN_BIN)),)
-	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" copy /Y "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
+ifneq ($(strip $(WINDOWS_RUNTIME_BIN)),)
+	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" copy /Y "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
 endif
 endif
 
@@ -430,8 +436,8 @@ ifeq ($(OS),Windows_NT)
 ifneq ($(strip $(SDL_PREFIX)),)
 	@for %%f in ("$(subst /,\,$(SDL_PREFIX))\bin\*.dll") do copy /Y "%%f" "$(BIN_DIR)\" >NUL
 endif
-ifneq ($(strip $(LOCAL_TOOLCHAIN_BIN)),)
-	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" copy /Y "$(subst /,\,$(LOCAL_TOOLCHAIN_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
+ifneq ($(strip $(WINDOWS_RUNTIME_BIN)),)
+	@for %%f in ($(RUNTIME_DLLS)) do if exist "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" copy /Y "$(subst /,\,$(WINDOWS_RUNTIME_BIN))\%%f" "$(BIN_DIR)\%%f" >NUL
 endif
 endif
 

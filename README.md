@@ -46,7 +46,7 @@ python scripts/make_minimal.py --progress test
 python scripts/make_minimal.py --progress sdl
 ```
 
-存在 `.local/toolchain/mingw64/` 和 `.local/sdl1/mingw64/` 时 Makefile 会优先使用它们。Unix 环境使用 `sdl-config` 查找 SDL；SDL_mixer 和 SDL_ttf 优先使用 `.local/sdl1/` 中同时具备头文件和库的依赖，其余通过 `pkg-config` 查找。默认 make 目标为 `all`，构建 SDL 程序。
+存在 `.local/toolchain/mingw64/` 和 `.local/sdl1/ucrt64/` 时 Makefile 会优先使用它们。Windows 工具链和 SDL 依赖统一使用 UCRT，不能混入 MSVCRT 的 `mingw64` 包。Unix 环境使用 `sdl-config` 查找 SDL；SDL_mixer 和 SDL_ttf 优先使用 `.local/sdl1/` 中同时具备头文件和库的依赖，其余通过 `pkg-config` 查找。默认 make 目标为 `all`，构建 SDL 程序。
 
 Miyoo Mini / Mini Plus 的 Windows 交叉工具链由项目单独准备，全部保存在
 `.local/miyoo/`，无需其他工程或外部 SDK 目录：
