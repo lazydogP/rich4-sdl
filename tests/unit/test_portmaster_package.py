@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Protect user-data isolation, ABI declarations and PortMaster launcher cleanup."""
 import importlib.util
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -33,6 +34,24 @@ def elf_fixture(machine=183, glibc='2.17', dependency='libc.so.6'):
 
 
 class PortMasterPackageTests(unittest.TestCase):
+    def test_release_artifact_has_uniform_name_and_separate_checksum(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            source = directory / 'rich4.zip'
+            source.write_bytes(b'official PortMaster package')
+            output = pm.write_release_artifact(source, directory, 'v1.2.3')
+            self.assertEqual(output.name, 'Rich4-SDL-PortMaster-v1.2.3.zip')
+            checksum = output.with_name(output.name + '.sha256')
+            self.assertEqual(
+                checksum.read_text(encoding='ascii'),
+                f'{hashlib.sha256(output.read_bytes()).hexdigest()}  {output.name}\n')
+
+    def test_version_cannot_escape_output_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for version in ('../escape', '/absolute', '', 'v1/other', 'v1\\other'):
+                with self.subTest(version=version), self.assertRaises(ValueError):
+                    pm.release_filename(version)
+
     def test_abi_rejects_wrong_arch_new_glibc_and_accidental_sdl2_dependency(self):
         with tempfile.TemporaryDirectory() as temporary:
             binary = Path(temporary) / 'runtime'

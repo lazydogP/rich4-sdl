@@ -65,7 +65,8 @@ Unix 只安装 SDL1 而没有 SDL_mixer 开发包时仍可构建，程序会明�
 PortMaster 的 aarch64、640×480 试验包使用独立的工具链、glibc 2.31 sysroot
 和 SDL1 兼容层。Linux x86_64 或 Windows/WSL 下运行
 `python scripts/make_minimal.py package-portmaster --progress`，输出
-`build/portmaster/rich4.zip`。包内不含原版资源、音乐、字体或个人存档；用户需自行提供。
+`build/portmaster/Rich4-SDL-PortMaster-build-local.zip` 及对应 `.sha256`。
+`rich4.zip` 是供 PortMaster 校验使用的规范名称；包内不含原版资源、音乐、字体或个人存档，用户需自行提供。
 构建、安装、按键与尚待完成的真机验收见
 [PortMaster 试验包](packaging/portmaster/README.md)。
 

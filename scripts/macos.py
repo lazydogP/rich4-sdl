@@ -247,7 +247,9 @@ def rpaths(load_commands):
             for segment in load_commands.split('cmd LC_RPATH')[1:]]
 
 
-def package():
+def package(version='build-local'):
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*', version):
+        raise ValueError('version must contain only letters, digits, dots, +, _ or -')
     prefix = setup()
     app = BUILD / 'Rich4.app'
     if app.exists():
@@ -304,8 +306,10 @@ def package():
     run(['codesign', '--force', '--digest-algorithm=sha1,sha256', '--sign', '-', app])
     verify(app)
     release = ROOT / 'build/release'; release.mkdir(parents=True, exist_ok=True)
-    archive = release / 'Rich4-macOS-universal-development.zip'
+    archive = release / f'Rich4-SDL-macOS-{version}.zip'
     run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', app, archive])
+    archive.with_name(archive.name + '.sha256').write_text(
+        f'{sha(archive)}  {archive.name}\n', encoding='ascii')
     print(f'Development bundle: {app}\nManual acceptance and notarization: NOT EXECUTED', flush=True)
 
 
@@ -351,12 +355,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('target', choices=('setup', 'native', 'build', 'package', 'verify', 'test-original'))
     parser.add_argument('--offline', action='store_true')
+    parser.add_argument('--version', default=os.environ.get('RELEASE_VERSION', 'build-local'))
     args = parser.parse_args()
     try:
         if args.target == 'setup': setup(args.offline)
         elif args.target == 'native': native()
         elif args.target == 'build': build()
-        elif args.target == 'package': package()
+        elif args.target == 'package': package(args.version)
         elif args.target == 'verify': verify(BUILD / 'Rich4.app')
         else: run([sys.executable, ROOT / 'tests/macos/test_original.py'])
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:

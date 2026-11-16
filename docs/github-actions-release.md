@@ -36,8 +36,11 @@ git push origin v0.1.0
 
 | 附件 | 内容 |
 | --- | --- |
-| `Rich4-Windows-x64-<tag>.zip` | Windows 程序、SDL 及工具链运行库、使用说明 |
-| `Rich4-MiyooMini-update-<tag>.zip` | `App/Rich4/rich4_sdl`、`launch.sh`、Apps 菜单 `config.json`、64×64 透明 `icon.png`、更新说明 |
+| `Rich4-SDL-Windows-x64-<tag>.zip` | Windows 程序、SDL 及工具链运行库、使用说明 |
+| `Rich4-SDL-MiyooMini-<tag>.zip` | `App/Rich4/rich4_sdl`、`launch.sh`、Apps 菜单 `config.json`、64×64 透明 `icon.png`、更新说明 |
+
+每个 ZIP 都附带同名 `.zip.sha256`。ZIP 与校验文件作为独立的原始 artifact 上传，
+不会再由 GitHub Actions 包装为外层 ZIP。
 
 两个平台的程序目录均附带 `RICH4-SDL.CFG.example`。需要自定义时，复制为同目录的
 `RICH4-SDL.CFG` 后修改；没有实际配置时使用内置默认值，升级时保留已有配置。
@@ -60,9 +63,10 @@ python scripts/make_minimal.py miyoo --progress
 python scripts/package_release.py --platform miyoo-mini --version v0.1.0
 ```
 
-产物在 `build/release/`，只生成程序 ZIP，不生成 SHA256 文件。
+产物在 `build/release/`，每个程序 ZIP 旁生成对应的 `.zip.sha256`。
 Actions artifacts 保留 14 天，公开 Release 附件独立保存。
-macOS 开发产物 `Rich4-macOS-universal-development.zip` 单独保存在 `macOS-universal-development` artifact；真实设备、试听、Developer ID 签名及公证验收完成前不发布到 Release。
+macOS 开发产物命名为 `Rich4-SDL-macOS-<version>.zip`，与对应 `.zip.sha256`
+分别作为 artifact 保存；真实设备、试听、Developer ID 签名及公证验收完成前不发布到 Release。
 CI 不提供原版资源，因此不执行真实资源 SDL smoke、QEMU 游戏回放或真机验证。
 
 参考：[GitHub Actions 权限](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)、

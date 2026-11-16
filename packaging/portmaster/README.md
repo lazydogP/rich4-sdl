@@ -9,8 +9,9 @@ firmware's SDL2 through sdl12-compat; no SDL2, libc or graphics drivers are bund
 
 ## Install
 
-Place `rich4.zip` in your firmware's PortMaster autoinstall queue and open
-PortMaster, or merge its top-level launcher and `rich4/` into your ports folder.
+The CI download is named `Rich4-SDL-PortMaster-<version>.zip`. Rename it to the
+canonical `rich4.zip` from `port.json` before placing it in your firmware's
+PortMaster autoinstall queue, or merge its top-level launcher and `rich4/` into your ports folder.
 Keep existing game data, configuration and saves when updating.
 
 Supply legally obtained **V3.11** files in `ports/rich4/assets/original/`:
@@ -80,6 +81,8 @@ Downloads, the compiler and dependency builds stay in `.local/portmaster/`;
 downloads offline with `PORTMASTER_ARGS=--offline`.
 
 The package ABI/structure report is `build/portmaster/package-validation.json`.
+The user-facing archive is `build/portmaster/Rich4-SDL-PortMaster-build-local.zip`
+with its checksum in the adjacent `.zip.sha256` file.
 The optional ARM/QEMU check extracts this archive, runs its binary and bundled
 libraries with dummy display/audio, and records results in
 `build/portmaster-aarch64/validation.json`. It uses separate test save/config

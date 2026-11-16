@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify public archive boundaries and launcher permissions."""
 import json
+import hashlib
 from pathlib import Path
 import struct
 import sys
@@ -49,6 +50,13 @@ class ReleasePackageTests(unittest.TestCase):
             for platform in ('windows-x64', 'miyoo-mini'):
                 with self.subTest(platform=platform):
                     output = package(root, root / 'out', platform, 'v1.2.3-rc.1')
+                    prefix = ('Rich4-SDL-Windows-x64' if platform == 'windows-x64'
+                              else 'Rich4-SDL-MiyooMini')
+                    self.assertEqual(output.name, prefix + '-v1.2.3-rc.1.zip')
+                    checksum = output.with_name(output.name + '.sha256')
+                    self.assertEqual(
+                        checksum.read_text(encoding='ascii'),
+                        f'{hashlib.sha256(output.read_bytes()).hexdigest()}  {output.name}\n')
                     with zipfile.ZipFile(output) as archive:
                         self.assertIsNone(archive.testzip())
                         prefix = 'App/Rich4/' if platform == 'miyoo-mini' else ''
@@ -82,7 +90,12 @@ class ReleasePackageTests(unittest.TestCase):
                             self.assertIn('zlib1.dll', archive.namelist())
                             self.assertIn('rich4_sdl.exe', archive.namelist())
                         self.assertFalse(any(name.endswith('.zip') for name in archive.namelist()))
-                    self.assertTrue(all(path.suffix == '.zip' for path in output.parent.iterdir()))
+            self.assertEqual({path.name for path in (root / 'out').iterdir()}, {
+                'Rich4-SDL-Windows-x64-v1.2.3-rc.1.zip',
+                'Rich4-SDL-Windows-x64-v1.2.3-rc.1.zip.sha256',
+                'Rich4-SDL-MiyooMini-v1.2.3-rc.1.zip',
+                'Rich4-SDL-MiyooMini-v1.2.3-rc.1.zip.sha256',
+            })
 
     def test_missing_build_fails_without_creating_archive(self):
         with tempfile.TemporaryDirectory() as directory:

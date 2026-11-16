@@ -21,7 +21,8 @@ python3 scripts/make_minimal.py test-macos-package
 
 开发签名和 Developer ID 签名均显式包含 SHA-1 与 SHA-256 摘要，包校验要求每个 Intel slice 保留 10.10 所需的 SHA-1 摘要。依据：[Apple 旧版 macOS 签名说明](https://developer.apple.com/forums/thread/673323)。
 
-输出在 `build/macos/universal/Rich4.app` 和 `build/release/Rich4-macOS-universal-development.zip`。打包从明确列出的程序、依赖、图标、许可证和配置模板生成，要求每个程序和动态库包含两种架构，并逐架构检查动态依赖、rpath、部署版本及本地签名。sdl12-compat 的 macOS `dlopen` 搜索先使用 `@loader_path/libSDL2-2.0.0.dylib`；SDL2 必须与兼容库一起位于 `Contents/Frameworks`，不能只检查 `otool -L` 的直接依赖。
+输出在 `build/macos/universal/Rich4.app`、`build/release/Rich4-SDL-macOS-build-local.zip`
+和对应 `.zip.sha256`。CI 用 `build-<run_number>` 或标签替换 `build-local`。打包从明确列出的程序、依赖、图标、许可证和配置模板生成，要求每个程序和动态库包含两种架构，并逐架构检查动态依赖、rpath、部署版本及本地签名。sdl12-compat 的 macOS `dlopen` 搜索先使用 `@loader_path/libSDL2-2.0.0.dylib`；SDL2 必须与兼容库一起位于 `Contents/Frameworks`，不能只检查 `otool -L` 的直接依赖。
 
 `test-macos-package` 在应用的临时副本上检查校验器会拒绝单架构程序、单架构 SDL2、外部依赖和 rpath、任一架构的错误部署版本、错误的 Info.plist 最低系统声明，以及缺少 10.10 签名摘要的动态库。校验器同时支持 Intel 的 `LC_VERSION_MIN_MACOSX` 和 arm64 的 `LC_BUILD_VERSION`。这些检查不需要原版游戏资源。它还分别启动两种架构的游戏 `--help`，确认使用随包 SDL2；主机无法运行某架构时明确跳过该项，Apple Silicon 上的 x86_64 启动检查需要已安装 Rosetta。当前系统和 Rosetta 启动不替代 10.10／11.0 真机验收。
 

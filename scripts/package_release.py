@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Package CI runtimes without reading personal game assets or settings."""
 import argparse
+import hashlib
 from pathlib import Path
 import re
 import zipfile
@@ -8,12 +9,20 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def write_checksum(path):
+    checksum = path.with_name(path.name + '.sha256')
+    checksum.write_text(
+        f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n',
+        encoding='ascii')
+    return checksum
+
+
 def package(root, output_dir, platform, version):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*', version):
         raise ValueError('version must contain only letters, digits, dots, +, _ or -')
     files = {}
     if platform == 'windows-x64':
-        prefix = 'Rich4-Windows-x64'
+        prefix = 'Rich4-SDL-Windows-x64'
         files['rich4_sdl.exe'] = root / 'bin/rich4_sdl.exe'
         files['RICH4-SDL.CFG.example'] = root / 'RICH4-SDL.CFG.example'
         for name in ('SDL.dll', 'SDL_ttf.dll', 'libSDL_mixer-1-2-0.dll',
@@ -32,7 +41,7 @@ Saves and configuration are created at runtime.
 This package contains no original game data, music, fonts or personal settings.
 '''
     elif platform == 'miyoo-mini':
-        prefix = 'Rich4-MiyooMini-update'
+        prefix = 'Rich4-SDL-MiyooMini'
         files['App/Rich4/rich4_sdl'] = root / 'bin/miyoo/rich4_sdl'
         files['App/Rich4/launch.sh'] = root / 'packaging/miyoo/launch.sh'
         files['App/Rich4/RICH4-SDL.CFG.example'] = root / 'RICH4-SDL.CFG.example'
@@ -79,6 +88,7 @@ Keep your existing RICH4-SDL.CFG when updating. Without it, built-in defaults ap
     with zipfile.ZipFile(output) as archive:
         if archive.testzip() is not None:
             raise ValueError(f'corrupt release archive: {output}')
+    write_checksum(output)
     return output
 
 

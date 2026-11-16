@@ -16,7 +16,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from build_portmaster import LOCAL, LOCK, RUNTIME_LIBS, digest, fetch
+from build_portmaster import LOCAL, LOCK, RUNTIME_LIBS, fetch
 
 LIB_LICENSES = {
     'sdl12-compat': 'LICENSE.txt', 'SDL_mixer': 'COPYING', 'SDL_ttf': 'COPYING',
@@ -25,6 +25,28 @@ LIB_LICENSES = {
 }
 SYSTEM_LIBS = {'libc.so.6', 'libm.so.6', 'libdl.so.2', 'libpthread.so.0',
                'librt.so.1', 'libgcc_s.so.1'}
+
+
+def sha256(path):
+    checksum = hashlib.sha256()
+    with path.open('rb') as source:
+        for block in iter(lambda: source.read(1024 * 1024), b''):
+            checksum.update(block)
+    return checksum.hexdigest()
+
+
+def release_filename(version):
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*', version):
+        raise ValueError('version must contain only letters, digits, dots, +, _ or -')
+    return f'Rich4-SDL-PortMaster-{version}.zip'
+
+
+def write_release_artifact(source, output_dir, version):
+    release = output_dir / release_filename(version)
+    shutil.copyfile(source, release)
+    release.with_name(release.name + '.sha256').write_text(
+        f'{sha256(release)}  {release.name}\n', encoding='ascii')
+    return release
 
 
 def elf_info(path):
@@ -143,7 +165,8 @@ def official_builder():
     return module
 
 
-def package(root=ROOT, output_dir=None):
+def package(root=ROOT, output_dir=None, version='build-local'):
+    release_filename(version)
     output_dir = output_dir or root / 'build/portmaster'
     report = inspect_elfs(root)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -181,19 +204,20 @@ def package(root=ROOT, output_dir=None):
             raise ValueError('User data entered the archive')
         if b'\r' in archive.read('Rich4 SDL.sh') or b'\r' in archive.read('rich4/rich4.gptk'):
             raise ValueError('CRLF in launcher or controls')
-    report['archive_sha256'] = digest(output)
+    report['archive_sha256'] = sha256(output)
     report['portmaster_commit'] = LOCK['portmaster_commit']
     report['device_verified'] = False
     (output_dir / 'package-validation.json').write_text(json.dumps(report, indent=2) + '\n')
-    return output
+    return write_release_artifact(output, output_dir, version)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'build/portmaster')
+    parser.add_argument('--version', default=os.environ.get('RELEASE_VERSION', 'build-local'))
     args = parser.parse_args()
     try:
-        output = package(output_dir=args.output_dir.resolve())
+        output = package(output_dir=args.output_dir.resolve(), version=args.version)
     except (OSError, ValueError) as error:
         parser.exit(1, 'PortMaster packaging failed: ' + str(error) + '\n')
     print('PortMaster experimental package: ' + str(output))
