@@ -39,6 +39,14 @@ $MsysMixerPackages = @(
     'mingw-w64-ucrt-x86_64-libogg',
     'mingw-w64-ucrt-x86_64-libvorbis'
 )
+# SDL_mixer 1.2.12-11 imports SDL allocation functions absent from SDL 1.2.
+# Keep the build made against native SDL 1.2 alongside the pinned SDL package.
+$MsysPackagePins = @{
+    'mingw-w64-ucrt-x86_64-sdl-mixer' = @{
+        Url = 'https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-SDL_mixer-1.2.12-10-any.pkg.tar.zst'
+        Sha256 = '15e4dd92bf55cdda78c1cb93abf5471bab596b45f78f5e517f8209bc14865164'
+    }
+}
 $MsysTtfPackages = @(
     'mingw-w64-ucrt-x86_64-sdl-ttf',
     'mingw-w64-ucrt-x86_64-freetype',
@@ -130,17 +138,55 @@ print(dst)
 
 function Install-Msys2Package($PackageName, $Destination) {
     $Marker = Join-Path $InstalledPackageDir "$PackageName.ok"
-    if (!$Force -and (Test-Path $Marker)) {
+    $Pin = $MsysPackagePins[$PackageName]
+    if (!$Force -and (Test-Path $Marker) -and
+        (!$Pin -or (Get-Content -LiteralPath $Marker -Raw).Trim() -eq $Pin.Url)) {
         Write-Host "Package already extracted: $PackageName"
         return
     }
-    $Url = Resolve-Msys2PackageUrl $PackageName
-    $Zst = Join-Path $CacheDir "$PackageName.pkg.tar.zst"
+    if ($Pin) {
+        $Url = $Pin.Url
+        $CacheName = ([uri]$Url).Segments[-1]
+    } else {
+        $Url = Resolve-Msys2PackageUrl $PackageName
+        $CacheName = "$PackageName.pkg.tar.zst"
+    }
+    $Zst = Join-Path $CacheDir $CacheName
     $Tar = Join-Path $CacheDir "$PackageName.pkg.tar"
     Save-Url $Url $Zst
+    if ($Pin -and (Get-FileHash -LiteralPath $Zst -Algorithm SHA256).Hash -ne $Pin.Sha256) {
+        throw "SHA256 mismatch for $Zst"
+    }
+    # A changed pin must replace an already extracted package as well.
+    if (Test-Path $Marker) {
+        Remove-Item -LiteralPath $Marker -Force
+    }
     Expand-ZstdTar $Zst $Tar $Destination $Marker
     New-Directory $InstalledPackageDir
     Set-Content -Path $Marker -Value $Url
+}
+
+function Test-SdlRuntime {
+    Write-Host 'Checking SDL runtime DLL loading'
+    $py = @'
+import ctypes
+from pathlib import Path
+import sys
+
+ctypes.windll.kernel32.SetErrorMode(0x8003)
+directory = Path(sys.argv[1]).resolve()
+for name in ("SDL.dll", "libSDL_mixer-1-2-0.dll", "SDL_ttf.dll"):
+    try:
+        # Resolve transitive DLLs from this package and Windows, without PATH.
+        ctypes.WinDLL(str(directory / name), winmode=0x1100)
+    except OSError as exc:
+        raise SystemExit(f"SDL runtime load failed: {directory / name}: {exc}")
+    print(f"SDL runtime load OK: {name}")
+'@
+    $py | python - (Join-Path $SdlDir 'ucrt64\bin')
+    if ($LASTEXITCODE -ne 0) {
+        throw 'SDL runtime DLL loading failed'
+    }
 }
 
 function Run-Verify {
@@ -205,6 +251,9 @@ foreach ($RequiredFile in $RequiredSdlFiles) {
         throw "Required UCRT runtime file was not installed: $RequiredFile"
     }
 }
+
+# -SkipVerify skips compilation, but CI still needs a loadable runtime.
+Test-SdlRuntime
 
 if (!$SkipVerify) {
     Run-Verify
