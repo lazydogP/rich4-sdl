@@ -76,7 +76,8 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 2
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render(names), encoding="utf-8", newline="\n")
+    with output.open("w", encoding="utf-8", newline="\n") as generated:
+        generated.write(render(names))
     return 0
 
 

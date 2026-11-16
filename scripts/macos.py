@@ -54,8 +54,8 @@ def settings():
         for patch in package['patches']:
             if sha(ROOT / patch['file']) != patch['sha256']:
                 raise ValueError(f'Patch checksum mismatch: {patch["file"]}')
-    compiler = capture(['xcrun', 'clang', '--version'])
-    sdk = capture(['xcrun', '--show-sdk-path'])
+    compiler = capture(['xcrun', '--sdk', 'macosx', 'clang', '--version'])
+    sdk = capture(['xcrun', '--sdk', 'macosx', '--show-sdk-path'])
     recipe = Path(__file__).read_text().split('\ndef native():', 1)[0]
     fingerprint = hashlib.sha256((LOCK.read_text() + recipe + compiler + sdk + str(ROOT)).encode()).hexdigest()[:16]
     prefix = LOCAL / 'universal' / fingerprint / 'prefix'
@@ -117,8 +117,10 @@ def setup(offline=False):
             sources[package['name']] = next(p for p in destination.iterdir() if p.is_dir())
     cmake = sources['cmake'] / 'CMake.app/Contents/bin/cmake'
     env = dict(os.environ)
+    sdk = capture(['xcrun', '--sdk', 'macosx', '--show-sdk-path'])
     arch_flags = shlex.join(ARCH_FLAGS)
-    env.update(MACOSX_DEPLOYMENT_TARGET=DEPLOYMENT_TARGET, CC=capture(['xcrun', '-f', 'clang']),
+    # The resolved clang binary bypasses xcrun's SDKROOT environment setup.
+    env.update(SDKROOT=sdk, MACOSX_DEPLOYMENT_TARGET=DEPLOYMENT_TARGET, CC=capture(['xcrun', '--sdk', 'macosx', '-f', 'clang']),
                CFLAGS=f'-O2 {arch_flags} -mmacosx-version-min={DEPLOYMENT_TARGET}',
                CPPFLAGS=f'-I{shlex.quote(str(prefix / "include"))}',
                LDFLAGS=f'{arch_flags} -mmacosx-version-min={DEPLOYMENT_TARGET} -L{shlex.quote(str(prefix / "lib"))}',
@@ -147,12 +149,20 @@ def setup(offline=False):
             host = 'arm' if platform.machine() == 'arm64' else 'x86_64'
             args = [sources[name] / 'configure', f'--prefix={prefix}', f'--host={host}-apple-darwin',
                     '--disable-static', '--enable-shared', '--disable-sdltest', f'--with-sdl-prefix={prefix}'] + package['configure']
-            run(args, cwd=directory, env=env)
+            try:
+                run(args, cwd=directory, env=env)
+            except subprocess.CalledProcessError:
+                log = directory / 'config.log'
+                if log.is_file():
+                    print(f'configure failed; diagnostics from {log}:\n{log.read_text(errors="replace")}',
+                          file=sys.stderr, flush=True)
+                raise
             run(['/usr/bin/make', '-j8'], cwd=directory, env=env)
             run(['/usr/bin/make', 'install'], cwd=directory, env=env)
         else:
             run([cmake, '-S', sources[name], '-B', directory,
                  '-DCMAKE_BUILD_TYPE=Release', f'-DCMAKE_OSX_ARCHITECTURES={";".join(ARCHITECTURES)}',
+                 f'-DCMAKE_OSX_SYSROOT={sdk}',
                  f'-DCMAKE_OSX_DEPLOYMENT_TARGET={DEPLOYMENT_TARGET}', '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
                  '-DCMAKE_INSTALL_NAME_DIR=@rpath',
                  f'-DCMAKE_INSTALL_PREFIX={prefix}', f'-DCMAKE_PREFIX_PATH={prefix}',

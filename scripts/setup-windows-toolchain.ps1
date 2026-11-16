@@ -24,7 +24,7 @@ $SdlDll = Join-Path $SdlDir 'mingw64\bin\SDL.dll'
 $MixerHeader = Join-Path $SdlDir 'mingw64\include\SDL\SDL_mixer.h'
 $TtfHeader = Join-Path $SdlDir 'mingw64\include\SDL\SDL_ttf.h'
 $MsysMixerPackages = @(
-    'mingw-w64-x86_64-SDL_mixer',
+    'mingw-w64-x86_64-sdl-mixer',
     'mingw-w64-x86_64-flac',
     'mingw-w64-x86_64-gettext-runtime',
     'mingw-w64-x86_64-libiconv',
@@ -34,7 +34,7 @@ $MsysMixerPackages = @(
     'mingw-w64-x86_64-libvorbis'
 )
 $MsysTtfPackages = @(
-    'mingw-w64-x86_64-SDL_ttf',
+    'mingw-w64-x86_64-sdl-ttf',
     'mingw-w64-x86_64-freetype',
     'mingw-w64-x86_64-harfbuzz',
     'mingw-w64-x86_64-glib2',

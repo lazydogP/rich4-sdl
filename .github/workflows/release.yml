@@ -78,7 +78,7 @@ jobs:
       - name: Build and inspect macOS development bundle
         shell: bash
         if: matrix.platform == 'macos-universal-development'
-        run: python3 scripts/make_minimal.py package-macos test-macos-package --progress
+        run: python3 scripts/make_minimal.py test-macos-toolchain package-macos test-macos-package --progress
 
       - name: Record original-resource acceptance availability
         shell: bash

@@ -67,19 +67,26 @@ static void check_original_sleeping_palette(void)
     };
     int format;
     unsigned int color;
+    /* 0x485978 dispatches by the original native format index. */
     for (format = 0; format < 4; format++) {
-        SDL_Surface *s = SDL_CreateRGBSurface(SDL_SWSURFACE, 640, 480, 16,
-            masks[format][0], masks[format][1], masks[format][2], 0);
-        assert(s);
+        SDL_PixelFormat pixel_format;
+        SDL_Surface surface;
+        memset(&pixel_format, 0, sizeof(pixel_format));
+        memset(&surface, 0, sizeof(surface));
+        pixel_format.BitsPerPixel = 16;
+        pixel_format.BytesPerPixel = 2;
+        pixel_format.Rmask = masks[format][0];
+        pixel_format.Gmask = masks[format][1];
+        pixel_format.Bmask = masks[format][2];
+        surface.format = &pixel_format;
         for (color = 0; color <= 65535; color++) {
-            uint16_t actual = map_resource_pixel_sleeping(s, (uint16_t)color);
+            uint16_t actual = map_resource_pixel_sleeping(&surface, (uint16_t)color);
             uint16_t expected = original_sleeping_pixel((uint16_t)color, format);
             if (actual != expected)
                 fprintf(stderr, "sleep palette: format=%d color=%04x actual=%04x expected=%04x\n",
                     format, color, actual, expected);
             assert(actual == expected);
         }
-        SDL_FreeSurface(s);
     }
 }
 

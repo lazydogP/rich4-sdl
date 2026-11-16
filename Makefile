@@ -962,7 +962,7 @@ $(APP_OBJS) $(VIEW_OBJS) $(SDL1_SESSION_DEPENDENCY_OBJECTS): src/data/confinemen
 $(filter %.o,$(SDL_OBJS)): src/app/animation_clock.h src/app/game_presentation.h src/app/card_panel_state.h
 
 # Native Apple launcher/importer and import-time DLS renderer.
-.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-package test-macos-original
+.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-toolchain test-macos-package test-macos-original
 MACOS_SETUP_ARGS ?=
 setup-macos:
 	$(PYTHON) scripts/macos.py setup $(MACOS_SETUP_ARGS)
@@ -974,6 +974,8 @@ package-macos: macos
 	$(PYTHON) scripts/macos.py package
 check-macos-package:
 	$(PYTHON) scripts/macos.py verify
+test-macos-toolchain:
+	$(PYTHON) tests/unit/test_macos_toolchain.py
 test-macos-package: check-macos-package
 	$(PYTHON) tests/macos/test_package.py
 test-macos-original: macos
@@ -1193,6 +1195,8 @@ endef
 
 # test_first_turn_flow fails at its first-landing assertion and is left out of
 # the suites until the first-landing clock behavior is checked against Rich4.
+# Original-resource frame comparisons stay in the explicit test-hibernation
+# and test-sleepwalking suites rather than the data-free unit suite.
 
 TEST_UNIT_TESTS := \
 	test_rng \
@@ -1273,8 +1277,6 @@ TEST_UNIT_TESTS := \
 	test_text_backend \
 	test_big5_utf8 \
 	test_sdl1_blit \
-	test_hibernation_sdl \
-	test_sleepwalking_sdl \
 	test_file_line_budget \
 	test_no_debug_ui \
 	test_audio_event \

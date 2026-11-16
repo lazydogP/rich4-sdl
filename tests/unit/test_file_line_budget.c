@@ -3,6 +3,12 @@
 
 #include "core/route_event_executor_internal.h"
 
+#ifdef _WIN32
+#define RICH4_PYTHON_COMMAND "python"
+#else
+#define RICH4_PYTHON_COMMAND "python3"
+#endif
+
 /* S0 gate regression: route executor fields must not rewrite unrelated names
  * through a preprocessor alias.  If execution_started were still a macro,
  * both declarations below would fail to compile. */
@@ -22,7 +28,8 @@ int main(void)
         fprintf(stderr, "route executor name binding regression\n");
         return 1;
     }
-    status = system("python tests/architecture/check_context_simplification.py");
+    status = system(RICH4_PYTHON_COMMAND
+        " tests/architecture/check_context_simplification.py");
     if (status != 0) return 1;
     puts("context simplification gates: ok");
     return 0;
