@@ -548,7 +548,9 @@ void draw_magic_house(
                 message, sizeof(message), "%s\n\n%s",
                 new_game_character_name(
                     session->state->players[player].character),
-                rich4_magic_house_action_big5(magic->selected_action));
+                magic->selected_action == 6 && magic->target_card >= 0
+                    ? game_card_big5_name(magic->target_card)
+                    : rich4_magic_house_action_big5(magic->selected_action));
             draw_big5_text(
                 screen, 220, 140, message, 16,
                 rich4_character_rgb565_color(0x00f0f0f0u),

@@ -17,6 +17,16 @@
 #include "core/rng.h"
 #include "data/character_speech.h"
 
+static int rich4_magic_house_begin_next_target(
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events);
+static int rich4_magic_house_apply_current_target(
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events);
+static void rich4_magic_house_continue_targets(
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events);
+
 int rich4_magic_house_facility_at(int x, int y)
 {
     if (x < 50 || x >= 390 || y < 286 || y >= 354)
@@ -146,31 +156,38 @@ void rich4_magic_house_begin(
     int animation_enabled, Rich4AudioEventQueue *audio_events)
 {
     struct MagicHouseState *magic;
+    int condition;
+    unsigned int targets;
+    int auto_action;
     int player;
-    if (session == NULL || event == NULL ||
-        rich4_game_event_magic_house_condition(event) < 0 ||
-        rich4_game_event_magic_house_condition(event) >= 12 ||
-        rich4_game_event_magic_house_target_mask(event) == 0)
+    if (session == NULL || event == NULL)
+        return;
+    condition = rich4_game_event_magic_house_condition(event);
+    targets = rich4_game_event_magic_house_target_mask(event);
+    auto_action = rich4_game_event_magic_house_auto_action(event);
+    if (!((condition >= 0 && condition < 12 && targets != 0) ||
+          (condition == -1 && targets == 0 && auto_action < 0)))
         return;
     magic = &session->presentation.magic_house;
     memset(magic, 0, sizeof(*magic));
     magic->active = 1;
     magic->player = event->player;
-    magic->condition = rich4_game_event_magic_house_condition(event);
-    magic->targets = rich4_game_event_magic_house_target_mask(event);
+    magic->condition = condition;
+    magic->targets = targets;
     magic->hover = -1;
     magic->selected_action = -1;
     magic->animation_enabled = animation_enabled != 0;
     magic->animation_frame = -1;
     magic->animation_tick = now + 100;
     magic->target_player = -1;
+    magic->target_card = -1;
     magic->facility_choice_player = -1;
     magic->facility_choice_hover = -1;
     for (player = 0; player < GAME_MAX_PLAYERS; player++)
         magic->facility_choice[player] = -1;
-    if (rich4_game_event_magic_house_auto_action(event) >= 0) {
+    if (auto_action >= 0) {
         /* 0x43390B..0x4339CE: timed map notice, then the common effect. */
-        magic->selected_action = rich4_game_event_magic_house_auto_action(event);
+        magic->selected_action = auto_action;
         magic->phase = RICH4_MAGIC_HOUSE_AI_NOTICE;
         magic->phase_until = now + 1500;
         magic->modal_music_finished = 1;
@@ -273,38 +290,22 @@ static int rich4_magic_house_empty_facility(
     return 1;
 }
 
-static int rich4_magic_house_next_facility_choice(GameSession *session)
+static int rich4_magic_house_begin_facility_choice(GameSession *session)
 {
     struct MagicHouseState *magic;
-    int player;
     int facility;
     if (session == NULL || !session->presentation.magic_house.active) return 0;
     magic = &session->presentation.magic_house;
-    for (player = 0; player < session->state.player_count; player++) {
-        if ((magic->targets & (1u << player)) == 0 ||
-            (session->state.players[player].play_state & 0xff) != 1 ||
-            magic->facility_choice[player] >= 0 ||
-            !rich4_magic_house_empty_facility(
-                &session->state, player, &facility)) continue;
-        {
-            int prior;
-            for (prior = 0; prior < session->state.player_count; prior++) {
-                int prior_facility;
-                if (magic->facility_choice[prior] >= 0 &&
-                    rich4_magic_house_empty_facility(
-                        &session->state, prior, &prior_facility) &&
-                    prior_facility == facility) break;
-            }
-            if (prior < session->state.player_count) continue;
-        }
-        magic->facility_choice_player = player;
-        magic->facility_choice_hover = -1;
-        magic->phase = RICH4_MAGIC_HOUSE_FACILITY_CHOICE;
-        return 1;
-    }
-    magic->facility_choice_player = -1;
+    if (magic->selected_action != 5 || magic->target_player < 0 ||
+        magic->target_player >= session->state.player_count ||
+        (session->state.players[magic->target_player].play_state & 0xff) != 1 ||
+        !rich4_magic_house_empty_facility(
+            &session->state, magic->target_player, &facility))
+        return 0;
+    magic->facility_choice_player = magic->target_player;
     magic->facility_choice_hover = -1;
-    return 0;
+    magic->phase = RICH4_MAGIC_HOUSE_FACILITY_CHOICE;
+    return 1;
 }
 
 int rich4_magic_house_choose_facility(
@@ -324,9 +325,12 @@ int rich4_magic_house_choose_facility(
         return 0;
     magic->facility_choice[player] = choice;
     rich4_magic_emit(audio_events, RICH4_AUDIO_EVENT_OK, 0);
-    if (!rich4_magic_house_next_facility_choice(session))
-        rich4_magic_house_finish(
-            session, magic->selected_action, now, audio_events, out_events);
+    magic->facility_choice_player = -1;
+    magic->facility_choice_hover = -1;
+    if (rich4_magic_house_apply_current_target(
+            session, now, audio_events, out_events) == 0)
+        rich4_magic_house_continue_targets(
+            session, now, audio_events, out_events);
     return 1;
 }
 
@@ -340,7 +344,7 @@ static int rich4_magic_house_action_shows_target(
         player >= session->state.player_count) return 0;
     state = &session->state;
     if ((session->presentation.magic_house.targets & (1u << player)) == 0 ||
-        (state->players[player].play_state & 0xff) != 1) return 0;
+        (state->players[player].play_state & 0xff) == 0) return 0;
     if (action != 5 && action != 7 && action != 9 && action != 11) return 1;
     if (state->players[player].delayed_status_block != 0) return 0;
     if (action == 7) return 1;
@@ -350,8 +354,157 @@ static int rich4_magic_house_action_shows_target(
     return raw > 0x7d0 && raw < 0x1770;
 }
 
+static void rich4_magic_house_capture_events(
+    GameSession *session, int action, uint32_t now,
+    Rich4AudioEventQueue *audio_events, GameEventQueue *events,
+    GameEventQueue *out_events)
+{
+    GameEvent event;
+    while (rich4_game_event_queue_pop(events, &event)) {
+        if (event.type == GAME_EVENT_TEXT_REQUESTED) {
+            Rich4GameEventFields fields =
+                rich4_game_event_text_requested_fields(&event);
+            if (fields.subject == 52 || fields.subject == 53)
+                (void)rich4_confinement_presentation_enqueue(
+                    session, event.player, fields.value, fields.value2, now);
+        } else if (event.type == GAME_EVENT_INVENTORY_CHANGED &&
+                   action == 6 &&
+                   event.player == session->presentation.magic_house.target_player) {
+            Rich4GameEventFields fields = rich4_game_event_fields(&event);
+            if (fields.subject_ref.kind == GAME_DOMAIN_CARD && fields.value > 0)
+                session->presentation.magic_house.target_card =
+                    fields.subject_ref.id;
+        } else if (event.type == GAME_EVENT_PROPERTY_LEVEL_CHANGED &&
+                   out_events != NULL) {
+            Rich4GameEventFields fields = rich4_game_event_fields(&event);
+            /* 0x431CAA uses the Data.MKF handle at 0x48A0E4:
+             * build is Data[553]/Effect[91], demolish Data[529]/Effect[97]. */
+            (void)rich4_game_event_emit_typed_domain(
+                out_events,
+                rich4_game_event_tool_presentation_requested_from_fields,
+                event.player, rich4_game_domain_ref(GAME_DOMAIN_NONE, -1),
+                fields.subject_ref, action == 5 ? 553 : 529,
+                action == 5 ? 91 : 97, 0);
+        }
+        if (event.type == GAME_EVENT_ROUTE_EVENT_RESOLVED)
+            session->presentation.route_interaction.active = 0;
+        else if (event.type == GAME_EVENT_SPECIAL_EVENT_COMMITTED &&
+                 rich4_game_event_special_commit_amount(&event) == 7 &&
+                 rich4_game_event_special_commit_subject(&event).kind ==
+                     GAME_DOMAIN_PLAYER &&
+                 rich4_game_event_special_commit_subject(&event).id >= 0 &&
+                 rich4_game_event_special_commit_subject(&event).id <
+                     session->state.player_count) {
+            (void)rich4_app_present_turn_around(
+                session,
+                rich4_game_event_special_commit_subject(&event),
+                audio_events);
+        } else if (event.type == GAME_EVENT_AUCTION_REQUESTED) {
+            if (!rich4_bankruptcy_capture_event(session, &event, now))
+                (void)rich4_auction_flow_enqueue(
+                    session, &event, audio_events);
+        } else if (event.type == GAME_EVENT_PLAYER_ELIMINATED) {
+            if (!rich4_bankruptcy_capture_event(session, &event, now) &&
+                event.player >= 0 && event.player < GAME_MAX_PLAYERS) {
+                session->presentation.actors[event.player].move_active = 0;
+                session->presentation.actors[event.player].dirty_flags |=
+                    GAME_PLAYER_DIRTY_TURN;
+            }
+        } else if (event.type == GAME_EVENT_GAME_ENDED) {
+            if (!rich4_bankruptcy_capture_event(session, &event, now))
+                rich4_app_capture_game_ended(session, &event);
+        } else if (event.type ==
+                       GAME_EVENT_SPECIAL_EVENT_PRESENTATION_REQUESTED &&
+                   out_events != NULL)
+            (void)rich4_game_event_queue_push(out_events, &event);
+    }
+}
+
+static int rich4_magic_house_apply_current_target(
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events)
+{
+    struct MagicHouseState *magic;
+    GameEventQueue events;
+    RouteEventExecutionResult result;
+    int facility = -1;
+    int old_type = 0;
+    int action;
+    if (session == NULL || !session->presentation.magic_house.active)
+        return -1;
+    magic = &session->presentation.magic_house;
+    action = magic->selected_action;
+    if (action < 0 || action >= 12 || magic->target_player < 0 ||
+        magic->target_player >= session->state.player_count)
+        return -1;
+    if (action == 5 &&
+        magic->facility_choice[magic->target_player] >= 0 &&
+        rich4_magic_house_empty_facility(
+            &session->state, magic->target_player, &facility)) {
+        old_type = session->state.facility_type[facility];
+        session->state.facility_type[facility] =
+            magic->facility_choice[magic->target_player];
+    }
+    rich4_game_event_queue_reset(&events);
+    result = rich4_route_event_executor_apply_magic_house_target(
+        &session->flow.route_events, &session->state, action,
+        1u << magic->target_player, &events);
+    if (result == ROUTE_EVENT_EXECUTION_INVALID) {
+        if (facility >= 0) session->state.facility_type[facility] = old_type;
+        return -1;
+    }
+    magic->target_effect_applied = 1;
+    rich4_magic_house_capture_events(
+        session, action, now, audio_events, &events, out_events);
+    magic->effect_returns_to_targets = 1;
+    magic->target_hold_until = now;
+    if (action == 0 || action == 8)
+        magic->target_hold_until = now + 200;
+    else if (action == 7)
+        magic->target_hold_until = now + 500;
+    if (action == 0 || action == 1 || action == 2 || action == 5 ||
+        action == 7 || action == 8 || action == 9 || action == 10 ||
+        action == 11) {
+        magic->phase = RICH4_MAGIC_HOUSE_EFFECTS;
+        return 1;
+    }
+    return 0;
+}
+
+static void rich4_magic_house_complete_targets(
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events)
+{
+    GameEventQueue events;
+    int action;
+    if (session == NULL || !session->presentation.magic_house.active) return;
+    action = session->presentation.magic_house.selected_action;
+    rich4_game_event_queue_reset(&events);
+    if (rich4_route_event_executor_complete_magic_house(
+            &session->flow.route_events, &session->state, &events) ==
+        ROUTE_EVENT_EXECUTION_INVALID)
+        return;
+    rich4_magic_house_capture_events(
+        session, action, now, audio_events, &events, out_events);
+    memset(&session->presentation.magic_house, 0,
+           sizeof(session->presentation.magic_house));
+    session->presentation.has_view_override = 0;
+}
+
+static void rich4_magic_house_continue_targets(
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events)
+{
+    int next = rich4_magic_house_begin_next_target(
+        session, now, audio_events, out_events);
+    if (next == 0)
+        rich4_magic_house_complete_targets(
+            session, now, audio_events, out_events);
+}
+
 static int rich4_magic_house_begin_next_target(
-    GameSession *session, uint32_t now)
+    GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events)
 {
     struct MagicHouseState *magic;
     int player;
@@ -362,8 +515,17 @@ static int rich4_magic_house_begin_next_target(
         magic->pending_targets &= ~(1u << player);
         if (!rich4_magic_house_action_shows_target(
                 session, player, magic->selected_action)) continue;
-        magic->phase = RICH4_MAGIC_HOUSE_TARGET;
         magic->target_player = player;
+        magic->target_card = -1;
+        magic->target_effect_applied = 0;
+        /* 0x431CAA action 6 chooses the card before 0x440CAC formats the
+         * recipient message, whose second line contains that card's name. */
+        if (magic->selected_action == 6) {
+            int applied = rich4_magic_house_apply_current_target(
+                session, now, audio_events, out_events);
+            if (applied != 0) return -1;
+        }
+        magic->phase = RICH4_MAGIC_HOUSE_TARGET;
         magic->target_until = now + 1500;
         return 1;
     }
@@ -389,15 +551,25 @@ void rich4_magic_house_skip_intro(
     GameSession *session, uint32_t now, Rich4AudioEventQueue *audio_events)
 {
     struct MagicHouseState *magic;
+    uint32_t reveal_until;
     if (session == NULL || !session->presentation.magic_house.active ||
-        session->presentation.magic_house.phase > RICH4_MAGIC_HOUSE_INTRO_3)
+        session->presentation.magic_house.phase >= RICH4_MAGIC_HOUSE_INTRO_3)
         return;
     rich4_magic_emit(audio_events, RICH4_AUDIO_EVENT_SPEECH_STOP, 0);
     magic = &session->presentation.magic_house;
+    if ((int32_t)(magic->animation_tick - now) > 0)
+        reveal_until = magic->animation_tick + 100;
+    else
+        reveal_until = magic->animation_tick +
+            ((now - magic->animation_tick) / 100 + 1) * 100;
     magic->phase = RICH4_MAGIC_HOUSE_REVEAL;
     magic->hover = -1;
     magic->phase_started = now;
-    magic->phase_until = now + 1000;
+    /* 0x4325C2's mouse branch changes state before returning.  The next timer
+     * displays state 3; the following 100 ms tick chooses the condition. */
+    magic->phase_until = reveal_until;
+    /* byte_48C3A5 is set by the skip branch; state 4 skips Speaking[40]. */
+    magic->animation_enabled = 0;
     magic->speech_started = 0;
     magic->animation_frame = -1;
     magic->animation_countdown = 0;
@@ -527,7 +699,8 @@ int rich4_magic_house_presentation_player(const GamePresentationState *presentat
                 &presentation->tool_animation[presentation->tool_animation_head];
             player = request->after_sync_player;
             if (player <= -2) player = -2 - player;
-        }
+            if (player < 0) player = magic->target_player;
+        } else player = magic->target_player;
     }
     return player >= 0 && player < GAME_MAX_PLAYERS ? player : -1;
 }
@@ -538,13 +711,27 @@ int rich4_magic_house_update(
     Rich4AudioEventQueue *audio_events, GameEventQueue *out_events)
 {
     struct MagicHouseState *magic;
+    int phase_timer_fired = 0;
     if (session == NULL || !session->presentation.magic_house.active) return 0;
     magic = &session->presentation.magic_house;
     if (magic->phase == RICH4_MAGIC_HOUSE_EFFECTS) {
         if (session->presentation.tool_animation_count > 0 ||
-            session->presentation.insurance.count > 0) return 1;
-        /* 0x432501 restores the caster after the last recipient's call.
-         * The SDL target camera must return with the temporary selection. */
+            session->presentation.insurance.count > 0 ||
+            session->presentation.special_event.active ||
+            session->presentation.auction.active ||
+            session->presentation.auction.pending_count > 0 ||
+            session->presentation.bankruptcy.active ||
+            session->presentation.bankruptcy.awaiting_auction ||
+            session->flow.route_events.state.magic_fortune_sequence ||
+            (int32_t)(now - magic->target_hold_until) < 0)
+            return 1;
+        if (magic->effect_returns_to_targets) {
+            rich4_magic_house_continue_targets(
+                session, now, audio_events, out_events);
+            return session->presentation.magic_house.active;
+        }
+        /* Legacy direct completion callers still use EFFECTS only to hold
+         * the caster camera until confinement presentation is finished. */
         memset(magic, 0, sizeof(*magic));
         session->presentation.has_view_override = 0;
         return 0;
@@ -552,17 +739,15 @@ int rich4_magic_house_update(
     if (magic->phase == RICH4_MAGIC_HOUSE_AI_NOTICE) {
         if ((int32_t)(now - magic->phase_until) >= 0) {
             magic->pending_targets = magic->targets;
-            if (!rich4_magic_house_begin_next_target(session, now) &&
-                (magic->selected_action != 5 ||
-                 !rich4_magic_house_next_facility_choice(session)))
-                rich4_magic_house_finish(session, magic->selected_action, now,
-                                         audio_events, out_events);
+            rich4_magic_house_continue_targets(
+                session, now, audio_events, out_events);
         }
-        return 1;
+        return session->presentation.magic_house.active;
     }
     while (magic->phase != RICH4_MAGIC_HOUSE_FINALE &&
            (int32_t)(now - magic->animation_tick) >= 0) {
         magic->animation_tick += 100;
+        phase_timer_fired = 1;
         if (!magic->speech_started || magic->phase == RICH4_MAGIC_HOUSE_CONFIRM) {
             magic->animation_frame = -1;
             magic->animation_countdown = 0;
@@ -576,9 +761,30 @@ int rich4_magic_house_update(
         }
     }
     if (magic->phase == RICH4_MAGIC_HOUSE_REVEAL) {
-        if ((int32_t)(now - magic->phase_until) >= 0)
+        if ((int32_t)(now - magic->phase_until) >= 0) {
+            if (magic->condition < 0) {
+                GameEventQueue events;
+                RouteEventExecutionResult result;
+                int condition = -1;
+                unsigned int targets = 0;
+                rich4_game_event_queue_reset(&events);
+                result = rich4_route_event_executor_choose_magic_house_condition(
+                    &session->flow.route_events, &session->state,
+                    &condition, &targets, &events);
+                if (result == ROUTE_EVENT_EXECUTION_INVALID) return 1;
+                rich4_magic_house_capture_events(
+                    session, -1, now, audio_events, &events, out_events);
+                if (result == ROUTE_EVENT_EXECUTION_PROGRESSED) {
+                    memset(magic, 0, sizeof(*magic));
+                    session->presentation.has_view_override = 0;
+                    return 0;
+                }
+                magic->condition = condition;
+                magic->targets = targets;
+            }
             rich4_magic_house_start_phase(
                 session, RICH4_MAGIC_HOUSE_CONDITION, now, audio_events);
+        }
         return 1;
     }
     if (magic->phase == RICH4_MAGIC_HOUSE_FINALE) {
@@ -614,8 +820,8 @@ int rich4_magic_house_update(
             }
             magic->pending_targets = magic->targets;
             magic->target_player = -1;
-            magic->phase = RICH4_MAGIC_HOUSE_TARGET;
-            magic->target_until = now;
+            rich4_magic_house_continue_targets(
+                session, now, audio_events, out_events);
         }
         return session->presentation.magic_house.active;
     }
@@ -627,17 +833,22 @@ int rich4_magic_house_update(
             return 1;
         }
         if ((int32_t)(now - magic->target_until) < 0) return 1;
-        if (!rich4_magic_house_begin_next_target(session, now)) {
-            int action = magic->selected_action;
-            if (action != 5 || !rich4_magic_house_next_facility_choice(session))
-                rich4_magic_house_finish(
-                    session, action, now, audio_events, out_events);
+        if (!magic->target_effect_applied) {
+            int applied;
+            if (rich4_magic_house_begin_facility_choice(session)) return 1;
+            applied = rich4_magic_house_apply_current_target(
+                session, now, audio_events, out_events);
+            if (applied != 0) return 1;
         }
+        rich4_magic_house_continue_targets(
+            session, now, audio_events, out_events);
         return session->presentation.magic_house.active;
     }
     if (magic->phase == RICH4_MAGIC_HOUSE_FACILITY_CHOICE ||
         magic->phase == RICH4_MAGIC_HOUSE_SELECT) return 1;
-    if (now - magic->phase_started < 2000u || speech_playing) return 1;
+    /* 0x4325C2 advances speech states only from its 100 ms WM_TIMER path. */
+    if (!phase_timer_fired || now - magic->phase_started < 2000u ||
+        speech_playing) return 1;
     magic->speech_started = 0;
     switch (magic->phase) {
     case RICH4_MAGIC_HOUSE_INTRO_1:

@@ -222,6 +222,11 @@ class CodecGenerator:
                     "fortune_passive_card", "fortune_choice_hover", "fortune_card_targets_seen",
                     "fortune_god_notice_done", "fortune_passive_resolved",
                     "flash_adjust", "flash_presented_frame"},
+                # The magic-house settlement callback is modal and cannot
+                # open the save panel; these only continue its target loop.
+                "GameMagicHousePresentationState": {
+                    "target_effect_applied", "target_card",
+                    "effect_returns_to_targets", "target_hold_until"},
                 "CardPanelState": {"effect_frame", "effect_frame_count", "effect_clock"},
             }
             if field.name in transient.get(alias, set()):

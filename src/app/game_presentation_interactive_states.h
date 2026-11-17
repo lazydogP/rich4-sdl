@@ -222,6 +222,12 @@ typedef struct MagicHouseState {
     uint32_t phase_until;
     uint32_t phase_started;
     uint32_t animation_tick;
+    /* 0x431CAA blocking-loop continuation; the magic-house settlement UI
+     * cannot open the save panel, so these remain runtime-only. */
+    int target_effect_applied;
+    int target_card;
+    int effect_returns_to_targets;
+    uint32_t target_hold_until;
 } GameMagicHousePresentationState;
 
 typedef struct ToolAnimationRequest {

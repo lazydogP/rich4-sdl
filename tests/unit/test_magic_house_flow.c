@@ -5,6 +5,7 @@
 #include "app/magic_house_flow.h"
 #include "app/game_speech_flow.h"
 #include "app/insurance_flow.h"
+#include "app/special_place_notice_flow.h"
 #include "app/tool_animation_flow.h"
 #include "app/turn_rotation_flow.h"
 #include "core/confinement.h"
@@ -68,11 +69,213 @@ static void ai_notice_precedes_effect(void)
         assert(session.state.players[0].card_inventory[0] == 0);
         assert(session.state.ai_rng_state == rng_after_selection);
         assert(rich4_magic_house_update(&session, 0, 0, 2500, 0, &audio, &events));
+        assert(session.presentation.magic_house.active);
+        assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_TARGET);
+        assert(session.state.players[0].card_inventory[0] != 0);
+        assert(session.presentation.magic_house.target_card == 0);
+        assert(rich4_magic_house_update(&session, 0, 0, 3999, 0, &audio, &events));
+        assert(session.presentation.magic_house.active);
+        assert(!rich4_magic_house_update(&session, 0, 0, 4000, 0, &audio, &events));
         assert(!session.presentation.magic_house.active);
         assert(!rich4_route_event_executor_is_waiting(&session.flow.route_events));
-        assert(session.state.players[0].card_inventory[0] != 0);
-        assert(!rich4_magic_house_update(&session, 0, 0, 2501, 0, &audio, &events));
+        assert(!rich4_magic_house_update(&session, 0, 0, 4001, 0, &audio, &events));
     }
+}
+
+static void begin_two_target_magic(
+    GameSession *session, int action, uint32_t until)
+{
+    RouteEvent stop;
+    int player;
+    memset(session, 0, sizeof(*session));
+    memset(&stop, 0, sizeof(stop));
+    session->state.active = 1;
+    session->state.player_count = 2;
+    session->state.price_index = 1;
+    for (player = 0; player < 2; player++) {
+        session->state.players[player].play_state = 1;
+        session->state.players[player].linked_player = -1;
+    }
+    stop.phase = ROUTE_EVENT_PHASE_STOP;
+    stop.snapshot.route_action = 16;
+    assert(rich4_route_event_queue_push(
+        &session->flow.route_events.queue, &stop));
+    session->flow.route_events.state.execution_started = 1;
+    session->flow.route_events.state.execution_actor = 0;
+    session->flow.route_events.state.waiting_for_presentation = 1;
+    session->flow.route_events.state.presentation_action = 16;
+    session->flow.route_events.state.presentation_condition = 6;
+    session->flow.route_events.state.presentation_targets = 3u;
+    session->presentation.magic_house.active = 1;
+    session->presentation.magic_house.player = 0;
+    session->presentation.magic_house.phase = RICH4_MAGIC_HOUSE_AI_NOTICE;
+    session->presentation.magic_house.condition = 6;
+    session->presentation.magic_house.targets = 3u;
+    session->presentation.magic_house.selected_action = action;
+    session->presentation.magic_house.phase_until = until;
+    session->presentation.magic_house.target_player = -1;
+    session->presentation.magic_house.target_card = -1;
+}
+
+static void target_notices_interleave_effects_and_skip(void)
+{
+    GameSession session;
+    GameEventQueue events;
+    Rich4AudioEventQueue audio;
+    begin_two_target_magic(&session, 3, 1000);
+    rich4_game_event_queue_reset(&events);
+    rich4_audio_event_queue_init(&audio);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 1000, 0, &audio, &events));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_TARGET);
+    assert(session.presentation.magic_house.target_player == 0);
+    assert(session.state.players[0].days_stopping == 0);
+    assert(session.state.players[1].days_stopping == 0);
+    assert(rich4_special_place_notice_skip(&session, 1100));
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 1100, 0, &audio, &events));
+    assert(session.state.players[0].days_stopping == 1);
+    assert(session.state.players[1].days_stopping == 0);
+    assert(session.presentation.magic_house.target_player == 1);
+    assert(rich4_special_place_notice_skip(&session, 1200));
+    assert(!rich4_magic_house_update(
+        &session, 0, 0, 1200, 0, &audio, &events));
+    assert(session.state.players[1].days_stopping == 1);
+    assert(!rich4_route_event_executor_is_waiting(
+        &session.flow.route_events));
+}
+
+static void per_target_holds_precede_next_notice(void)
+{
+    GameSession session;
+    GameEventQueue events;
+    begin_two_target_magic(&session, 0, 1000);
+    session.state.players[0].card_inventory[0] = 1;
+    session.state.players[1].card_inventory[0] = 1;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 1000, 0, NULL, &events));
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 2500, 0, NULL, &events));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_EFFECTS);
+    assert(session.state.players[0].card_inventory[0] == 0);
+    assert(session.state.players[1].card_inventory[0] != 0);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 2699, 0, NULL, &events));
+    assert(session.presentation.magic_house.target_player == 0);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 2700, 0, NULL, &events));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_TARGET);
+    assert(session.presentation.magic_house.target_player == 1);
+}
+
+static void turn_effect_holds_for_500_ms(void)
+{
+    GameSession session;
+    GameEventQueue events;
+    begin_two_target_magic(&session, 7, 1000);
+    session.state.tool_route_node_count = 5;
+    session.state.players[0].node = 1;
+    session.state.players[0].next_node = 2;
+    session.state.players[1].node = 2;
+    session.state.players[1].next_node = 1;
+    session.state.route_object_raw[1] = 0x7d1;
+    session.state.route_object_raw[2] = 0x7d1;
+    session.state.tool_route_next[1][0] = 2;
+    session.state.tool_route_next[1][1] = 3;
+    session.state.tool_route_next[2][0] = 1;
+    session.state.tool_route_next[2][1] = 4;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 1000, 0, NULL, &events));
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 2500, 0, NULL, &events));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_EFFECTS);
+    assert(session.presentation.magic_house.target_player == 0);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 2999, 0, NULL, &events));
+    assert(session.presentation.magic_house.target_player == 0);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 3000, 0, NULL, &events));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_TARGET);
+    assert(session.presentation.magic_house.target_player == 1);
+}
+
+static void property_actions_emit_original_flcs(void)
+{
+    int action;
+    for (action = 5; action <= 9; action += 4) {
+        GameSession session;
+        GameEventQueue events;
+        GameEvent effect;
+        RouteEvent stop = {0};
+        memset(&session, 0, sizeof(session));
+        session.state.active = 1;
+        session.state.player_count = 1;
+        session.state.players[0].play_state = 1;
+        session.state.players[0].node = 1;
+        session.state.tool_route_node_count = 2;
+        session.state.route_object_raw[1] = 0x7d1;
+        session.state.land_count = 1;
+        session.state.land_owner[0] = 0;
+        session.state.land_level[0] = action == 5 ? 0 : 1;
+        session.state.land_price[0] = 100;
+        session.state.land_price_per_level[0] = 50;
+        stop.phase = ROUTE_EVENT_PHASE_STOP;
+        stop.snapshot.route_action = 16;
+        assert(rich4_route_event_queue_push(
+            &session.flow.route_events.queue, &stop));
+        session.flow.route_events.state.execution_started = 1;
+        session.flow.route_events.state.waiting_for_presentation = 1;
+        session.flow.route_events.state.presentation_action = 16;
+        session.flow.route_events.state.presentation_condition = 6;
+        session.flow.route_events.state.presentation_targets = 1u;
+        session.presentation.magic_house.active = 1;
+        session.presentation.magic_house.phase = RICH4_MAGIC_HOUSE_AI_NOTICE;
+        session.presentation.magic_house.condition = 6;
+        session.presentation.magic_house.targets = 1u;
+        session.presentation.magic_house.selected_action = action;
+        session.presentation.magic_house.phase_until = 1000;
+        session.presentation.magic_house.target_player = -1;
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_magic_house_update(
+            &session, 0, 0, 1000, 0, NULL, &events));
+        assert(rich4_magic_house_update(
+            &session, 0, 0, 2500, 0, NULL, &events));
+        assert(rich4_game_event_queue_pop(&events, &effect));
+        assert(effect.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED);
+        assert(rich4_game_event_tool_resource(&effect) ==
+               (action == 5 ? 553 : 529));
+        assert(rich4_game_event_tool_effect(&effect) ==
+               (action == 5 ? 91 : 97));
+        assert(rich4_game_event_tool_target(&effect).kind == GAME_DOMAIN_LAND);
+        assert(rich4_game_event_tool_target(&effect).id == 0);
+    }
+}
+
+static void skipped_intro_suppresses_turn_prompt(void)
+{
+    GameSession session;
+    GameEvent event;
+    Rich4AudioEventQueue audio;
+    memset(&session, 0, sizeof(session));
+    session.state.player_count = 1;
+    event = rich4_game_event_magic_house_request(0, 3, 1u);
+    rich4_audio_event_queue_init(&audio);
+    rich4_magic_house_begin(&session, &event, 1000, 1, &audio);
+    rich4_magic_house_skip_intro(&session, 1100, &audio);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 1199, 0, &audio, NULL));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_REVEAL);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 1200, 0, &audio, NULL));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_CONDITION);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 3199, 0, &audio, NULL));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_CONDITION);
+    assert(rich4_magic_house_update(
+        &session, 0, 0, 3200, 0, &audio, NULL));
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_SELECT);
 }
 
 static void confinement_actions_request_shared_presentations(void)
@@ -276,8 +479,15 @@ int main(void)
 
     rich4_magic_house_skip_intro(&session, 1100, &audio_events);
     assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_REVEAL);
+    assert(session.presentation.magic_house.phase_until == 1200);
+    assert(!session.presentation.magic_house.animation_enabled);
     assert(rich4_audio_event_pop(&audio_events, &audio_event));
     assert(audio_event.type == RICH4_AUDIO_EVENT_SPEECH_STOP);
+    session.presentation.magic_house.phase = RICH4_MAGIC_HOUSE_INTRO_3;
+    rich4_audio_event_queue_init(&audio_events);
+    rich4_magic_house_skip_intro(&session, 1150, &audio_events);
+    assert(session.presentation.magic_house.phase == RICH4_MAGIC_HOUSE_INTRO_3);
+    assert(!rich4_audio_event_pop(&audio_events, &audio_event));
     assert(rich4_magic_house_action_big5(0) != NULL);
     assert(rich4_magic_house_phase_big5(
         RICH4_MAGIC_HOUSE_INTRO_1, 0) != NULL);
@@ -320,6 +530,11 @@ int main(void)
     assert(audio_events.count == 0);
 
     ai_notice_precedes_effect();
+    target_notices_interleave_effects_and_skip();
+    per_target_holds_precede_next_notice();
+    turn_effect_holds_for_500_ms();
+    property_actions_emit_original_flcs();
+    skipped_intro_suppresses_turn_prompt();
     puts("app magic-house flow: ok");
     return 0;
 }

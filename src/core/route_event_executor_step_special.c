@@ -376,22 +376,22 @@ RouteEventExecutionResult rich4_route_event_executor_step_special(
             int condition;
             int magic_action;
             rich4_game_event_queue_reset(&staged);
-            special = rich4_magic_house_choose_condition(
-                &next_state, &condition, &targets);
-            if (special == GAME_SPECIAL_EVENT_NO_CANDIDATE) {
-                if (!rich4_route_event_executor_complete_events(
-                        &next_queue, ROUTE_EVENT_APPLIED, &staged) ||
-                    events->count + staged.count >
-                        GAME_EVENT_QUEUE_CAPACITY ||
-                    !rich4_game_event_queue_append(events, &staged))
-                    return ROUTE_EVENT_EXECUTION_INVALID;
-                *state = next_state;
-                *executor = next_queue;
-                return ROUTE_EVENT_EXECUTION_PROGRESSED;
-            }
-            if (special != GAME_SPECIAL_EVENT_APPLIED)
-                return ROUTE_EVENT_EXECUTION_INVALID;
             if ((next_state.players[executor->state.execution_actor].play_state & 0xff) != 1) {
+                special = rich4_magic_house_choose_condition(
+                    &next_state, &condition, &targets);
+                if (special == GAME_SPECIAL_EVENT_NO_CANDIDATE) {
+                    if (!rich4_route_event_executor_complete_events(
+                            &next_queue, ROUTE_EVENT_APPLIED, &staged) ||
+                        events->count + staged.count >
+                            GAME_EVENT_QUEUE_CAPACITY ||
+                        !rich4_game_event_queue_append(events, &staged))
+                        return ROUTE_EVENT_EXECUTION_INVALID;
+                    *state = next_state;
+                    *executor = next_queue;
+                    return ROUTE_EVENT_EXECUTION_PROGRESSED;
+                }
+                if (special != GAME_SPECIAL_EVENT_APPLIED)
+                    return ROUTE_EVENT_EXECUTION_INVALID;
                 if (targets & (1u << executor->state.execution_actor))
                     magic_action = 6;
                 else {
@@ -402,7 +402,14 @@ RouteEventExecutionResult rich4_route_event_executor_step_special(
                     if (magic_action == 6) magic_action = 7;
                     next_state.ai_rng_state = rng.state;
                 }
-            } else magic_action = -1;
+            } else {
+                /* 0x4325C2 states 0..3 run before 0x4327F2 chooses the
+                 * condition.  Keep the human request pending so those RNG
+                 * calls remain in their original order. */
+                condition = -1;
+                targets = 0;
+                magic_action = -1;
+            }
             {
                 GameEvent request;
                 /* 0x43380A fixes Panel.MKF 18/19/20 inside the magic-house

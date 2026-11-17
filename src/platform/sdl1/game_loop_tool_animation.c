@@ -33,6 +33,12 @@ int game_tool_effect_data(const GamePreviewAssets *assets,
         *out_size = assets->tool.property_max_level_size;
         return 1;
     }
+    if (resource == 529 &&
+        game_asset_ready(assets, &assets->ui.has_demolish_card_animation)) {
+        *out_data = assets->ui.demolish_card_data;
+        *out_size = assets->ui.demolish_card_size;
+        return 1;
+    }
     for (i = 0; i < GAME_TOOL_EFFECT_ASSET_COUNT; i++)
         if (assets->tool.tool_effect_resource[i] == resource &&
             game_asset_ready(assets, &assets->tool.has_tool_effect[i])) {

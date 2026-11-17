@@ -216,10 +216,16 @@ static RouteEventCommandResult rich4_route_event_executor_submit_impl(
                     &next_queue,&next_state,&staged);
                 if (started<0)
                     return ROUTE_EVENT_COMMAND_INVALID;
-                if (started==0 &&
-                    !rich4_route_event_executor_complete_events(
-                        &next_queue,ROUTE_EVENT_APPLIED,&staged))
-                    return ROUTE_EVENT_COMMAND_INVALID;
+                if (started==0) {
+                    if (next_queue.state.presentation_action == 16 &&
+                        next_queue.state.presentation_condition >= 0 &&
+                        next_queue.state.presentation_targets != 0) {
+                        next_queue.state.waiting_for_presentation=1;
+                        next_queue.state.last_result=ROUTE_EVENT_WAITING_FOR_COMMAND;
+                    } else if (!rich4_route_event_executor_complete_events(
+                            &next_queue,ROUTE_EVENT_APPLIED,&staged))
+                        return ROUTE_EVENT_COMMAND_INVALID;
+                }
             } else if (!rich4_route_event_executor_complete_events(
                            &next_queue,ROUTE_EVENT_APPLIED,&staged))
                 return ROUTE_EVENT_COMMAND_INVALID;

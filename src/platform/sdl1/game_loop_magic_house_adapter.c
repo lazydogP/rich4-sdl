@@ -21,6 +21,9 @@ static void game_apply_magic_events(
     while (rich4_game_event_queue_pop(events, &event))
         if (event.type == GAME_EVENT_SPECIAL_EVENT_PRESENTATION_REQUESTED)
             game_begin_special_event_presentation(session, assets, &event, audio, now);
+        else if (event.type == GAME_EVENT_TOOL_PRESENTATION_REQUESTED)
+            game_tool_animation_enqueue_from_platform(
+                session, assets, &event, now);
         else if (event.type == GAME_EVENT_GOD_ACQUIRED)
             game_begin_god_presentation(session, assets, &event, now);
 }

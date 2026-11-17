@@ -273,9 +273,140 @@ static RouteEventExecutionResult rich4_route_event_executor_resume_magic_house_i
     return ROUTE_EVENT_EXECUTION_PROGRESSED;
 }
 
+static int rich4_route_event_executor_magic_house_matches(
+    const RouteEventExecutor *executor)
+{
+    const RouteEvent *event;
+    if (executor == NULL || !executor->state.execution_started ||
+        !executor->state.waiting_for_presentation ||
+        executor->state.presentation_action != 16 ||
+        executor->state.presentation_condition < 0 ||
+        executor->state.presentation_condition >= 12 ||
+        executor->state.presentation_targets == 0)
+        return 0;
+    event = rich4_route_event_executor_current(executor);
+    return event != NULL && event->phase == ROUTE_EVENT_PHASE_STOP &&
+        event->snapshot.route_action == 16;
+}
 
+RouteEventExecutionResult rich4_route_event_executor_choose_magic_house_condition(
+    RouteEventExecutor *executor, GameState *state, int *condition,
+    unsigned int *targets, GameEventQueue *events)
+{
+    const RouteEvent *event;
+    RouteEventExecutor next_queue;
+    GameState next_state;
+    GameEventQueue staged;
+    GameSpecialEventResult special;
+    if (executor == NULL || state == NULL || condition == NULL ||
+        targets == NULL || events == NULL ||
+        !executor->state.execution_started ||
+        !executor->state.waiting_for_presentation ||
+        executor->state.presentation_action != 16 ||
+        executor->state.presentation_condition != -1 ||
+        executor->state.presentation_targets != 0)
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    event = rich4_route_event_executor_current(executor);
+    if (event == NULL || event->phase != ROUTE_EVENT_PHASE_STOP ||
+        event->snapshot.route_action != 16)
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    next_queue = *executor;
+    next_state = *state;
+    rich4_game_event_queue_reset(&staged);
+    special = rich4_magic_house_choose_condition(
+        &next_state, condition, targets);
+    if (special == GAME_SPECIAL_EVENT_NO_CANDIDATE) {
+        next_queue.state.waiting_for_presentation = 0;
+        next_queue.state.presentation_action = 0;
+        if (!rich4_route_event_executor_complete_events(
+                &next_queue, ROUTE_EVENT_APPLIED, &staged))
+            return ROUTE_EVENT_EXECUTION_INVALID;
+    } else if (special == GAME_SPECIAL_EVENT_APPLIED) {
+        next_queue.state.presentation_condition = *condition;
+        next_queue.state.presentation_targets = *targets;
+    } else return ROUTE_EVENT_EXECUTION_INVALID;
+    if (events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
+        !rich4_game_event_queue_append(events, &staged))
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    *executor = next_queue;
+    *state = next_state;
+    return special == GAME_SPECIAL_EVENT_APPLIED
+        ? ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND
+        : ROUTE_EVENT_EXECUTION_PROGRESSED;
+}
 
+RouteEventExecutionResult rich4_route_event_executor_apply_magic_house_target(
+    RouteEventExecutor *executor, GameState *state, int action,
+    unsigned int target, GameEventQueue *events)
+{
+    GameState next_state;
+    RouteEventExecutor next_queue;
+    GameEventQueue staged;
+    int started;
+    if (state == NULL || events == NULL || action < 0 || action >= 12 ||
+        target == 0 || (target & (target - 1u)) != 0 ||
+        !rich4_route_event_executor_magic_house_matches(executor) ||
+        (target & executor->state.presentation_targets) != target)
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    next_state = *state;
+    next_queue = *executor;
+    rich4_game_event_queue_reset(&staged);
+    if (action == 1) {
+        next_queue.state.waiting_for_presentation = 0;
+        next_queue.state.magic_fortune_sequence = 1;
+        next_queue.state.magic_fortune_target = -1;
+        next_queue.state.magic_fortunes_left = 0;
+        next_queue.state.magic_fortune_targets_left = target;
+        started = begin_next_magic_fortune(
+            &next_queue, &next_state, &staged);
+        if (started < 0)
+            return ROUTE_EVENT_EXECUTION_INVALID;
+        if (started == 0) {
+            /* The original outer 0x431CAA loop still advances to the next
+             * recipient when this recipient has no fortune candidate. */
+            next_queue.state.waiting_for_presentation = 1;
+            next_queue.state.last_result = ROUTE_EVENT_WAITING_FOR_COMMAND;
+        }
+    } else {
+        if (rich4_magic_house_apply_action_deferred_confinement(
+                &next_state, executor->state.execution_actor,
+                executor->state.presentation_condition, action, target,
+                &staged) != GAME_SPECIAL_EVENT_APPLIED)
+            return ROUTE_EVENT_EXECUTION_INVALID;
+        started = 0;
+    }
+    if (events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
+        !rich4_game_event_queue_append(events, &staged))
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    *state = next_state;
+    *executor = next_queue;
+    return started ? ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND :
+        ROUTE_EVENT_EXECUTION_PROGRESSED;
+}
 
+RouteEventExecutionResult rich4_route_event_executor_complete_magic_house(
+    RouteEventExecutor *executor, GameState *state, GameEventQueue *events)
+{
+    RouteEventExecutor next_queue;
+    GameEventQueue staged;
+    if (state == NULL || events == NULL ||
+        !rich4_route_event_executor_magic_house_matches(executor) ||
+        executor->state.magic_fortune_sequence)
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    next_queue = *executor;
+    next_queue.state.waiting_for_presentation = 0;
+    next_queue.state.presentation_action = 0;
+    next_queue.state.presentation_condition = -1;
+    next_queue.state.presentation_targets = 0;
+    rich4_game_event_queue_reset(&staged);
+    if (!rich4_route_event_executor_complete_events(
+            &next_queue, ROUTE_EVENT_APPLIED, &staged) ||
+        events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
+        !rich4_game_event_queue_append(events, &staged))
+        return ROUTE_EVENT_EXECUTION_INVALID;
+    *executor = next_queue;
+    return ROUTE_EVENT_EXECUTION_PROGRESSED;
+}
 
 RouteEventExecutionResult rich4_route_event_executor_resume_magic_house(RouteEventExecutor *executor, GameState *state, int action, GameEventQueue *events)
 {

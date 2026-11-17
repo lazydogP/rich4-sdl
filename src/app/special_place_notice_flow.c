@@ -127,8 +127,12 @@ int rich4_special_place_notice_skip(GameSession *session, uint32_t now)
     } else if (p->point_minigame.active && p->point_minigame.automatic &&
                p->point_minigame.phase == RICH4_POINT_MINIGAME_RESULT) {
         p->point_minigame.finish_until = now;
-    } else if (p->magic_house.active && p->magic_house.phase == RICH4_MAGIC_HOUSE_AI_NOTICE) {
+    } else if (p->magic_house.active &&
+               p->magic_house.phase == RICH4_MAGIC_HOUSE_AI_NOTICE) {
         p->magic_house.phase_until = now;
+    } else if (p->magic_house.active &&
+               p->magic_house.phase == RICH4_MAGIC_HOUSE_TARGET) {
+        p->magic_house.target_until = now;
     } else if (p->special_reward.active && p->special_reward.action >= 10 &&
                p->special_reward.action <= 13 && p->special_reward.phase > 0) {
         p->special_reward.until = now;

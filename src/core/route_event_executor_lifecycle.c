@@ -20,6 +20,11 @@ void rich4_route_event_executor_reset(RouteEventExecutor *executor)
 
 void clear_pending(RouteEventExecutor *executor)
 {
+    int preserve_magic_target =
+        executor->state.magic_fortune_sequence &&
+        executor->state.presentation_action == 16 &&
+        executor->state.presentation_condition >= 0 &&
+        executor->state.presentation_targets != 0;
     memset(&executor->state.pending_accept, 0,
            sizeof(executor->state.pending_accept));
     memset(&executor->state.pending_decline, 0,
@@ -32,11 +37,13 @@ void clear_pending(RouteEventExecutor *executor)
     executor->state.waiting_for_liquidation = 0;
     executor->state.waiting_for_presentation = 0;
     executor->state.presentation_land = -1;
-    executor->state.presentation_action = 0;
     executor->state.presentation_company = -1;
     executor->state.presentation_mode = -1;
-    executor->state.presentation_condition = -1;
-    executor->state.presentation_targets = 0;
+    if (!preserve_magic_target) {
+        executor->state.presentation_action = 0;
+        executor->state.presentation_condition = -1;
+        executor->state.presentation_targets = 0;
+    }
     executor->state.lottery_purchase_committed = 0;
 }
 

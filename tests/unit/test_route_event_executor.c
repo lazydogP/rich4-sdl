@@ -495,6 +495,7 @@ static void magic_three_fortunes_sequence(void)
     GameEvent request;
     static const int safe_fortunes[6]={20,21,22,25,27,28};
     int i, j, presentations=0, expected=0;
+    uint32_t before_condition_rng;
     memset(&state,0,sizeof(state));
     state.active=1; state.player_count=2; state.price_index=1;
     state.map=0; state.stage=0; state.prison_node=70;
@@ -520,37 +521,59 @@ static void magic_three_fortunes_sequence(void)
     rich4_route_event_executor_reset(&queue);
     assert(rich4_route_event_queue_push(&queue.queue,&stop));
     assert(rich4_route_event_executor_begin(&queue,0,901));
+    before_condition_rng=state.ai_rng_state;
     rich4_game_event_queue_reset(&events);
     assert(rich4_route_event_executor_step(&queue,&state,&events)==
            ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND);
     request=pop(&events);
+    assert(state.ai_rng_state==before_condition_rng);
     assert(request.type==GAME_EVENT_MAGIC_HOUSE_REQUESTED);
     assert(rich4_game_event_value(&request)==0 &&
            rich4_game_event_value2(&request)==0);
-    assert(rich4_game_event_subject(&request)>=0 &&
-           rich4_game_event_subject(&request)<12);
-    assert(rich4_game_event_flags(&request)!=0);
+    assert(rich4_game_event_subject(&request)==-1);
+    assert(rich4_game_event_flags(&request)==0);
     assert(rich4_game_domain_ref_is_none(rich4_game_event_subject_ref(&request)));
     assert(rich4_game_domain_ref_is_none(rich4_game_event_target_ref(&request)));
     assert(events.count==0);
+    {
+        int condition=-1;
+        unsigned int targets=0;
+        assert(rich4_route_event_executor_choose_magic_house_condition(
+                   &queue,&state,&condition,&targets,&events)==
+               ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND);
+        assert(condition>=0 && condition<12 && targets!=0);
+        assert(state.ai_rng_state!=before_condition_rng);
+        assert(queue.state.presentation_condition==condition);
+        assert(queue.state.presentation_targets==targets);
+        assert(events.count==0);
+    }
     for (i=0;i<state.player_count;i++)
         if (queue.state.presentation_targets&(1u<<i)) expected+=3;
     assert(expected>=3 && expected<=6);
-    rich4_game_event_queue_reset(&events);
-    assert(rich4_route_event_executor_resume_magic_house(
-               &queue,&state,1,&events)==
-           ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND);
-    while (queue.state.magic_fortune_sequence) {
-        GameCommand confirm=queue.state.pending_accept;
-        assert(state.special_event_phase==GAME_SPECIAL_PHASE_PREPARED);
+    for (i=0;i<state.player_count;i++) {
+        if ((queue.state.presentation_targets&(1u<<i))==0) continue;
         rich4_game_event_queue_reset(&events);
-        assert(rich4_route_event_executor_submit(
-                   &queue,&state,&confirm,&events)==
-               ROUTE_EVENT_COMMAND_APPLIED);
-        presentations++;
-        assert(presentations<=6);
+        assert(rich4_route_event_executor_apply_magic_house_target(
+                   &queue,&state,1,1u<<i,&events)==
+               ROUTE_EVENT_EXECUTION_WAITING_FOR_COMMAND);
+        while (queue.state.magic_fortune_sequence) {
+            GameCommand confirm=queue.state.pending_accept;
+            assert(state.special_event_phase==GAME_SPECIAL_PHASE_PREPARED);
+            rich4_game_event_queue_reset(&events);
+            assert(rich4_route_event_executor_submit(
+                       &queue,&state,&confirm,&events)==
+                   ROUTE_EVENT_COMMAND_APPLIED);
+            presentations++;
+            assert(presentations<=6);
+        }
+        assert(queue.state.waiting_for_presentation);
+        assert(queue.state.presentation_action==16);
     }
     assert(presentations==expected);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_route_event_executor_complete_magic_house(
+               &queue,&state,&events)==ROUTE_EVENT_EXECUTION_PROGRESSED);
+    assert(!rich4_route_event_executor_is_waiting(&queue));
 }
 
 /* 0x431DBC does not stop its three calls when the target is eliminated.

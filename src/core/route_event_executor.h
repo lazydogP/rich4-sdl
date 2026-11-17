@@ -119,6 +119,25 @@ RouteEventExecutionResult rich4_route_event_executor_resume_magic_house(
     GameState *state,
     int action,
     GameEventQueue *events);
+/* 0x431CAA applies each selected recipient before advancing to the next one.
+ * These continuations keep the route event open while the app presents that
+ * recipient's blocking effect. */
+RouteEventExecutionResult rich4_route_event_executor_apply_magic_house_target(
+    RouteEventExecutor *executor,
+    GameState *state,
+    int action,
+    unsigned int target,
+    GameEventQueue *events);
+RouteEventExecutionResult rich4_route_event_executor_choose_magic_house_condition(
+    RouteEventExecutor *executor,
+    GameState *state,
+    int *condition,
+    unsigned int *targets,
+    GameEventQueue *events);
+RouteEventExecutionResult rich4_route_event_executor_complete_magic_house(
+    RouteEventExecutor *executor,
+    GameState *state,
+    GameEventQueue *events);
 int rich4_route_event_executor_is_waiting(const RouteEventExecutor *executor);
 
 /* 0x431CAA: continue the next fortune only after the preceding callback. */

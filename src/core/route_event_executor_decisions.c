@@ -226,7 +226,14 @@ RouteEventExecutionResult rich4_route_event_executor_finish_fortune_callback(
     rich4_game_event_queue_reset(&staged);
     next.state.waiting_for_presentation=0;
     started=begin_next_magic_fortune(&next,&next_state,&staged);
+    if (started == 0 && next.state.presentation_action == 16 &&
+        next.state.presentation_condition >= 0 &&
+        next.state.presentation_targets != 0) {
+        next.state.waiting_for_presentation = 1;
+        next.state.last_result = ROUTE_EVENT_WAITING_FOR_COMMAND;
+    }
     if (started<0 || (started==0 &&
+        next.state.presentation_action != 16 &&
         !rich4_route_event_executor_complete_events(&next,ROUTE_EVENT_APPLIED,&staged)) ||
         events->count+staged.count>GAME_EVENT_QUEUE_CAPACITY ||
         !rich4_game_event_queue_append(events,&staged))
