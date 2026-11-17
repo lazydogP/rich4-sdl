@@ -123,6 +123,12 @@ void draw_virtual_cursor_presentation(
         display_cursor.chunk_index =
             rich4_app_stock_interaction_cursor_chunk_index(
                 context->session, display_cursor.chunk_index);
+        display_cursor.chunk_index = game_card_panel_cursor_chunk_index(
+            context->assets, context->settings, context->session,
+            context->session != NULL
+                ? &context->session->presentation.card_panel : NULL,
+            context->cursor->x, context->cursor->y,
+            display_cursor.chunk_index);
     }
     if (context->host_pointer_sync_needed != NULL &&
         *context->host_pointer_sync_needed)

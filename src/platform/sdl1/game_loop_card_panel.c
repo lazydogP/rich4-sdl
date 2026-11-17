@@ -82,6 +82,38 @@ static int card_panel_demolish_property_valid(
            level > 0;
 }
 
+GameDomainRef game_card_panel_demolish_target_from_object_id(
+    const GameState *state, int actor, int object_id)
+{
+    GameDomainRef target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    int dynamic_slot;
+    int placement_slot;
+
+    if (state == NULL || actor < 0 || actor >= state->player_count)
+        return target;
+    if (object_id > 0x7d0 && object_id < 0xfa0) {
+        target = rich4_game_domain_ref(
+            GAME_DOMAIN_LAND, object_id - 0x7d1);
+        return card_panel_demolish_property_valid(state, actor, target)
+            ? target : rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    }
+    if (object_id > 0xfa0 && object_id < 0x1770) {
+        target = rich4_game_domain_ref(
+            GAME_DOMAIN_FACILITY, object_id - 0xfa1);
+        return card_panel_demolish_property_valid(state, actor, target)
+            ? target : rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    }
+    dynamic_slot = card_panel_dynamic_slot_from_object_id(object_id);
+    placement_slot = dynamic_slot - 16;
+    if (dynamic_slot < 16 ||
+        placement_slot < 0 ||
+        placement_slot >= GAME_TOOL_PLACED_OBJECT_COUNT ||
+        state->tool_placed_objects[placement_slot].kind < 0x10 ||
+        state->tool_placed_objects[placement_slot].kind > 0x12)
+        return target;
+    return rich4_game_domain_ref(GAME_DOMAIN_MAP_OBJECT, placement_slot);
+}
+
 static void card_panel_apply_action(
     GameSession *session, const GamePreviewAssets *assets,
     const NewGameSettings *settings, CardPanelState *panel,
@@ -207,21 +239,16 @@ static GameDomainRef card_panel_map_target(
         int object_id = game_map_object_at(
             assets, settings, &view.game,
             session->presentation.dynamic_objects, x, y, &visible);
-        int dynamic_slot = card_panel_dynamic_slot_from_object_id(object_id);
-        if (dynamic_slot >= 0 &&
-            session->state.tool_placed_objects[dynamic_slot].kind >= 0x10 &&
-            session->state.tool_placed_objects[dynamic_slot].kind <= 0x12)
-            return rich4_game_domain_ref(
-                GAME_DOMAIN_MAP_OBJECT, dynamic_slot);
+        /* 0x40A9D7 returns the final ID painted by 0x409B18's 440x440
+         * hit table.  Selector case 6 at 0x445E4D validates that one ID;
+         * it does not fall through to a nearby property anchor when the
+         * topmost object is invalid. */
+        return game_card_panel_demolish_target_from_object_id(
+            &session->state, panel->player, object_id);
     }
     for (i = 0; i < session->state.land_count &&
                 (size_t)(i + 1) < map->land_count; i++) {
         int sx, sy, dx, dy, distance;
-        if (target_kind == GAME_CARD_TARGET_PROPERTY_OR_MAP_OBJECT &&
-            !card_panel_demolish_property_valid(
-                &session->state, panel->player,
-                rich4_game_domain_ref(GAME_DOMAIN_LAND, i)))
-            continue;
         rich4_game_viewport_project(
             &view.game.viewport, map->lands[i + 1].x,
             map->lands[i + 1].y, &sx, &sy);
@@ -236,11 +263,6 @@ static GameDomainRef card_panel_map_target(
     for (i = 0; i < session->state.facility_count &&
                 (size_t)(i + 1) < map->facility_count; i++) {
         int sx, sy, dx, dy, distance;
-        if (target_kind == GAME_CARD_TARGET_PROPERTY_OR_MAP_OBJECT &&
-            !card_panel_demolish_property_valid(
-                &session->state, panel->player,
-                rich4_game_domain_ref(GAME_DOMAIN_FACILITY, i)))
-            continue;
         rich4_game_viewport_project(
             &view.game.viewport, map->facilities[i + 1].x,
             map->facilities[i + 1].y, &sx, &sy);
@@ -253,6 +275,29 @@ static GameDomainRef card_panel_map_target(
         }
     }
     return best;
+}
+
+size_t game_card_panel_cursor_chunk_index(
+    const GamePreviewAssets *assets, const NewGameSettings *settings,
+    const GameSession *session, const CardPanelState *panel,
+    int cursor_x, int cursor_y, size_t default_chunk)
+{
+    static const size_t edge_cursor[5] = {41, 34, 40, 38, 36};
+    GameDomainRef target;
+
+    if (assets == NULL || settings == NULL || session == NULL ||
+        panel == NULL || panel->phase != CARD_PANEL_MAP_TARGET ||
+        panel->selected_card != 11)
+        return default_chunk;
+    if (panel->edge_scroll.direction >= 1 &&
+        panel->edge_scroll.direction <= 4)
+        return edge_cursor[panel->edge_scroll.direction];
+    target = card_panel_map_target(
+        assets, settings, session, panel, cursor_x, cursor_y, NULL);
+    /* 0x443B28 passes selector mask 0x0E0C0626 to 0x446AE8.
+     * 0x445E4D uses BYTE2 (12) for a valid case-6 target and cursor 5
+     * when the hit-table ID does not satisfy that case. */
+    return target.kind == GAME_DOMAIN_NONE ? 5 : 12;
 }
 
 static int card_panel_projected_god_target(

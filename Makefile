@@ -1133,6 +1133,7 @@ SDL_TESTS := \
 	test_audio_loops \
 	test_big5_utf8 \
 	test_card_presentation \
+	test_card_target_selection \
 	test_catcher_minigame \
 	test_dog_encounter \
 	test_engineering_sdl \
@@ -1360,6 +1361,7 @@ $(eval $(call RICH4_TEST_SUITE,test-sleepwalking,,test_sleepwalking_sdl test_tur
 $(eval $(call RICH4_TEST_SUITE,test-dice-flow,,test_dice_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-panel-flow,,test_card_panel_flow))
 $(eval $(call RICH4_TEST_SUITE,test-card-presentation,,test_card_presentation))
+$(eval $(call RICH4_TEST_SUITE,test-card-target-selection,,test_card_target_selection))
 $(eval $(call RICH4_TEST_SUITE,test-card-use-flow,,test_card_use_flow test_game_dispatch test_card_panel_flow test_ai_flow test_game_update_flow test_turn_start_flow test_app_input_flow test_game_speech_flow test_monster_card_flow test_audio_event test_character_speech))
 $(eval $(call RICH4_TEST_SUITE,test-catcher-minigame,,test_point_minigame_flow test_sdl1_blit test_catcher_minigame))
 $(eval $(call RICH4_TEST_SUITE,test-characterization,,test_trace))
