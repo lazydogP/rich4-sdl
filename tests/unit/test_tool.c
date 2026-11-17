@@ -75,12 +75,12 @@ static void placement_and_rejection(void)
     setup(&state);
     rich4_game_event_queue_reset(&events);
     state.players[0].tool_inventory[1] = 2;
-    command = use_tool(1, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 2));
+    command = use_tool(1, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 4));
     assert(rich4_tool_apply_command(&state, &command, &events) == GAME_TOOL_USE_APPLIED);
     assert(state.players[0].tool_inventory[1] == 1);
     assert(state.tool_amount[1] == 1);
     assert(state.tool_placed_objects[0].kind == 0x10 &&
-           state.tool_placed_objects[0].node == 2 &&
+           state.tool_placed_objects[0].node == 4 &&
            state.tool_placed_objects[0].owner == 0);
     assert(events.count == 3 && events.events[0].type == GAME_EVENT_MAP_OBJECT_CHANGED &&
            events.events[1].type == GAME_EVENT_INVENTORY_CHANGED &&
@@ -107,6 +107,53 @@ static void placement_and_rejection(void)
     before = state;
     assert(rich4_tool_apply_command(&state, &command, &events) == GAME_TOOL_USE_INVALID);
     assert(memcmp(&state, &before, sizeof(state)) == 0);
+}
+
+static void occupied_route_placement_rejection(void)
+{
+    GameState state, before;
+    GameEventQueue events;
+    GameCommand command;
+
+    setup(&state);
+    state.players[0].tool_inventory[3] = 1;
+    command = use_tool(3, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 2));
+    before = state;
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_tool_apply_command(&state, &command, &events) ==
+           GAME_TOOL_USE_INVALID);
+    assert(memcmp(&state, &before, sizeof(state)) == 0 && events.count == 0);
+
+    /* 0x40CE0E retains the bankrupt player's 0x100 << player occupancy
+     * bit.  The shared 0x409BC0 target table therefore rejects a bomb on
+     * the beggar's node even though the player's active state is now zero. */
+    state.players[1].play_state = 0;
+    before = state;
+    assert(rich4_tool_apply_command(&state, &command, &events) ==
+           GAME_TOOL_USE_INVALID);
+    assert(memcmp(&state, &before, sizeof(state)) == 0 && events.count == 0);
+
+    setup(&state);
+    state.players[0].tool_inventory[3] = 1;
+    state.players[1].days_in_hospital = 1;
+    command = use_tool(3, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 2));
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_tool_apply_command(&state, &command, &events) ==
+           GAME_TOOL_USE_APPLIED);
+
+    setup(&state);
+    state.players[0].tool_inventory[3] = 1;
+    state.special_player_node[0] = 4;
+    state.special_player_f10[0] = 0;
+    command = use_tool(3, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 4));
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_tool_apply_command(&state, &command, &events) ==
+           GAME_TOOL_USE_INVALID);
+
+    state.special_player_node[0] = 0;
+    state.tool_route_flags[4] = UINT32_C(0x00000100);
+    assert(rich4_tool_apply_command(&state, &command, &events) ==
+           GAME_TOOL_USE_INVALID);
 }
 
 static void vehicles_and_deferred(void)
@@ -531,6 +578,7 @@ static void triggers(void)
     setup(&state);
     rich4_game_event_queue_reset(&events);
     state.players[0].tool_inventory[1] = 1;
+    state.players[0].node = 3;
     command = use_tool(1, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 1));
     assert(rich4_tool_apply_command(&state, &command, &events) == GAME_TOOL_USE_APPLIED);
     rich4_game_event_queue_reset(&events);
@@ -545,8 +593,10 @@ static void triggers(void)
            event.player == 1);
 
     state.players[0].tool_inventory[2] = 1;
+    state.players[1].node = 4;
     command = use_tool(2, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 2));
     assert(rich4_tool_apply_command(&state, &command, &events) == GAME_TOOL_USE_APPLIED);
+    state.players[1].node = 2;
     rich4_game_event_queue_reset(&events);
     assert(rich4_tool_trigger_at_node(&state, 1, 2, 1, &events) ==
            GAME_TOOL_TRIGGER_STOP_DEFERRED_EFFECT);
@@ -663,7 +713,7 @@ static void rollback_and_snapshot(void)
     int i;
     setup(&state);
     state.players[0].tool_inventory[1] = 1;
-    command = use_tool(1, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 2));
+    command = use_tool(1, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 4));
     rich4_game_event_queue_reset(&events);
     filler = rich4_game_event_text_requested_from_fields(
         (Rich4GameEventFields){
@@ -774,6 +824,7 @@ int main(void)
     robot_route_policy();
     catalog_and_layout();
     placement_and_rejection();
+    occupied_route_placement_rejection();
     vehicles_and_deferred();
     robot_worker();
     missile_projected_area();

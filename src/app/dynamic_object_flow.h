@@ -8,6 +8,9 @@
 #include "view/game_view_model.h"
 
 void rich4_app_init_dynamic_object_pool(GamePresentationState *presentation);
+/* Typed equivalent of an original dynamic-object bit in route +0x24. */
+int rich4_app_dynamic_object_occupies_route_node(
+    const GamePresentationState *presentation, int node);
 /* 0x407AD2 -> 0x40AA6C/0x40E033: place the eight dynamic objects created
  * when a new MAPDAT is loaded.  MapData is borrowed and is not mutated. */
 void rich4_app_initialize_dynamic_map_objects(

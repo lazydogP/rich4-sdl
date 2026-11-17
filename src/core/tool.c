@@ -162,6 +162,31 @@ int rich4_tool_object_on_node(const GameState *state, int node)
     return -1;
 }
 
+int rich4_tool_route_node_occupied(const GameState *state, int node)
+{
+    int i;
+    if (!rich4_tool_valid_node(state, node)) return 0;
+    /* 0x409BC0/0x409EF9 omit roads whose original +0x24 occupancy word
+     * has any player, special actor, or dynamic-object bit in 8..23.
+     * 0x40CE0E deliberately leaves the ordinary-player bit set after
+     * bankruptcy, so an inactive player retaining this node is a beggar
+     * and still blocks roadblock/mine/timed-bomb placement. */
+    for (i = 0; i < state->player_count && i < GAME_MAX_PLAYERS; i++) {
+        const GamePlayerState *player = &state->players[i];
+        if (player->node != node) continue;
+        if ((player->play_state & 0xff) == 0 ||
+            (!player->delayed_status_block &&
+             !player->days_disappearing && !player->days_in_prison &&
+             !player->days_in_hospital))
+            return 1;
+    }
+    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++)
+        if (state->special_player_node[i] == node &&
+            state->special_player_f10[i] == 0)
+            return 1;
+    return rich4_tool_object_on_node(state, node) >= 0;
+}
+
 int rich4_tool_placement_slot(const GameState *state, int tool)
 {
     int first = (tool - 1) * GAME_TOOL_PLACED_OBJECTS_PER_KIND;
@@ -254,7 +279,8 @@ GameToolUseResult rich4_tool_inspect(const GameState *state,
         node = command->target.id;
         if (node <= 0 || node >= state->tool_route_node_count ||
             !state->tool_route_node_placeable[node] ||
-            rich4_tool_object_on_node(state, node) >= 0 ||
+            (state->tool_route_flags[node] & UINT32_C(0x00ffff00)) != 0 ||
+            rich4_tool_route_node_occupied(state, node) ||
             rich4_tool_placement_slot(state, tool) < 0)
             return GAME_TOOL_USE_INVALID;
     } else if (info->target_kind == GAME_TOOL_TARGET_PROPERTY) {

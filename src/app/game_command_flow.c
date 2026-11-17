@@ -1,4 +1,5 @@
 #include "app/game_command_flow.h"
+#include "app/dynamic_object_flow.h"
 #include "app/property_flow.h"
 
 #include <string.h>
@@ -7,6 +8,22 @@
 #include "core/game_constants.h"
 #include "core/player_status.h"
 #include "core/tool.h"
+
+int rich4_app_tool_target_valid(const GameSession *session,
+                                const GameCommand *command)
+{
+    if (session == NULL || command == NULL ||
+        rich4_tool_inspect(&session->state, command) !=
+            GAME_TOOL_USE_APPLIED)
+        return 0;
+    if (command->subject.kind == GAME_DOMAIN_TOOL &&
+        command->subject.id >= 1 && command->subject.id <= 3 &&
+        command->target.kind == GAME_DOMAIN_ROUTE_NODE &&
+        rich4_app_dynamic_object_occupies_route_node(
+            &session->presentation, command->target.id))
+        return 0;
+    return 1;
+}
 
 int rich4_app_dispatch_game_command(GameSession *session,
                                     const Rich4AppCommand *command,
@@ -19,6 +36,12 @@ int rich4_app_dispatch_game_command(GameSession *session,
         return 0;
     }
     resolved_command = command->game;
+    if (resolved_command.type == GAME_COMMAND_USE_TOOL &&
+        resolved_command.subject.kind == GAME_DOMAIN_TOOL &&
+        resolved_command.subject.id >= 1 &&
+        resolved_command.subject.id <= 3 &&
+        !rich4_app_tool_target_valid(session, &resolved_command))
+        return 0;
     if (resolved_command.type == GAME_COMMAND_USE_TOOL &&
         resolved_command.subject.kind == GAME_DOMAIN_TOOL &&
         resolved_command.subject.id == 6)

@@ -11,6 +11,7 @@ int rich4_tool_target_xy(const GameState *state, GameDomainRef ref,
                          int *out_x, int *out_y);
 int rich4_tool_in_square(int x, int y, int center_x, int center_y, int half);
 int rich4_tool_object_on_node(const GameState *state, int node);
+int rich4_tool_route_node_occupied(const GameState *state, int node);
 int rich4_tool_placement_slot(const GameState *state, int tool);
 int rich4_tool_transfer_targets_valid(const GameState *state,
                                       GameDomainRef source,

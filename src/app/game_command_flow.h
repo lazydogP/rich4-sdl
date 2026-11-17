@@ -13,6 +13,11 @@ int rich4_app_dispatch_game_command(GameSession *session,
                                     const Rich4AppCommand *command,
                                     GameEventQueue *events);
 
+/* Original 0x409BC0 target-table gate for route-object tools, including
+ * app-owned ground dynamic objects that are not stored in GameState. */
+int rich4_app_tool_target_valid(const GameSession *session,
+                                const GameCommand *command);
+
 /* Full app boundary used by platform adapters: validation, app-owned gates,
  * time-machine handling and core dispatch all receive the typed AppCommand. */
 int rich4_app_apply_command(GameSession *session,

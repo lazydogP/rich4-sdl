@@ -585,6 +585,11 @@ static void route_tool_target_window(void)
     assert(rich4_ai_select_command(
         &state, 0, GAME_AI_PHASE_CARD_OR_TOOL, 1, &decision));
     assert(decision.has_command && decision.command.target.id == 5);
+    state.players[1].play_state = 0;
+    assert(rich4_ai_select_command(
+        &state, 0, GAME_AI_PHASE_CARD_OR_TOOL, 1, &decision));
+    assert(decision.has_command && decision.command.target.id == 5);
+    state.players[1].play_state = 1;
     state.players[1].days_in_hospital = 1;
     assert(rich4_ai_select_command(
         &state, 0, GAME_AI_PHASE_CARD_OR_TOOL, 1, &decision));

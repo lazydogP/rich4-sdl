@@ -286,19 +286,7 @@ static int ai_route_has_occupant(const GameState *s,
     if (projection != NULL && projection->occupied_dynamic_nodes != NULL)
         for (i = 0; i < projection->occupied_dynamic_node_count; i++)
             if (projection->occupied_dynamic_nodes[i] == node) return 1;
-    for (i = 0; i < s->player_count && i < 4; i++) {
-        const GamePlayerState *p = &s->players[i];
-        if ((p->play_state & 0xff) != 0 && p->node == node &&
-            !p->delayed_status_block &&
-            !p->days_disappearing && !p->days_in_prison &&
-            !p->days_in_hospital)
-            return 1;
-    }
-    for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++)
-        if (s->special_player_node[i] == node &&
-            s->special_player_f10[i] == 0)
-            return 1;
-    return rich4_tool_object_on_node(s, node) >= 0;
+    return rich4_tool_route_node_occupied(s, node);
 }
 
 /* 0x409EF9 builds the independent road table; later route records overwrite

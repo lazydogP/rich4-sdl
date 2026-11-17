@@ -128,6 +128,16 @@ int main(void)
     {
         Rich4ToolPanelConfirmResult result;
         rich4_audio_event_queue_reset(&audio_events);
+        session.presentation.dynamic_objects[0].node = 1;
+        assert(rich4_tool_panel_confirm_target(
+            &session, &panel,
+            rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 1), 0,
+            &result, &audio_events));
+        assert(!result.command_ready);
+        assert(rich4_audio_event_pop(&audio_events, &event) &&
+               event.type == RICH4_AUDIO_EVENT_INVALID);
+        session.presentation.dynamic_objects[0].node = 0;
+        rich4_audio_event_queue_reset(&audio_events);
         assert(rich4_tool_panel_confirm_target(
             &session, &panel,
             rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 1), 0,

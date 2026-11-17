@@ -1,5 +1,6 @@
 #include "app/tool_panel_flow.h"
 
+#include "app/game_command_flow.h"
 #include "app/game_speech_flow.h"
 #include "app/map_input_flow.h"
 #include "core/game_constants.h"
@@ -243,8 +244,7 @@ int rich4_tool_panel_target_valid(const GameSession *session,
         GAME_COMMAND_USE_TOOL, GAME_COMMAND_SOURCE_HUMAN, panel->player,
         rich4_game_domain_ref(GAME_DOMAIN_TOOL, panel->selected_tool),
         target, value);
-    return rich4_tool_inspect(&session->state, &command) ==
-        GAME_TOOL_USE_APPLIED;
+    return rich4_app_tool_target_valid(session, &command);
 }
 
 int rich4_tool_inventory_slot_at(const GameSession *session,

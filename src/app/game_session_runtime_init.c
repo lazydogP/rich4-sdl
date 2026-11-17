@@ -23,20 +23,6 @@
 #include "core/tool.h"
 #include "core/stock.h"
 
-static int dynamic_object_occupies_route_node(
-    const GamePresentationState *presentation, int node)
-{
-    int object_id;
-
-    if (presentation == NULL || node <= 0) return 0;
-    for (object_id = 0;
-         object_id < GAME_MAP_DYNAMIC_OBJECT_COUNT; object_id++) {
-        if (presentation->dynamic_objects[object_id].node == node)
-            return 1;
-    }
-    return 0;
-}
-
 static int random_start_node(GameSession *session,
                              const MapData *map, int player_index)
 {
@@ -57,7 +43,7 @@ static int random_start_node(GameSession *session,
          * chooses the first player node.  The original uses the same
          * route-node occupancy word for both; MapData is immutable here, so
          * observe the equivalent presentation occupancy explicitly. */
-        if (session != NULL && dynamic_object_occupies_route_node(
+        if (session != NULL && rich4_app_dynamic_object_occupies_route_node(
                 &session->presentation, node))
             continue;
         if (session != NULL) {

@@ -919,3 +919,16 @@ int rich4_app_robot_clear_dynamic_object(GamePresentationState *p, const MapData
     result = rich4_app_robot_clear_dynamic_object_with_rng(p, m, node, previous, &rng.state);
     rich4_rng_global_import(&rng); return result;
 }
+int rich4_app_dynamic_object_occupies_route_node(
+    const GamePresentationState *presentation, int node)
+{
+    int object_id;
+    if (presentation == NULL || node <= 0) return 0;
+    /* Slots 0..15 are app-owned road objects.  Slots 16..45 mirror core
+     * tool objects and may retain a node while their flight is presented. */
+    for (object_id = 0; object_id < 16; object_id++)
+        if (presentation->dynamic_objects[object_id].node == node &&
+            presentation->dynamic_objects[object_id].attached_player == 0)
+            return 1;
+    return 0;
+}
