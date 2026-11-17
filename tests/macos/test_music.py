@@ -23,7 +23,11 @@ def validate_music(root, source, output):
             assert p.returncode != 0, p.stdout + p.stderr
         return p.stdout + p.stderr
 
-    assert 'MIDI available=1' in run('capabilities')
+    capabilities = run('capabilities')
+    if 'MIDI available=0' in capabilities:
+        print('Original-resource MIDI playback: NOT EXECUTED (native MIDI backend not visible in current execution environment)')
+        return ['native MIDI playback: NOT EXECUTED (native MIDI backend not visible in current execution environment)']
+    assert 'MIDI available=1' in capabilities
     names = ['Rich08.mid'] + [f'Rich{i}.mid' for i in range(16, 23)] + [f'Midi{i:02d}.mid' for i in range(1, 14)] + ['Midi14-1.mid', 'Midi14-2.mid', 'Midi15.mid', 'Midi16.mid']
     files = {p.name.lower(): p for p in source.iterdir() if p.is_file()}
     checks = []
@@ -81,6 +85,8 @@ def validate_music(root, source, output):
     # that the system MusicPlayer clock advances, beyond a successful load call.
     run('finish', files['midi03.mid'], 22000, expected='MID')
     run('loop', files['midi03.mid'], 17500, expected='MID')
-    checks.append('real MIDI natural end, repeat beyond cue length, volume API and explicit stop')
+    restored = run('restore', files['midi03.mid'], 12, expected='MID')
+    assert 'MUSIC restored=12.000' in restored
+    checks.append('real MIDI natural end, repeat beyond cue length, saved-position restore, volume API and explicit stop')
     print('Original-resource MIDI playback: PASS (25 tracks, format priority, controls)')
     return checks

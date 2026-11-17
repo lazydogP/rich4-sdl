@@ -11,6 +11,8 @@ int main(int argc, char **argv)
 {
     Rich4Audio *audio = NULL;
     int loaded = 0, result = 1, wait_ms = 120, finish = 0;
+    int restore_position = 0;
+    double position = 0.0;
     Uint32 started;
     if (argc < 2) return 2;
     SDL_putenv("SDL_AUDIODRIVER=dummy");
@@ -28,12 +30,25 @@ int main(int argc, char **argv)
         wait_ms = atoi(argv[3]); finish = !strcmp(argv[1], "finish");
         loaded = !strcmp(argv[1], "loop") ? rich4_audio_play_music(audio, argv[2])
                                           : rich4_audio_play_music_once(audio, argv[2]);
+    } else if (argc == 4 && !strcmp(argv[1], "restore")) {
+        position = atof(argv[3]);
+        restore_position = 1;
+        loaded = rich4_audio_play_music_once(audio, argv[2]);
     } else { result = 2; goto done; }
     if (!loaded) { fprintf(stderr, "music load/play: %s\n", Mix_GetError()); goto done; }
     {
         Mix_MusicType type = Mix_GetMusicType(audio->music);
         printf("MUSIC type=%s\n", type == MUS_MID ? "MID" : type == MUS_OGG ? "OGG" :
                                   type == MUS_WAV ? "WAV" : "OTHER");
+    }
+    if (restore_position) {
+        audio->saved_music_position = position;
+        audio->saved_music_position_valid = 1;
+        if (!rich4_audio_restore_music_position(audio)) {
+            fprintf(stderr, "music restore: %s\n", Mix_GetError());
+            goto done;
+        }
+        printf("MUSIC restored=%.3f\n", position);
     }
     Mix_VolumeMusic(MIX_MAX_VOLUME / 2);
     if (Mix_VolumeMusic(-1) != MIX_MAX_VOLUME / 2) goto done;

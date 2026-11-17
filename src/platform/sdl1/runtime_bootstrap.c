@@ -538,7 +538,9 @@ void rich4_sdl_resolve_default_paths(SdlOptions *options)
  * shared by numbered tracks and their original-name aliases. */
 static int try_music_files(Rich4Audio *audio, const char *directory,
                             const char *stem, const char *original_name,
-                            int play_once, char *path, size_t path_size)
+                            int play_once,
+                            Rich4MusicVolumeProfile volume_profile,
+                            char *path, size_t path_size)
 {
     static const char *extensions[] = { "ogg", "OGG", "wav", "WAV", "mid", "MID" };
     char stems[4][64], name[80];
@@ -567,7 +569,12 @@ static int try_music_files(Rich4Audio *audio, const char *directory,
             join_path(path, path_size, directory, name);
             if (!rich4_sdl_file_exists(path)) continue;
             if (play_once ? rich4_audio_play_music_once(audio, path)
-                          : rich4_audio_play_music(audio, path)) return 1;
+                          : rich4_audio_play_music(audio, path)) {
+                rich4_audio_set_music_volume_profile(
+                    audio, i >= 4 ? RICH4_MUSIC_VOLUME_MIDI
+                                  : volume_profile);
+                return 1;
+            }
         }
     }
     return 0;
@@ -583,7 +590,8 @@ static int start_fixed_music_mode(Rich4Audio *audio,
     const char *stem = rich4_music_fixed_track_stem(music_index);
     const char *midi_name = rich4_music_fixed_midi_name(music_index);
     if (audio == NULL || stem == NULL || midi_name == NULL) return 0;
-    if (try_music_files(audio, music_dir, stem, midi_name, play_once, path, sizeof(path))) {
+    if (try_music_files(audio, music_dir, stem, midi_name, play_once,
+                        RICH4_MUSIC_VOLUME_MIDI, path, sizeof(path))) {
         printf("playing %s music: %s (%s)\n", label, path, midi_name);
         return 1;
     }
@@ -625,9 +633,11 @@ int start_music_bank_track(Rich4Audio *audio,
     if (audio == NULL || stem == NULL || bank_dir == NULL ||
         track_index >= rich4_music_bank_track_count()) return 0;
     join_path(bank_path, sizeof(bank_path), music_dir, bank_dir);
-    if (try_music_files(audio, bank_path, stem, midi_name, 1, path, sizeof(path)) ||
+    if (try_music_files(audio, bank_path, stem, midi_name, 1,
+                        RICH4_MUSIC_VOLUME_CD, path, sizeof(path)) ||
         (midi_name != NULL && try_music_files(audio, music_dir, NULL, midi_name,
-                                              1, path, sizeof(path)))) {
+                                              1, RICH4_MUSIC_VOLUME_CD,
+                                              path, sizeof(path)))) {
         printf("playing %s music: %s (%s, CD track %u)\n", label, path,
                rich4_music_bank_config_name(bank), (unsigned int)cd_track);
         return 1;

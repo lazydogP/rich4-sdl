@@ -18,11 +18,12 @@ void game_begin_runtime_frame(
     cursor->confirm_pressed = 0;
     cursor->confirm_pointer_pressed = 0;
     cursor->cancel_pressed = 0;
-    rich4_audio_set_effects_enabled(
-        audio,
-        app_state == RICH4_SCENE_OPTIONS
-            ? options_panel->draft.sound_effect != 0
-            : rich4_config->sound_effect != 0);
+    (void)app_state;
+    /* The options callback at 0x410969 keeps edits in 0x48BB48 until OK
+     * copies them to RICH4.CFG. Playback continues to use the committed
+     * fields at 0x49715A/0x49715B while the panel is open. */
+    rich4_audio_set_levels(
+        audio, rich4_config->music, rich4_config->sound_effect);
     game_update_card_panel_timed_effect(
         card_panel, game_session, game_preview_assets, new_game_settings,
         audio);

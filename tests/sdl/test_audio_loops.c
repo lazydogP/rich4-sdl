@@ -14,6 +14,39 @@ int main(void)
     SDL_putenv("SDL_AUDIODRIVER=dummy");
     assert(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER) == 0);
     assert(rich4_audio_init(&audio));
+    audio->music_clock_active = 1;
+    audio->music_started_ticks = SDL_GetTicks() - 1500u;
+    audio->music_started_seconds = 2.0;
+    assert(rich4_audio_save_music_position(audio));
+    assert(audio->saved_music_position_valid);
+    assert(audio->saved_music_position >= 3.5 &&
+           audio->saved_music_position < 3.6);
+    rich4_audio_clear_saved_music_position(audio);
+    assert(!audio->saved_music_position_valid);
+    audio->music_clock_active = 0;
+    assert(!rich4_audio_save_music_position(audio));
+    rich4_audio_set_levels(audio, 0, 0);
+    assert(Mix_VolumeMusic(-1) == 0 && !audio->effects_enabled);
+    for (method = 0; method < Mix_AllocateChannels(-1); ++method)
+        assert(Mix_Volume(method, -1) == 0);
+    rich4_audio_set_levels(audio, 1, 1);
+    assert(Mix_VolumeMusic(-1) == 77);
+    for (method = 0; method < Mix_AllocateChannels(-1); ++method)
+        assert(Mix_Volume(method, -1) == 13);
+    rich4_audio_set_music_volume_profile(audio, RICH4_MUSIC_VOLUME_CD);
+    assert(Mix_VolumeMusic(-1) == 26);
+    rich4_audio_set_levels(audio, 2, 2);
+    assert(Mix_VolumeMusic(-1) == 64);
+    for (method = 0; method < Mix_AllocateChannels(-1); ++method)
+        assert(Mix_Volume(method, -1) == 40);
+    rich4_audio_set_music_volume_profile(audio, RICH4_MUSIC_VOLUME_MIDI);
+    assert(Mix_VolumeMusic(-1) == 102);
+    rich4_audio_set_levels(audio, 3, 3);
+    assert(Mix_VolumeMusic(-1) == 115);
+    for (method = 0; method < Mix_AllocateChannels(-1); ++method)
+        assert(Mix_Volume(method, -1) == 72);
+    rich4_audio_set_levels(audio, 4, 4);
+    assert(Mix_VolumeMusic(-1) == MIX_MAX_VOLUME);
     for (method = 0; method < RICH4_MOVEMENT_SOUND_COUNT; ++method) {
         audio->movement[method] = Mix_QuickLoad_RAW(samples, sizeof(samples));
         assert(audio->movement[method] != NULL);

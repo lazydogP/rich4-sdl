@@ -4,6 +4,7 @@
 #import <CommonCrypto/CommonDigest.h>
 #include <signal.h>
 #include <math.h>
+#include <stdlib.h>
 #include <unistd.h>
 #ifndef RICH4_CONVERTER_VERSION
 #define RICH4_CONVERTER_VERSION "apple-midi-1"
@@ -29,10 +30,18 @@ static NSString *digest(NSData *data) {
 static void require(BOOL ok, NSString *message) {
     if (!ok) @throw [NSException exceptionWithName:@"ImportError" reason:message userInfo:nil];
 }
+static AudioComponent find_dls_synth(void) {
+    AudioComponentDescription description = {kAudioUnitType_MusicDevice,kAudioUnitSubType_DLSSynth,kAudioUnitManufacturer_Apple,0,0};
+    return AudioComponentFindNext(NULL,&description);
+}
 
 int main(int argc, const char **argv) { @autoreleasepool {
+    if (argc == 2 && !strcmp(argv[1], "--capabilities")) {
+        emit(@{@"dls_synth_visible":@(find_dls_synth() != NULL)});
+        return 0;
+    }
     if (argc < 3 || (argc != 3 && (argc != 5 || strcmp(argv[3], "--cache-dir")))) {
-        fprintf(stderr, "usage: rich4-midi INPUT.mid OUTPUT.wav [--cache-dir DIR]\n"); return 2;
+        fprintf(stderr, "usage: rich4-midi --capabilities | INPUT.mid OUTPUT.wav [--cache-dir DIR]\n"); return 2;
     }
     signal(SIGINT, cancel_render); signal(SIGTERM, cancel_render);
     NSString *source = @(argv[1]), *output = @(argv[2]);
@@ -103,17 +112,25 @@ int main(int argc, const char **argv) { @autoreleasepool {
         [events sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) { return [a[@"frame"] compare:b[@"frame"]]; }];
         Float64 seconds; check(MusicSequenceGetSecondsForBeats(sequence,endBeat,&seconds), @"SequenceEndSeconds");
         long long total = llround(seconds * 44100);
-        AudioComponentDescription description = {kAudioUnitType_MusicDevice,kAudioUnitSubType_DLSSynth,kAudioUnitManufacturer_Apple,0,0};
-        AudioComponent component = AudioComponentFindNext(NULL,&description);
-        require(component != NULL, @"Apple DLSMusicDevice unavailable");
+        AudioStreamBasicDescription format = {44100,kAudioFormatLinearPCM,kAudioFormatFlagsNativeFloatPacked|kAudioFormatFlagIsNonInterleaved,4,1,4,2,32,0};
+        AudioStreamBasicDescription pcm = {44100,kAudioFormatLinearPCM,kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked,4,1,4,2,16,0};
+        /* Test-only synchronization point: exercise cancellation cleanup without requiring a host DLS synth. */
+        const char *testCancelBarrier = getenv("RICH4_MIDI_TEST_CANCEL_BARRIER");
+        if (testCancelBarrier && !strcmp(testCancelBarrier, "1")) {
+            check(ExtAudioFileCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:temporary],kAudioFileWAVEType,&pcm,NULL,kAudioFileFlags_EraseFile,&file), @"CreateWAV");
+            check(ExtAudioFileSetProperty(file,kExtAudioFileProperty_ClientDataFormat,sizeof(format),&format), @"ClientDataFormat");
+            emit(@{@"test_cancel_ready":@YES,@"source":source});
+            while (!cancelled) pause();
+            require(!cancelled, @"Cancelled");
+        }
+        AudioComponent component = find_dls_synth();
+        require(component != NULL, @"DLSMusicDevice is not visible in this execution environment");
         check(AudioComponentInstanceNew(component,&synth), @"AudioComponentInstanceNew");
         UInt32 offline = 1, maximum = 512;
         check(AudioUnitSetProperty(synth,kAudioUnitProperty_OfflineRender,kAudioUnitScope_Global,0,&offline,sizeof(offline)), @"OfflineRender");
         check(AudioUnitSetProperty(synth,kAudioUnitProperty_MaximumFramesPerSlice,kAudioUnitScope_Global,0,&maximum,sizeof(maximum)), @"MaximumFramesPerSlice");
-        AudioStreamBasicDescription format = {44100,kAudioFormatLinearPCM,kAudioFormatFlagsNativeFloatPacked|kAudioFormatFlagIsNonInterleaved,4,1,4,2,32,0};
         check(AudioUnitSetProperty(synth,kAudioUnitProperty_StreamFormat,kAudioUnitScope_Output,0,&format,sizeof(format)), @"StreamFormat");
         check(AudioUnitInitialize(synth), @"AudioUnitInitialize");
-        AudioStreamBasicDescription pcm = {44100,kAudioFormatLinearPCM,kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked,4,1,4,2,16,0};
         check(ExtAudioFileCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:temporary],kAudioFileWAVEType,&pcm,NULL,kAudioFileFlags_EraseFile,&file), @"CreateWAV");
         check(ExtAudioFileSetProperty(file,kExtAudioFileProperty_ClientDataFormat,sizeof(format),&format), @"ClientDataFormat");
         float left[512], right[512];

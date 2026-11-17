@@ -5,6 +5,12 @@
 #include "platform/sdl1/audio/audio_sdl_mixer.h"
 #include "data/music.h"
 
+enum {
+    GAME_BANKRUPTCY_MUSIC_NONE = 0,
+    GAME_BANKRUPTCY_MUSIC_PRESENTATION = 1,
+    GAME_BANKRUPTCY_MUSIC_AUCTION = 2
+};
+
 /* R10.1d: per-session modal music policy moved out of runtime_main.c. The
  * runtime loop supplies the small set of playlist cursors and before/after
  * activity flags; this module owns only the original transition ordering. */
@@ -16,6 +22,7 @@ typedef struct GameModalMusicContext {
     int music_enabled;
     int *main_map_music_track;
     int *main_map_music_active;
+    int *bankruptcy_music_kind;
     int *confinement_music_kind;
     int *bank_music_active;
     int *lottery_music_active;
@@ -37,7 +44,8 @@ void game_capture_modal_music_context(
     GameModalMusicContext *context, GameSession *session,
     Rich4Audio *audio, const char *music_dir, Rich4MusicBank music_bank,
     int music_enabled, int *main_map_music_track,
-    int *main_map_music_active, int *confinement_music_kind,
+    int *main_map_music_active, int *bankruptcy_music_kind,
+    int *confinement_music_kind,
     int *bank_music_active, int *lottery_music_active,
     int *magic_house_music_active,
     int *auction_music_active, int *holiday_music_active);

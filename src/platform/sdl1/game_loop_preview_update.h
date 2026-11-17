@@ -38,6 +38,7 @@ typedef struct GamePreviewFrameContext {
     const char *music_dir;
     int *main_map_music_track;
     int *main_map_music_active;
+    int *bankruptcy_music_kind;
     int *confinement_music_kind;
     int *bank_music_active;
     int *lottery_music_active;

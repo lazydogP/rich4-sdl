@@ -972,7 +972,7 @@ $(APP_OBJS) $(VIEW_OBJS) $(SDL1_SESSION_DEPENDENCY_OBJECTS): src/data/confinemen
 $(filter %.o,$(SDL_OBJS)): src/app/animation_clock.h src/app/game_presentation.h src/app/card_panel_state.h
 
 # Native Apple launcher/importer and import-time DLS renderer.
-.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-toolchain test-macos-package test-macos-original
+.PHONY: setup-macos macos-native macos package-macos check-macos-package test-macos-toolchain test-macos-package test-macos-original test-macos-music-position
 MACOS_SETUP_ARGS ?=
 setup-macos:
 	$(PYTHON) scripts/macos.py setup $(MACOS_SETUP_ARGS)
@@ -990,6 +990,15 @@ test-macos-package: check-macos-package
 	$(PYTHON) tests/macos/test_package.py
 test-macos-original: macos
 	$(PYTHON) scripts/macos.py test-original
+test-macos-music-position: macos
+	@if test ! -f assets/original/V3.11/Midi03.mid; then \
+		echo "Original-resource MIDI position restore: NOT EXECUTED (original resources absent)"; \
+	elif bin/macos/universal/music_probe capabilities | grep -q 'MIDI available=1'; then \
+		bin/macos/universal/music_probe restore \
+			assets/original/V3.11/Midi03.mid 12; \
+	else \
+		echo "Original-resource MIDI position restore: NOT EXECUTED (native MIDI backend not visible in current execution environment)"; \
+	fi
 
 $(BIN_DIR)/music_probe: tests/sdl/music_probe.c $(MKF_OBJS) $(SPR_SMP_OBJS) $(FLC_OBJS) $(filter-out $(BUILD_DIR)/main_sdl.o,$(SDL_OBJS)) | dirs
 	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^ $(MIXER_LIBS) $(TTF_LIBS) $(SDL_LIBS)

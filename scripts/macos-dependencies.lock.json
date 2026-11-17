@@ -87,6 +87,10 @@
         {
           "file": "packaging/macos/patches/SDL_mixer-vorbis-const.patch",
           "sha256": "2e8512d85436a62a45d04347b609976e68bb67586c1483b6b16c5b172a5c002f"
+        },
+        {
+          "file": "packaging/macos/patches/SDL_mixer-native-midi-position.patch",
+          "sha256": "24a8d045a3d58f0126a956362ac05f42ac3b132911f419018cbef78b65de0510"
         }
       ],
       "configure": [

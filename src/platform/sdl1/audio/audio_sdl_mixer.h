@@ -5,6 +5,11 @@ typedef struct Rich4Audio Rich4Audio;
 typedef struct Rich4Mkf Rich4Mkf;
 typedef struct Rich4AudioEvent Rich4AudioEvent;
 
+typedef enum Rich4MusicVolumeProfile {
+    RICH4_MUSIC_VOLUME_MIDI = 0,
+    RICH4_MUSIC_VOLUME_CD = 1
+} Rich4MusicVolumeProfile;
+
 int rich4_audio_init(Rich4Audio **out_audio);
 void rich4_audio_shutdown(Rich4Audio *audio);
 /* 0x45144F: prepared effects begin after the first decoded frame is shown. */
@@ -22,11 +27,21 @@ int rich4_audio_load_god_effect_sounds(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_special_place_sound(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 int rich4_audio_load_tool_sounds(Rich4Audio *audio, Rich4Mkf *effect_mkf);
 void rich4_audio_set_speaking_archive(Rich4Audio *audio, Rich4Mkf *speaking_mkf);
+void rich4_audio_set_levels(Rich4Audio *audio, int music_level,
+                            int effects_level);
+void rich4_audio_set_music_volume_profile(
+    Rich4Audio *audio, Rich4MusicVolumeProfile profile);
 void rich4_audio_set_effects_enabled(Rich4Audio *audio, int enabled);
 int rich4_audio_play_music(Rich4Audio *audio, const char *path);
 int rich4_audio_play_music_once(Rich4Audio *audio, const char *path);
 int rich4_audio_music_playing(const Rich4Audio *audio);
 int rich4_audio_supports_midi(const Rich4Audio *audio);
+/* sub_454B1A/sub_454BCC: temporary fixed BGM saves and restores the
+ * interrupted map-playlist position.  The locked macOS SDL_mixer build also
+ * adds native-MIDI seeking; unsupported system backends continue from 0. */
+int rich4_audio_save_music_position(Rich4Audio *audio);
+int rich4_audio_restore_music_position(Rich4Audio *audio);
+void rich4_audio_clear_saved_music_position(Rich4Audio *audio);
 void rich4_audio_stop_music(Rich4Audio *audio);
 void rich4_audio_play_ok(Rich4Audio *audio);
 void rich4_audio_play_select(Rich4Audio *audio);

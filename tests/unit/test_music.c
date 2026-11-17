@@ -11,6 +11,9 @@ static int stop_count;
 static int map_start_count;
 static int fixed_start_count;
 static int fixed_track = -1;
+static int save_position_count;
+static int restore_position_count;
+static int clear_position_count;
 
 int rich4_game_save_take_music_restart(GameSession *session)
 {
@@ -56,6 +59,26 @@ int rich4_audio_music_playing(const Rich4Audio *audio)
     return 1;
 }
 
+int rich4_audio_save_music_position(Rich4Audio *audio)
+{
+    (void)audio;
+    save_position_count++;
+    return 1;
+}
+
+int rich4_audio_restore_music_position(Rich4Audio *audio)
+{
+    (void)audio;
+    restore_position_count++;
+    return 1;
+}
+
+void rich4_audio_clear_saved_music_position(Rich4Audio *audio)
+{
+    (void)audio;
+    clear_position_count++;
+}
+
 void rich4_periodic_finance_mark_music_started(GameSession *session)
 {
     session->presentation.periodic_finance.music_started = 1;
@@ -88,6 +111,7 @@ static void post_load_music_restarts_playlist(void)
     GameSession session = {0};
     int track = 7;
     int main_active = 1;
+    int bankruptcy = GAME_BANKRUPTCY_MUSIC_AUCTION;
     int confinement = 2;
     int bank = 2;
     int lottery = 1;
@@ -98,25 +122,26 @@ static void post_load_music_restarts_playlist(void)
 
     assert(!game_restart_music_after_load(
         &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday, &shop_restore));
     session.loaded_music_restart_pending = 1;
     assert(game_restart_music_after_load(
         &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday, &shop_restore));
     assert(!session.loaded_music_restart_pending);
     assert(track == 0 && main_active == 1);
     assert(started_track == 0 &&
            started_bank == RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY);
     assert(confinement == GAME_CONFINEMENT_NONE);
-    assert(bank == 0 && lottery == 0 && magic == 0 && auction == 0 &&
+    assert(bankruptcy == GAME_BANKRUPTCY_MUSIC_NONE && bank == 0 &&
+           lottery == 0 && magic == 0 && auction == 0 &&
            holiday == 0 && shop_restore == 0);
 
     session.loaded_music_restart_pending = 1;
     assert(game_restart_music_after_load(
         &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 0,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday, &shop_restore));
     assert(track == 1 && main_active == 0 && stop_count == 1);
 
@@ -127,7 +152,7 @@ static void post_load_music_restarts_playlist(void)
     session.loaded_music_restart_pending = 1;
     assert(game_restart_music_after_load(
         &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday, &shop_restore));
     assert(track == 2 && main_active == 0 && started_track == -1);
     assert(!session.presentation.periodic_finance.music_started);
@@ -140,6 +165,7 @@ static void normal_finance_music_cannot_be_overridden(void)
     GameModalMusicContext context;
     int track = 3;
     int main_active = 1;
+    int bankruptcy = 0;
     int confinement = GAME_CONFINEMENT_NONE;
     int bank = 0;
     int lottery = 0;
@@ -151,10 +177,11 @@ static void normal_finance_music_cannot_be_overridden(void)
     session.presentation.periodic_finance.phase = 4;
     session.presentation.periodic_finance.music_started = 0;
     map_start_count = fixed_start_count = 0;
+    save_position_count = restore_position_count = 0;
     fixed_track = -1;
     game_capture_modal_music_context(
         &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday);
     game_update_modal_music(&context);
 
@@ -162,16 +189,18 @@ static void normal_finance_music_cannot_be_overridden(void)
      * already started in the same ordinary (non-load) frame. */
     assert(fixed_start_count == 1 && fixed_track == 8);
     assert(map_start_count == 0 && main_active == 0);
+    assert(save_position_count == 1 && restore_position_count == 0);
     assert(session.presentation.periodic_finance.music_started == 1);
     assert(auction == 0);
 
     game_capture_modal_music_context(
         &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday);
     session.presentation.periodic_finance.active = 0;
     game_update_modal_music(&context);
     assert(map_start_count == 1 && main_active == 1);
+    assert(restore_position_count == 1);
 }
 
 static void bank_exit_restores_map_music(int reminder)
@@ -182,6 +211,7 @@ static void bank_exit_restores_map_music(int reminder)
             GameSession session = {0};
             GameModalMusicContext context;
             int track = 3, main_active = 1;
+            int bankruptcy = 0;
             int confinement = GAME_CONFINEMENT_NONE;
             int bank = 0, lottery = 0, magic = 0, auction = 0, holiday = 0;
             session.presentation.route_interaction.active = !reminder;
@@ -189,13 +219,15 @@ static void bank_exit_restores_map_music(int reminder)
             session.presentation.bank_loan_due.active = reminder;
             session.presentation.bank_loan_due.days = 3;
             map_start_count = fixed_start_count = stop_count = 0;
+            save_position_count = restore_position_count = 0;
             game_capture_modal_music_context(
                 &context, &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, 1,
-                &track, &main_active, &confinement, &bank, &lottery, &magic,
+                &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
                 &auction, &holiday);
             game_update_modal_music(&context);
             assert(bank == 1 && main_active == 0);
             assert(fixed_start_count == 1 && fixed_track == 4);
+            assert(save_position_count == 1 && restore_position_count == 0);
             game_update_modal_music(&context);
             assert(fixed_start_count == 1 && map_start_count == 0);
 
@@ -207,13 +239,14 @@ static void bank_exit_restores_map_music(int reminder)
             }
             game_capture_modal_music_context(
                 &context, &session, NULL, "music", RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY, enabled,
-                &track, &main_active, &confinement, &bank, &lottery, &magic,
+                &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
                 &auction, &holiday);
             session.presentation.route_interaction.active = 0;
             session.presentation.bank_loan_due.active = 0;
             game_update_modal_music(&context);
             assert(bank == 0 && track == 3 && main_active == enabled);
             assert(map_start_count == enabled && stop_count == !enabled);
+            assert(restore_position_count == enabled);
             if (enabled)
                 assert(started_track == 3 && started_bank == RICH4_MUSIC_BANK_MULTIVERSE_JOURNEY);
             game_update_modal_music(&context);
@@ -227,6 +260,7 @@ static void bank_exit_preserves_next_modal_music(void)
     GameSession session = {0};
     GameModalMusicContext context;
     int track = 3, main_active = 0;
+    int bankruptcy = 0;
     int confinement = GAME_CONFINEMENT_NONE;
     int bank = 1, lottery = 0, magic = 0, auction = 0, holiday = 0;
     /* The bank closed during input; a lottery window now owns the music. */
@@ -234,7 +268,7 @@ static void bank_exit_preserves_next_modal_music(void)
     map_start_count = fixed_start_count = 0;
     game_capture_modal_music_context(
         &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday);
     game_update_modal_music(&context);
     assert(bank == 0 && lottery == 1 && main_active == 0);
@@ -245,13 +279,135 @@ static void bank_exit_preserves_next_modal_music(void)
     bank = 1;
     game_capture_modal_music_context(
         &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
-        &track, &main_active, &confinement, &bank, &lottery, &magic,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery, &magic,
         &auction, &holiday);
     game_update_modal_music(&context);
     assert(bank == 2 && map_start_count == 0 && main_active == 0);
     assert(fixed_track == 9);
     game_update_modal_music(&context);
     assert(bank == 2 && map_start_count == 0);
+}
+
+static void bankruptcy_music_keeps_one_map_bookmark(void)
+{
+    GameSession session = {0};
+    GameModalMusicContext context;
+    int track = 4, main_active = 1;
+    int bankruptcy = 0;
+    int confinement = GAME_CONFINEMENT_NONE;
+    int bank = 0, lottery = 0, magic = 0, auction = 0, holiday = 0;
+
+    session.presentation.bankruptcy.active = 1;
+    map_start_count = fixed_start_count = 0;
+    save_position_count = restore_position_count = clear_position_count = 0;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(bankruptcy == GAME_BANKRUPTCY_MUSIC_PRESENTATION &&
+           fixed_track == 2 && main_active == 0);
+    assert(fixed_start_count == 1 && save_position_count == 1);
+
+    session.presentation.bankruptcy.active = 0;
+    session.presentation.bankruptcy.awaiting_auction = 1;
+    session.presentation.auction.active = 1;
+    session.presentation.auction.request.trigger =
+        GAME_AUCTION_TRIGGER_BANKRUPTCY;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(bankruptcy == GAME_BANKRUPTCY_MUSIC_AUCTION && fixed_track == 5);
+    assert(fixed_start_count == 2 && save_position_count == 1);
+
+    /* Closing one of the bankruptcy auctions does not pop the map bookmark;
+     * the outer 0x40CD87 group still owns it. */
+    session.presentation.auction.active = 0;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(map_start_count == 0 && restore_position_count == 0);
+
+    session.presentation.bankruptcy.awaiting_auction = 0;
+    session.presentation.bankruptcy.active = 1;
+    session.presentation.bankruptcy.phase = RICH4_BANKRUPTCY_PHASE_SPEECH;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(fixed_start_count == 2 &&
+           bankruptcy == GAME_BANKRUPTCY_MUSIC_AUCTION);
+
+    session.presentation.bankruptcy.active = 0;
+    game_update_modal_music(&context);
+    assert(bankruptcy == GAME_BANKRUPTCY_MUSIC_NONE &&
+           map_start_count == 1 && main_active == 1);
+    assert(restore_position_count == 1 && clear_position_count == 0);
+}
+
+static void bankruptcy_terminal_does_not_restore_map_music(void)
+{
+    GameSession session = {0};
+    GameModalMusicContext context;
+    int track = 1, main_active = 1;
+    int bankruptcy = 0;
+    int confinement = GAME_CONFINEMENT_NONE;
+    int bank = 0, lottery = 0, magic = 0, auction = 0, holiday = 0;
+
+    session.presentation.bankruptcy.active = 1;
+    map_start_count = fixed_start_count = 0;
+    save_position_count = restore_position_count = clear_position_count = 0;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+    session.presentation.bankruptcy.active = 0;
+    session.lifecycle.code = RICH4_APP_LIFECYCLE_OUTER_MENU;
+    game_update_modal_music(&context);
+    assert(bankruptcy == GAME_BANKRUPTCY_MUSIC_NONE && main_active == 0);
+    assert(map_start_count == 0 && restore_position_count == 0);
+    assert(clear_position_count == 1);
+}
+
+static void surrender_selector_keeps_bankruptcy_bookmark(void)
+{
+    GameSession session = {0};
+    GameModalMusicContext context;
+    int track = 6, main_active = 1;
+    int bankruptcy = 0;
+    int confinement = GAME_CONFINEMENT_NONE;
+    int bank = 0, lottery = 0, magic = 0, auction = 0, holiday = 0;
+
+    session.presentation.bankruptcy.active = 1;
+    map_start_count = fixed_start_count = 0;
+    save_position_count = restore_position_count = 0;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+
+    session.presentation.bankruptcy.active = 0;
+    session.presentation.magic_house.active = 1;
+    session.presentation.magic_house.condition = 12;
+    game_capture_modal_music_context(
+        &context, &session, NULL, "music", RICH4_MUSIC_BANK_ORIGINAL, 1,
+        &track, &main_active, &bankruptcy, &confinement, &bank, &lottery,
+        &magic, &auction, &holiday);
+    game_update_modal_music(&context);
+    assert(bankruptcy == GAME_BANKRUPTCY_MUSIC_NONE &&
+           magic == 1 && fixed_track == 7);
+    assert(save_position_count == 1 && map_start_count == 0);
+
+    session.presentation.magic_house.active = 0;
+    game_update_modal_music(&context);
+    assert(magic == 0 && map_start_count == 1 && restore_position_count == 1);
 }
 
 int main(void)
@@ -266,6 +422,9 @@ int main(void)
     bank_exit_restores_map_music(0);
     bank_exit_restores_map_music(1);
     bank_exit_preserves_next_modal_music();
+    bankruptcy_music_keeps_one_map_bookmark();
+    bankruptcy_terminal_does_not_restore_map_music();
+    surrender_selector_keeps_bankruptcy_bookmark();
     puts("point minigame music mapping: ok");
     return 0;
 }

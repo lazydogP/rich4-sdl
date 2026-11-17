@@ -4,6 +4,7 @@
 #include "platform/sdl1/runtime_trace.h"
 
 #include <stdlib.h>
+#include <SDL/SDL.h>
 #include <SDL/SDL_mixer.h>
 
 void rich4_audio_begin_visual_frame(Rich4Audio *audio)
@@ -87,12 +88,19 @@ static int rich4_audio_play_music_loops(Rich4Audio *audio,
         Mix_HaltMusic();
         Mix_FreeMusic(audio->music);
     }
+    audio->music_clock_active = 0;
     audio->music = music;
     if (Mix_PlayMusic(audio->music, loops) != 0) {
         Mix_FreeMusic(audio->music);
         audio->music = NULL;
         return 0;
     }
+    audio->music_started_ticks = SDL_GetTicks();
+    audio->music_started_seconds = 0.0;
+    audio->music_clock_active = 1;
+    rich4_audio_set_music_volume_profile(
+        audio, Mix_GetMusicType(audio->music) == MUS_MID
+            ? RICH4_MUSIC_VOLUME_MIDI : RICH4_MUSIC_VOLUME_CD);
     return 1;
 }
 
@@ -111,12 +119,55 @@ int rich4_audio_music_playing(const Rich4Audio *audio)
     return audio != NULL && audio->ready && Mix_PlayingMusic() != 0;
 }
 
+int rich4_audio_save_music_position(Rich4Audio *audio)
+{
+    Uint32 now;
+    if (audio == NULL || !audio->ready || !audio->music_clock_active)
+        return 0;
+    if (audio->saved_music_position_valid)
+        return 1;
+    now = SDL_GetTicks();
+    audio->saved_music_position = audio->music_started_seconds +
+        (double)(Uint32)(now - audio->music_started_ticks) / 1000.0;
+    audio->saved_music_position_valid = 1;
+    return 1;
+}
+
+int rich4_audio_restore_music_position(Rich4Audio *audio)
+{
+    double position;
+    int restored;
+    if (audio == NULL || !audio->ready ||
+        !audio->saved_music_position_valid)
+        return 0;
+    position = audio->saved_music_position;
+    audio->saved_music_position = 0.0;
+    audio->saved_music_position_valid = 0;
+    if (!audio->music_clock_active)
+        return 0;
+    restored = Mix_SetMusicPosition(position) == 0;
+    if (restored) {
+        audio->music_started_ticks = SDL_GetTicks();
+        audio->music_started_seconds = position;
+    }
+    return restored;
+}
+
+void rich4_audio_clear_saved_music_position(Rich4Audio *audio)
+{
+    if (audio == NULL) return;
+    audio->saved_music_position = 0.0;
+    audio->saved_music_position_valid = 0;
+}
+
 void rich4_audio_stop_music(Rich4Audio *audio)
 {
     if (audio == NULL || !audio->ready) {
         return;
     }
     Mix_HaltMusic();
+    audio->music_clock_active = 0;
+    rich4_audio_clear_saved_music_position(audio);
 }
 
 void rich4_audio_play_ok(Rich4Audio *audio)

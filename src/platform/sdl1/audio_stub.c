@@ -36,6 +36,11 @@ int rich4_audio_load_tool_sounds(Rich4Audio *audio, Rich4Mkf *mkf)
 { (void)audio; (void)mkf; return 0; }
 void rich4_audio_set_speaking_archive(Rich4Audio *audio, Rich4Mkf *mkf)
 { (void)audio; (void)mkf; }
+void rich4_audio_set_levels(Rich4Audio *audio, int music, int effects)
+{ (void)audio; (void)music; (void)effects; }
+void rich4_audio_set_music_volume_profile(
+    Rich4Audio *audio, Rich4MusicVolumeProfile profile)
+{ (void)audio; (void)profile; }
 void rich4_audio_set_effects_enabled(Rich4Audio *audio, int enabled)
 { (void)audio; (void)enabled; }
 int rich4_audio_play_music(Rich4Audio *audio, const char *path)
@@ -44,6 +49,12 @@ int rich4_audio_play_music_once(Rich4Audio *audio, const char *path)
 { (void)audio; (void)path; return 0; }
 int rich4_audio_music_playing(const Rich4Audio *audio) { (void)audio; return 0; }
 int rich4_audio_supports_midi(const Rich4Audio *audio) { (void)audio; return 0; }
+int rich4_audio_save_music_position(Rich4Audio *audio)
+{ (void)audio; return 0; }
+int rich4_audio_restore_music_position(Rich4Audio *audio)
+{ (void)audio; return 0; }
+void rich4_audio_clear_saved_music_position(Rich4Audio *audio)
+{ (void)audio; }
 void rich4_audio_stop_music(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_ok(Rich4Audio *audio) { (void)audio; }
 void rich4_audio_play_select(Rich4Audio *audio) { (void)audio; }

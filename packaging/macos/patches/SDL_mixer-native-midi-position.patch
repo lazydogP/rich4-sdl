@@ -1,0 +1,83 @@
+--- a/native_midi/native_midi.h
++++ b/native_midi/native_midi.h
+@@ -31,6 +31,7 @@
+ void native_midi_freesong(NativeMidiSong *song);
+ void native_midi_start(NativeMidiSong *song, int loops);
+ void native_midi_stop();
++int native_midi_setposition(double position);
+ int native_midi_active();
+ void native_midi_setvolume(int volume);
+ const char *native_midi_error(void);
+--- a/native_midi/native_midi_macosx.c
++++ b/native_midi/native_midi_macosx.c
+@@ -140,9 +140,13 @@ GetSequenceAudioUnit(MusicSequence sequence, AudioUnit *aunit)
+ }
+ 
+ 
+ int native_midi_detect()
+ {
+-    return 1;  /* always available. */
++    AudioComponentDescription description = {
++        kAudioUnitType_MusicDevice, kAudioUnitSubType_DLSSynth,
++        kAudioUnitManufacturer_Apple, 0, 0
++    };
++    return AudioComponentFindNext(NULL, &description) != NULL;
+ }
+ 
+ NativeMidiSong *native_midi_loadsong_RW(SDL_RWops *rw, int freerw)
+@@ -282,6 +282,26 @@
+     }
+ }
+ 
++int native_midi_setposition(double position)
++{
++    int result = -1;
++    MusicTimeStamp beats;
++    MusicTimeStamp current;
++    if (currentsong == NULL || position < 0.0)
++        return -1;
++    SDL_PauseAudio(1);
++    SDL_UnlockAudio();
++    if (MusicSequenceGetBeatsForSeconds(
++            currentsong->sequence, position, &beats) == noErr &&
++        MusicPlayerSetTime(currentsong->player, beats) == noErr &&
++        MusicPlayerGetTime(currentsong->player, &current) == noErr &&
++        current >= beats - 0.1 && current <= beats + 0.1)
++        result = 0;
++    SDL_LockAudio();
++    SDL_PauseAudio(0);
++    return result;
++}
++
+ int native_midi_active()
+ {
+     MusicTimeStamp currentTime = 0;
+@@ -288,9 +308,8 @@ int native_midi_active()
+     if (currentsong == NULL)
+         return 0;
+ 
+     MusicPlayerGetTime(currentsong->player, &currentTime);
+-    if ((currentTime < currentsong->endTime) ||
+-        (currentTime >= kMusicTimeStamp_EndOfTrack)) {
++    if (currentTime < currentsong->endTime) {
+         return 1;
+     } else if (currentsong->loops) {
+         --currentsong->loops;
+--- a/music.c
++++ b/music.c
+@@ -1077,6 +1077,15 @@
+ 		mad_seek(music_playing->data.mp3_mad, position);
+ 		break;
+ #endif
++#if defined(MID_MUSIC) && defined(__MACOSX__) && defined(USE_NATIVE_MIDI)
++	    case MUS_MID:
++		if ( native_midi_ok ) {
++			retval = native_midi_setposition(position);
++		} else {
++			retval = -1;
++		}
++		break;
++#endif
+ 	    default:
+ 		/* TODO: Implement this for other music backends */
+ 		retval = -1;

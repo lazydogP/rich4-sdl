@@ -234,17 +234,17 @@ int game_handle_options_input(
         *config = panel->draft;
         rich4_config_clamp(config);
         rich4_config_write(config, "RICH4.CFG");
+        rich4_audio_set_levels(audio, config->music, config->sound_effect);
         sdl_config->music_bank = panel->music_bank;
         rich4_sdl_config_clamp(sdl_config);
         rich4_sdl_config_write(sdl_config, RICH4_SDL_CONFIG_PATH);
         panel->saved = *config;
         panel->saved_music_bank = sdl_config->music_bank;
         panel->active = 0;
-        if (panel->return_app_state == RICH4_SCENE_MENU &&
-            config->music != 0) {
-            start_menu_music(audio, music_dir);
-        } else if (panel->return_app_state == RICH4_SCENE_MENU) {
+        if (config->music == 0) {
             rich4_audio_stop_music(audio);
+        } else if (panel->return_app_state == RICH4_SCENE_MENU) {
+            start_menu_music(audio, music_dir);
         }
         rich4_scene_machine_request_transition(
             scene_machine, app_state, panel->return_app_state);

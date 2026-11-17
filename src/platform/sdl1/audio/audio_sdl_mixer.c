@@ -49,6 +49,9 @@ int rich4_audio_init(Rich4Audio **out_audio)
     Mix_AllocateChannels(8);
     audio->ready = 1;
     audio->effects_enabled = 1;
+    audio->effects_level = 4;
+    audio->music_level = 4;
+    audio->music_volume_profile = RICH4_MUSIC_VOLUME_MIDI;
     audio->movement_channel = -1;
     audio->attached_bomb_channel = -1;
     audio->movement_method = -1;
@@ -566,6 +569,64 @@ void rich4_audio_set_speaking_archive(Rich4Audio *audio, Rich4Mkf *speaking_mkf)
     if (audio != NULL) audio->speaking_mkf = speaking_mkf;
 }
 
+static int clamp_volume_level(int level)
+{
+    if (level < 0) return 0;
+    if (level > 4) return 4;
+    return level;
+}
+
+static void apply_music_level(Rich4Audio *audio)
+{
+    /* 0x4545BA builds the tables consumed by 0x45497B. MIDI levels are
+     * 0/60/80/90/100 percent of the original device volume; CD levels are
+     * 0/20/50/70/100 percent. Values below are their nearest SDL_mixer
+     * linear-volume equivalents. */
+    static const int midi_volume[5] = { 0, 77, 102, 115, MIX_MAX_VOLUME };
+    static const int cd_volume[5] = { 0, 26, 64, 90, MIX_MAX_VOLUME };
+    const int *volume = audio->music_volume_profile == RICH4_MUSIC_VOLUME_CD
+        ? cd_volume : midi_volume;
+    Mix_VolumeMusic(volume[audio->music_level]);
+}
+
+void rich4_audio_set_levels(Rich4Audio *audio, int music_level,
+                            int effects_level)
+{
+    /* 0x4540D8 indexes 0x47E758 with RICH4.CFG +3 / 0x49715B. The
+     * DirectSound attenuation entries are -10000/-2000/-1000/-500/0 in
+     * hundredths of a dB. These are the nearest linear SDL_mixer levels. */
+    static const int effects_volume[5] = {
+        0, 13, 40, 72, MIX_MAX_VOLUME
+    };
+    int was_enabled;
+
+    if (audio == NULL || !audio->ready) return;
+    music_level = clamp_volume_level(music_level);
+    effects_level = clamp_volume_level(effects_level);
+    was_enabled = audio->effects_enabled;
+    audio->music_level = music_level;
+    audio->effects_level = effects_level;
+    audio->effects_enabled = effects_level != 0;
+    apply_music_level(audio);
+    Mix_Volume(-1, effects_volume[effects_level]);
+    if (was_enabled && !audio->effects_enabled) {
+        Mix_HaltChannel(-1);
+        audio->attached_bomb_channel = -1;
+        audio->tool_robot_channel = -1;
+        audio->speech_channel = -1;
+        audio->movement_channel = -1;
+    }
+}
+
+void rich4_audio_set_music_volume_profile(
+    Rich4Audio *audio, Rich4MusicVolumeProfile profile)
+{
+    if (audio == NULL || !audio->ready) return;
+    audio->music_volume_profile = profile == RICH4_MUSIC_VOLUME_CD
+        ? RICH4_MUSIC_VOLUME_CD : RICH4_MUSIC_VOLUME_MIDI;
+    apply_music_level(audio);
+}
+
 void rich4_audio_set_effects_enabled(Rich4Audio *audio, int enabled)
 {
     if (audio == NULL || !audio->ready) return;
@@ -578,4 +639,10 @@ void rich4_audio_set_effects_enabled(Rich4Audio *audio, int enabled)
         audio->movement_channel = -1;
     }
     audio->effects_enabled = enabled;
+    if (enabled) {
+        static const int effects_volume[5] = {
+            0, 13, 40, 72, MIX_MAX_VOLUME
+        };
+        Mix_Volume(-1, effects_volume[audio->effects_level]);
+    }
 }

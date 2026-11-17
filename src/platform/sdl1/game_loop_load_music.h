@@ -12,7 +12,8 @@ int game_restart_music_after_load(
     GameSession *session, Rich4Audio *audio, const char *music_dir,
     Rich4MusicBank music_bank, int music_enabled,
     int *main_map_music_track, int *main_map_music_active,
-    int *confinement_music_kind, int *bank_music_active,
+    int *bankruptcy_music_kind, int *confinement_music_kind,
+    int *bank_music_active,
     int *lottery_music_active, int *magic_house_music_active,
     int *auction_music_active, int *holiday_music_active,
     int *shop_music_restore_pending);

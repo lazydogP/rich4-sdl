@@ -17,6 +17,7 @@
 #include "resource/mkf.h"
 #include "platform/sdl1/game_loop_frame_begin.h"
 #include "platform/sdl1/game_loop_frame_end.h"
+#include "platform/sdl1/game_loop_modal_music.h"
 #include "platform/sdl1/render/game_render_cache.h"
 #include "platform/sdl1/game_loop_event_poll.h"
 #include "platform/sdl1/game_loop_orchestration.h"
@@ -120,6 +121,7 @@ int rich4_sdl1_main(int argc, char **argv)
     int main_map_music_track = 0;
     int main_map_music_active = 0;
     int shop_music_restore_pending = 0;
+    int bankruptcy_music_kind = GAME_BANKRUPTCY_MUSIC_NONE;
     int bank_music_active = 0;
     int lottery_music_active = 0;
     int magic_house_music_active = 0;
@@ -179,7 +181,7 @@ int rich4_sdl1_main(int argc, char **argv)
 #endif
     {
         RuntimeAudioBootstrapContext audio_bootstrap = {
-            &audio, effect_mkf, speaking_mkf
+            &audio, effect_mkf, speaking_mkf, &rich4_config
         };
         game_init_runtime_audio(&audio_bootstrap);
     }
@@ -319,7 +321,8 @@ int rich4_sdl1_main(int argc, char **argv)
                 &game_session, &render_cache, &rich4_config,
                 &rich4_sdl_config, audio,
                 options.music_dir, &main_map_music_track,
-                &main_map_music_active, &confinement_music_kind,
+                &main_map_music_active, &bankruptcy_music_kind,
+                &confinement_music_kind,
                 &bank_music_active,
                 &lottery_music_active, &magic_house_music_active,
                 &auction_music_active,

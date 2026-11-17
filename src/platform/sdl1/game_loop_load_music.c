@@ -10,7 +10,8 @@ int game_restart_music_after_load(
     GameSession *session, Rich4Audio *audio, const char *music_dir,
     Rich4MusicBank music_bank, int music_enabled,
     int *main_map_music_track, int *main_map_music_active,
-    int *confinement_music_kind, int *bank_music_active,
+    int *bankruptcy_music_kind, int *confinement_music_kind,
+    int *bank_music_active,
     int *lottery_music_active, int *magic_house_music_active,
     int *auction_music_active, int *holiday_music_active,
     int *shop_music_restore_pending)
@@ -23,6 +24,8 @@ int game_restart_music_after_load(
     modal_music_active = game_session_has_modal_music(session);
 
     /* These latches describe the audio backend, not the decoded session. */
+    if (bankruptcy_music_kind != NULL)
+        *bankruptcy_music_kind = GAME_BANKRUPTCY_MUSIC_NONE;
     if (confinement_music_kind != NULL)
         *confinement_music_kind = GAME_CONFINEMENT_NONE;
     if (bank_music_active != NULL) *bank_music_active = 0;
@@ -32,6 +35,9 @@ int game_restart_music_after_load(
     if (holiday_music_active != NULL) *holiday_music_active = 0;
     if (shop_music_restore_pending != NULL)
         *shop_music_restore_pending = 0;
+    /* A decoded game enters a new playlist transition at 0x401981; a
+     * pre-load temporary-music bookmark cannot cross that boundary. */
+    rich4_audio_clear_saved_music_position(audio);
 
     track_count = rich4_music_bank_track_count();
     if (main_map_music_track != NULL && track_count > 0) {

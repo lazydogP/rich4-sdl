@@ -10,6 +10,9 @@ void game_init_runtime_audio(RuntimeAudioBootstrapContext *context)
     Rich4Audio *audio = NULL;
 
     if (rich4_audio_init(&audio)) {
+        if (context->config != NULL)
+            rich4_audio_set_levels(
+                audio, context->config->music, context->config->sound_effect);
         rich4_audio_set_speaking_archive(audio, context->speaking_mkf);
         if (!rich4_audio_load_button_sounds(audio, context->effect_mkf)) {
             printf("button/transition sounds not available from Effect.mkf resources 0, 1, 2, 3, 4, 5, 7 and 9\n");

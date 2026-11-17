@@ -10,6 +10,9 @@
 struct Rich4Audio {
     int ready;
     int effects_enabled;
+    int effects_level;
+    int music_level;
+    Rich4MusicVolumeProfile music_volume_profile;
     int visual_frame_open;
     int visual_sound_count;
     int flc_effect_channel;
@@ -17,6 +20,11 @@ struct Rich4Audio {
     Mix_Chunk *prepared_flc_effect;
     Mix_Chunk *visual_sounds[32];
     Mix_Music *music;
+    Uint32 music_started_ticks;
+    double music_started_seconds;
+    double saved_music_position;
+    int music_clock_active;
+    int saved_music_position_valid;
     Mix_Chunk *ok;
     Mix_Chunk *select;
     Mix_Chunk *cancel;

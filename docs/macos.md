@@ -13,7 +13,7 @@ python3 scripts/make_minimal.py package-macos check-macos-package --progress
 python3 scripts/make_minimal.py test-macos-package
 ```
 
-全部工具、下载与源码构建在 `.local/macos/`，不安装 Homebrew 或修改系统依赖。锁定清单 `scripts/macos-dependencies.lock.json` 包含下载校验值、源码版本、补丁和选项。CMake 为固定版本的构建工具；其他项目均从源码构建。SDL_mixer 的唯一源码补丁补齐 Vorbis API 的 `const char *`，不改变音频行为。SDL_ttf 的旧配置接口由构建脚本生成的 `freetype-config` 提供固定前缀；它只链接锁定的 FreeType。SDL_mixer 启用 WAV、OGG 与 macOS 原生 MIDI 后端；原生 MIDI 使用系统 MusicSequence/MusicPlayer，不需要第三方音色库。Vorbis/OGG 库仍为随包动态库。
+全部工具、下载与源码构建在 `.local/macos/`，不安装 Homebrew 或修改系统依赖。锁定清单 `scripts/macos-dependencies.lock.json` 包含下载校验值、源码版本、补丁和选项。CMake 为固定版本的构建工具；其他项目均从源码构建。SDL_mixer 的源码补丁补齐 Vorbis API 的 `const char *`，并为 macOS 原生 MIDI 的 `Mix_SetMusicPosition` 接入 `MusicSequenceGetBeatsForSeconds`／`MusicPlayerSetTime`，用于原版 `0x454B1A`／`0x454BCC` 临时 BGM 返回时恢复地图曲进度。SDL_ttf 的旧配置接口由构建脚本生成的 `freetype-config` 提供固定前缀；它只链接锁定的 FreeType。SDL_mixer 启用 WAV、OGG 与 macOS 原生 MIDI 后端；原生 MIDI 使用系统 MusicSequence/MusicPlayer，不需要第三方音色库。Vorbis/OGG 库仍为随包动态库。
 
 程序、原生 helper 和全部随包动态库统一编译为 `arm64` + `x86_64`。部署参数使用 `10.10`，Apple Clang 将 arm64 的实际下限设为 `11.0`；依赖锁逐架构记录这两个目标。CMake 依赖使用双架构配置，Autoconf 依赖和应用使用两组 `-arch` 参数，由 Apple 工具链生成 Universal 2 文件。编译器、SDK、依赖锁、构建配方和参数参与构建目录指纹，Universal 缓存位于 `.local/macos/universal/`。原生 helper 可以先独立编译：`python3 scripts/make_minimal.py macos-native`。下载缓存完整后，`setup-macos MACOS_SETUP_ARGS=--offline` 支持离线构建。
 
@@ -48,7 +48,7 @@ python3 scripts/make_minimal.py test-macos-original --progress
 
 默认只读取 `assets/original/V3.11`，可用环境变量 `RICH4_ORIGINAL_DIR` 指定真实资源目录。检查只使用原件和真实资源的临时副本，不创建合成 MIDI/MKF，不修改原件。无资源时明确报告 `NOT EXECUTED`。报告在 `build/macos/universal/original-validation.json`；转换结果供本地试听，不能上传公开 CI。运行检查使用构建主机的原生架构，Intel 真机运行验收须单独完成。
 
-覆盖全部 25 曲的原生 MIDI 播放、OGG/WAV/MID 优先级、原始 MIDI 名称、自然结束/循环/停止、离线 PCM 参数和逐帧时长、缓存、取消、中文/空格路径、多候选、缺文件、失败回退、导入中途取消、重新导入和源目录移走后的资源可用性。已有用户配置和存档只复制到测试目录，验证重新导入后字节保留。大小写冲突需要大小写敏感文件系统，默认 APFS 上记录未执行。移动后的应用在禁用 Homebrew 搜索路径和 DYLD 覆盖的环境执行菜单/地图 smoke，各运行两次并检查已有 framebuffer/sequence 基线；字体引起的差异必须审查，不自动更新。
+当前进程能访问系统 Audio Unit 注册表和 Apple DLSMusicDevice 时，覆盖全部 25 曲的原生 MIDI 播放、OGG/WAV/MID 优先级、原始 MIDI 名称、自然结束/循环/停止、进度恢复、离线 PCM 参数和逐帧时长、缓存及取消。Codex 等受限执行沙箱可能看不到 Audio Unit 注册表；此时真实播放、离线渲染和转换导入明确记录为 `NOT EXECUTED`，不能据此判断 macOS 缺少 DLSMusicDevice。取消时保留已有目标并清理临时文件的检查仍执行。完整音频验收应从非沙箱 Terminal 或 Finder 环境运行。其余检查覆盖中文/空格路径、多候选、缺文件、失败回退、导入中途取消、重新导入和源目录移走后的资源可用性。已有用户配置和存档只复制到测试目录，验证重新导入后字节保留。大小写冲突需要大小写敏感文件系统，默认 APFS 上记录未执行。移动后的应用在禁用 Homebrew 搜索路径和 DYLD 覆盖的环境执行菜单/地图 smoke，各运行两次并检查已有 framebuffer/sequence 基线；字体引起的差异必须审查，不自动更新。
 
 ## 发布门槛
 
