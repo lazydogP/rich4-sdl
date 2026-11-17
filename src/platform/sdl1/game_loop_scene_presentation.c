@@ -34,8 +34,9 @@ void game_draw_scene_fallback_options_menu(
                        options->options_panel);
     if (options->options_panel->child == 5) {
         options->options_panel->child = 0;
-        game_open_help_panel(options->help_panel, options->help_assets,
-                             options->screen);
+        /* 0x411A96 calls sub_44EB39(-1,-1); the Help background is centered. */
+        game_open_help_panel_at(options->help_panel, options->help_assets,
+                                options->screen, -1, -1);
     }
     game_draw_help_panel(options->screen, options->help_assets, options->help_panel);
 }

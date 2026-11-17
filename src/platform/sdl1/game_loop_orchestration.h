@@ -50,6 +50,10 @@ int game_load_help_assets(ResourceStore *store, const char *data_dir,
 int game_open_help_panel(HelpPanelState *panel,
                           const HelpAssets *assets,
                           SDL_Surface *capture_source);
+int game_open_help_panel_at(HelpPanelState *panel,
+                            const HelpAssets *assets,
+                            SDL_Surface *capture_source,
+                            int left, int top);
 void game_close_help_panel(HelpPanelState *panel);
 
 void game_help_panel_mouse_down(HelpPanelState *panel,

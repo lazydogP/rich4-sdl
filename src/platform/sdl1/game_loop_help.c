@@ -143,7 +143,7 @@ static int help_panel_page_count(const HelpAssets *assets,
                             (int)(sizeof(starts) / sizeof(starts[0])));
 }
 
-static int help_control_at(int x, int y)
+static int help_control_at(const HelpPanelState *panel, int x, int y)
 {
     static const int rects[6][4] = {
         {22, 38, 91, 361},
@@ -154,8 +154,10 @@ static int help_control_at(int x, int y)
         {343, 48, 366, 80}
     };
     int i;
-    x -= HELP_LEFT;
-    y -= HELP_TOP;
+    if (panel == NULL)
+        return -1;
+    x -= panel->left;
+    y -= panel->top;
     for (i = 0; i < 6; i++) {
         if (x >= rects[i][0] && y >= rects[i][1] &&
             x < rects[i][2] && y < rects[i][3])
@@ -164,11 +166,13 @@ static int help_control_at(int x, int y)
     return -1;
 }
 
-static int help_category_at(int x, int y)
+static int help_category_at(const HelpPanelState *panel, int x, int y)
 {
     int category;
-    x -= HELP_LEFT;
-    y -= HELP_TOP;
+    if (panel == NULL)
+        return -1;
+    x -= panel->left;
+    y -= panel->top;
     for (category = 0; category < HELP_CATEGORY_COUNT; category++) {
         if (x >= 26 && x < 92 &&
             y >= 36 * category + 58 &&
@@ -185,8 +189,8 @@ static int help_visible_item_at(const HelpPanelState *panel, int x, int y)
     int count;
     if (panel == NULL)
         return -1;
-    x -= HELP_LEFT;
-    y -= HELP_TOP;
+    x -= panel->left;
+    y -= panel->top;
     count = help_category_item_count[panel->category];
     visible = count - panel->scroll[panel->category];
     if (visible > HELP_VISIBLE_ITEMS)
@@ -199,14 +203,25 @@ static int help_visible_item_at(const HelpPanelState *panel, int x, int y)
     return -1;
 }
 
-int game_open_help_panel(HelpPanelState *panel,
-                           const HelpAssets *assets,
-                           SDL_Surface *capture_source)
+int game_open_help_panel_at(HelpPanelState *panel,
+                            const HelpAssets *assets,
+                            SDL_Surface *capture_source,
+                            int left, int top)
 {
+    Rich4SprSmpChunk background;
     SDL_Surface *saved;
     if (panel == NULL || assets == NULL || !assets->available ||
         capture_source == NULL)
         return 0;
+    if (left == -1) {
+        if (rich4_spr_smp_get_chunk(
+                assets->ui_data, assets->ui_size, &assets->ui_spr, 0,
+                &background) != RICH4_SPR_SMP_OK)
+            return 0;
+        /* 0x44E4C3-0x44E4EA: a low word of 0xffff centers both axes. */
+        left = 320 - background.width / 2;
+        top = 240 - background.height / 2;
+    }
     saved = SDL_CreateRGBSurface(
         SDL_SWSURFACE, capture_source->w, capture_source->h,
         capture_source->format->BitsPerPixel,
@@ -223,11 +238,22 @@ int game_open_help_panel(HelpPanelState *panel,
     panel->saved_background = saved;
     panel->active = 1;
     panel->button_pressed = 0;
+    panel->left = left;
+    panel->top = top;
     panel->category = 0;
     panel->selected_item = 0;
     panel->page = 0;
     panel->pressed_control = -1;
     return 1;
+}
+
+int game_open_help_panel(HelpPanelState *panel,
+                         const HelpAssets *assets,
+                         SDL_Surface *capture_source)
+{
+    /* 0x417DA3 opens the in-game toolbar Help viewer at (20,60). */
+    return game_open_help_panel_at(
+        panel, assets, capture_source, HELP_LEFT, HELP_TOP);
 }
 
 void game_close_help_panel(HelpPanelState *panel)
@@ -255,7 +281,7 @@ void game_help_panel_mouse_down(HelpPanelState *panel,
     int pages;
     if (panel == NULL || !panel->active)
         return;
-    control = help_control_at(x, y);
+    control = help_control_at(panel, x, y);
     panel->pressed_control = -1;
     if (control < 0)
         return;
@@ -263,7 +289,7 @@ void game_help_panel_mouse_down(HelpPanelState *panel,
     rich4_audio_play_ok(audio);
     switch (control) {
     case 0:
-        choice = help_category_at(x, y);
+        choice = help_category_at(panel, x, y);
         if (choice >= 0) {
             panel->category = choice;
             panel->selected_item = 0;
@@ -306,7 +332,7 @@ void game_help_panel_mouse_up(HelpPanelState *panel,
     int pages;
     if (panel == NULL || !panel->active)
         return;
-    control = help_control_at(x, y);
+    control = help_control_at(panel, x, y);
     panel->pressed_control = -1;
     count = help_category_item_count[panel->category];
     switch (control) {
@@ -386,25 +412,29 @@ void game_draw_help_panel(SDL_Surface *screen,
     int row;
     int count;
     int visible;
+    int left;
+    int top;
     uint16_t dark = rich4_character_rgb565_color(0x00101010u);
     if (screen == NULL || assets == NULL || panel == NULL ||
         !panel->active || !assets->available)
         return;
+    left = panel->left;
+    top = panel->top;
     if (panel->saved_background != NULL)
         SDL_BlitSurface(panel->saved_background, NULL, screen, NULL);
-    help_draw_chunk(screen, assets, 0, HELP_LEFT, HELP_TOP);
+    help_draw_chunk(screen, assets, 0, left, top);
     for (row = 0; row < HELP_CATEGORY_COUNT; row++)
         draw_big5_text_with_spacing(
-            screen, HELP_LEFT + 59, HELP_TOP + 36 * row + 73,
+            screen, left + 59, top + 36 * row + 73,
             help_category_names[row], 12, dark, dark, 0, 1, 2);
-    help_draw_chunk(screen, assets, 1, HELP_LEFT + 26,
-                    HELP_TOP + 36 * panel->category + 58);
+    help_draw_chunk(screen, assets, 1, left + 26,
+                    top + 36 * panel->category + 58);
     draw_big5_text_with_spacing(
-        screen, HELP_LEFT + 59, HELP_TOP + 36 * panel->category + 73,
+        screen, left + 59, top + 36 * panel->category + 73,
         help_category_names[panel->category],
         12, dark, dark, 0, 1, 2);
     draw_big5_text_with_spacing(
-        screen, HELP_LEFT + 140, HELP_TOP + 57,
+        screen, left + 140, top + 57,
         help_category_names[panel->category],
         12, dark, dark, 0, 1, 2);
 
@@ -415,23 +445,23 @@ void game_draw_help_panel(SDL_Surface *screen,
     if (count > HELP_VISIBLE_ITEMS) {
         help_draw_chunk(screen, assets,
                         panel->pressed_control == 2 ? 6 : 4,
-                        HELP_LEFT + 170, HELP_TOP + 43);
+                        left + 170, top + 43);
         help_draw_chunk(screen, assets,
                         panel->pressed_control == 3 ? 7 : 5,
-                        HELP_LEFT + 170, HELP_TOP + 59);
+                        left + 170, top + 59);
     }
     for (row = 0; row < visible; row++) {
         int item = panel->scroll[panel->category] + row;
         int label = help_item_label_index(panel->category, item);
         help_draw_chunk(screen, assets,
                         item == panel->selected_item ? 3 : 2,
-                        HELP_LEFT + 108, HELP_TOP + 34 * row + 78);
+                        left + 108, top + 34 * row + 78);
         draw_big5_text_with_spacing(
-            screen, HELP_LEFT + 150, HELP_TOP + 34 * row + 94,
+            screen, left + 150, top + 34 * row + 94,
             help_item_names[label], 15, dark, dark, 2, 0, 2);
     }
     draw_big5_text_with_spacing(
-        screen, HELP_LEFT + 270, HELP_TOP + 63,
+        screen, left + 270, top + 63,
         help_item_names[help_item_label_index(panel->category,
                                               panel->selected_item)],
         15, dark, dark, 2, 0, 2);
@@ -460,7 +490,7 @@ void game_draw_help_panel(SDL_Surface *screen,
         memcpy(line, text.data + offset, length);
         line[length] = '\0';
         draw_big5_text_with_spacing(
-            screen, HELP_LEFT + 232, HELP_TOP + 18 * row + 90,
+            screen, left + 232, top + 18 * row + 90,
             line, 12, dark, dark, 0, 1, 0);
         offset += help_bounded_strlen(
             text.data + offset, text.size - offset) + 1;
@@ -468,9 +498,9 @@ void game_draw_help_panel(SDL_Surface *screen,
     if (pages > 1) {
         help_draw_chunk(screen, assets,
                         panel->pressed_control == 4 ? 10 : 8,
-                        HELP_LEFT + 322, HELP_TOP + 48);
+                        left + 322, top + 48);
         help_draw_chunk(screen, assets,
                         panel->pressed_control == 5 ? 11 : 9,
-                        HELP_LEFT + 343, HELP_TOP + 48);
+                        left + 343, top + 48);
     }
 }

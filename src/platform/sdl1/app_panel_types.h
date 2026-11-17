@@ -20,6 +20,8 @@
 typedef struct HelpPanelState {
     int active;
     int button_pressed;
+    int left;
+    int top;
     int category;
     int selected_item;
     int scroll[GAME_HELP_CATEGORY_COUNT];
