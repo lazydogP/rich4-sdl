@@ -188,6 +188,57 @@ static const char *options_key_name(int vk)
     return "";
 }
 
+static void draw_options_pressed_region(SDL_Surface *screen,
+                                        int left, int top,
+                                        int right, int bottom)
+{
+    int x;
+    int y;
+    if (screen == NULL || screen->format == NULL ||
+        screen->format->BytesPerPixel != 2 || right <= left + 1 ||
+        bottom <= top + 1 || SDL_LockSurface(screen) != 0)
+        return;
+    /* 0x451B9E shifts the saved rectangle interior down/right by one pixel,
+     * then applies sub_4552E7(...,-16) to its top and left edges. */
+    for (y = bottom - 2; y >= top; y--) {
+        uint16_t *source = (uint16_t *)
+            ((unsigned char *)screen->pixels + y * screen->pitch);
+        uint16_t *destination = (uint16_t *)
+            ((unsigned char *)screen->pixels + (y + 1) * screen->pitch);
+        for (x = right - 2; x >= left; x--)
+            destination[x + 1] = source[x];
+    }
+    for (x = left; x < right; x++) {
+        uint16_t *row = (uint16_t *)
+            ((unsigned char *)screen->pixels + top * screen->pitch);
+        if (screen->format->Rmask == 0xf800 &&
+            screen->format->Gmask == 0x07e0 &&
+            screen->format->Bmask == 0x001f)
+            row[x] = (uint16_t)((row[x] >> 1) & 0x7bef);
+        else {
+            Uint8 red, green, blue;
+            SDL_GetRGB(row[x], screen->format, &red, &green, &blue);
+            row[x] = (uint16_t)SDL_MapRGB(
+                screen->format, red / 2, green / 2, blue / 2);
+        }
+    }
+    for (y = top + 1; y < bottom; y++) {
+        uint16_t *row = (uint16_t *)
+            ((unsigned char *)screen->pixels + y * screen->pitch);
+        if (screen->format->Rmask == 0xf800 &&
+            screen->format->Gmask == 0x07e0 &&
+            screen->format->Bmask == 0x001f)
+            row[left] = (uint16_t)((row[left] >> 1) & 0x7bef);
+        else {
+            Uint8 red, green, blue;
+            SDL_GetRGB(row[left], screen->format, &red, &green, &blue);
+            row[left] = (uint16_t)SDL_MapRGB(
+                screen->format, red / 2, green / 2, blue / 2);
+        }
+    }
+    SDL_UnlockSurface(screen);
+}
+
 static void draw_options_child(SDL_Surface *screen, const GamePreviewAssets *assets,
                                const Rich4OptionsPanelState *p)
 {
@@ -245,6 +296,24 @@ static void draw_options_child(SDL_Surface *screen, const GamePreviewAssets *ass
         for (i = 0; i < 3; ++i)
             draw_big5_text(screen, x+52+i*113, y+296, options_key_buttons[i],
                 15, RICH4_FONT_DARK, RICH4_FONT_DARK, 2, 2);
+        if (p->child_pressed >= 200 && p->child_pressed < 228) {
+            int control = p->child_pressed;
+            int column = control >= 215;
+            int row = column ? control - 215 : control - 200;
+            draw_options_pressed_region(
+                screen, x + (column ? 257 : 105), y + 25 + row * 16,
+                x + (column ? 312 : 160), y + 40 + row * 16);
+        } else if (p->child_pressed >= 4 && p->child_pressed <= 6) {
+            static const int button_rects[3][4] = {
+                {17, 281, 87, 311},
+                {130, 281, 200, 311},
+                {242, 281, 312, 311}
+            };
+            const int *rect = button_rects[p->child_pressed - 4];
+            draw_options_pressed_region(
+                screen, x + rect[0], y + rect[1],
+                x + rect[2], y + rect[3]);
+        }
     }
 }
 
