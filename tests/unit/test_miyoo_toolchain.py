@@ -133,7 +133,7 @@ class MiniSetupTests(unittest.TestCase):
 
     def test_every_tool_and_manifest_probe_is_inside_the_project(self):
         for path in (paths.GCC, paths.STRIP, paths.BUILTIN, paths.SYSROOT, paths.QEMU,
-                     paths.SEVEN_ZIP, paths.MKE2FS, paths.FFMPEG, paths.KERNEL,
+                     paths.SEVEN_ZIP, paths.MKE2FS, paths.KERNEL,
                      paths.KERNEL_DEB, paths.BUSYBOX):
             self.assertTrue(path.is_relative_to(paths.LOCAL), path)
         packages = json.loads(setup.MANIFEST.read_text())['packages']

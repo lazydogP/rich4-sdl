@@ -14,7 +14,7 @@ import subprocess
 import tarfile
 import time
 from summarize_miyoo_profile import summarize
-from miyoo_ttf_runtime import ttf_runtime_libraries
+from miyoo_runtime import runtime_libraries
 from miyoo_toolchain import (SYSROOT, STRIP, QEMU, SEVEN_ZIP, MKE2FS,
                              KERNEL, KERNEL_DEB, BUSYBOX, require_qemu_tools)
 
@@ -109,8 +109,8 @@ def main():
     shutil.copyfile(ROOT / 'assets/fonts/rich4.ttc', app / 'assets/fonts/rich4.ttc')
     from stage_miyoo_original_assets import DEFAULT_DATA_DIR, stage_original_assets
     stage_original_assets(DEFAULT_DATA_DIR, app / 'assets/original')
-    ttf_libraries = ttf_runtime_libraries(SYSROOT)
-    for name, source in ttf_libraries.items():
+    libraries = runtime_libraries(ROOT)
+    for name, source in libraries.items():
         (app / 'lib').mkdir(exist_ok=True)
         shutil.copyfile(source, app / 'lib' / name)
     disk = out / 'assets.ext4'
@@ -147,8 +147,7 @@ def main():
         subprocess.run([str(strip), '--strip-unneeded', str(dest)], check=True)
         files['lib/' + name] = dest
     files['lib/libSDL-1.2.so.0'] = sdk / 'usr/lib/libSDL-1.2.so.0'
-    files['lib/libSDL_mixer-1.2.so.0'] = sdk / 'usr/lib/libSDL_mixer-1.2.so.0'
-    for name, source in ttf_libraries.items():
+    for name, source in libraries.items():
         files['lib/' + name] = source
     if args.stalls_benchmark:
         files['qa/save_benchmark'] = ROOT / 'bin/miyoo/test_save_benchmark'

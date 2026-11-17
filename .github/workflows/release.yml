@@ -48,7 +48,7 @@ jobs:
 
       - name: Verify release packaging
         if: matrix.os == 'windows-2022'
-        run: python tests/unit/test_package_release.py
+        run: python scripts/make_minimal.py test-package-release test-miyoo-toolchain --progress
 
       - name: Run tests without original game data
         if: matrix.platform == 'windows-x64'
@@ -58,7 +58,7 @@ jobs:
         if: matrix.platform == 'windows-x64'
         run: python scripts/make_minimal.py sdl stage-sdl-runtime --progress
 
-      - name: Build Miyoo runtime
+      - name: Build Miyoo runtime with Tremor SDL_mixer
         if: matrix.platform == 'miyoo-mini'
         run: python scripts/make_minimal.py miyoo --progress
 
@@ -175,11 +175,12 @@ jobs:
           test -f "Rich4-SDL-MiyooMini-${RELEASE_TAG}.zip.sha256"
           sha256sum --check -- "${checksums[@]}"
           cat > notes.txt <<'EOF'
-          Windows x64 portable runtime and Miyoo Mini / Mini Plus program update.
+          Windows x64 portable runtime and Miyoo Mini / Mini Plus complete runtime package.
 
           Packages exclude original game data, music, fonts, saves and personal settings.
           Supply legally obtained MKF files and a CJK font as described in each package's README.txt.
-          The Miyoo update requires an existing installation with its runtime libraries and font.
+          The Miyoo package includes Tremor SDL_mixer, MP3/libmad, SDL_ttf, FreeType and their dependencies.
+          Supply game data and a CJK font; OGG music is supported directly without conversion.
           macOS Universal 2 (arm64 + x86_64) is available only as a development CI artifact until real-resource desktop,
           listening, clean-system, Developer ID and notarization acceptance is complete.
           EOF

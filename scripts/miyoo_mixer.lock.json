@@ -1,0 +1,22 @@
+{
+  "SDL_mixer": {
+    "filename": "SDL_mixer.tar.gz",
+    "url": "https://www.libsdl.org/projects/SDL_mixer/release/SDL_mixer-1.2.12.tar.gz",
+    "sha256": "1644308279a975799049e4826af2cfc787cad2abb11aa14562e402521f86992a"
+  },
+  "libogg": {
+    "filename": "libogg.tar.xz",
+    "url": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.xz",
+    "sha256": "c4d91be36fc8e54deae7575241e03f4211eb102afb3fc0775fbbc1b740016705"
+  },
+  "tremor": {
+    "filename": "libvorbisidec_1.2.1+git20180316.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/libv/libvorbisidec/libvorbisidec_1.2.1+git20180316.orig.tar.gz",
+    "sha256": "491b88661544f55b17154407420b5d78d2ac35d12786ee030d0925eb6aec03da"
+  },
+  "libmad": {
+    "filename": "libmad_0.15.1b.orig.tar.gz",
+    "url": "https://deb.debian.org/debian/pool/main/libm/libmad/libmad_0.15.1b.orig.tar.gz",
+    "sha256": "bbfac3ed6bfbc2823d3775ebb931087371e142bb0e9bb1bee51a76a6e0078690"
+  }
+}

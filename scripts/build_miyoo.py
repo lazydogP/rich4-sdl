@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 from miyoo_toolchain import GCC, BUILTIN, SYSROOT, require_build_tools
+from build_miyoo_mixer import ensure_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,12 +26,14 @@ def update_toolchain_stamp(command):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qa', action='store_true', help='also build separate QEMU test helpers')
+    parser.add_argument('--offline', action='store_true', help='use verified local source archives only')
     args = parser.parse_args()
     try:
         require_build_tools()
     except FileNotFoundError as error:
         parser.error(str(error))
     gcc, sdk = GCC, SYSROOT
+    mixer = ensure_runtime(offline=args.offline)
     # Use the Mini's glibc headers, not the GCC distribution's newer libc.
     builtin = BUILTIN
     sdk_path = sdk.as_posix()
@@ -45,7 +48,7 @@ def main():
            'SDL_PREFIX=', 'MIXER_PREFIX=', 'TTF_PREFIX=', 'LOCAL_TOOLCHAIN_BIN=',
            f'SDL_LIBS="{sdk_path}/usr/lib/libSDL.so" -lm -lpthread',
            'MIXER_CFLAGS=',
-           f'MIXER_LIBS="{sdk_path}/usr/lib/libSDL_mixer.so"',
+           f'MIXER_LIBS="{mixer.as_posix()}" -Wl,-rpath-link,"{mixer.parent.as_posix()}"',
            'TTF_CFLAGS=-DHAVE_SDL_TTF=1',
            f'TTF_LIBS="{sdk_path}/usr/lib/libSDL_ttf.so" -Wl,-rpath-link,"{sdk_path}/usr/lib"']
     # GNU Make excludes .EXTRA_PREREQS from $^, so link recipes keep their

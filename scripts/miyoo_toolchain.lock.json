@@ -59,14 +59,6 @@
       "sha256": "2579b47034cb784e0b8bda852d7ef320cb3925003ea4392edc6efe162890583c",
       "kind": "busybox",
       "probes": ["vm/busybox"]
-    },
-    "ffmpeg": {
-      "filename": "ffmpeg-8.1.2-essentials_build.7z",
-      "url": "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.7z",
-      "sha256": "e25b682664025d49034c981afb4bae36238a40f29a3cc1c713ad9a8b5b3528f6",
-      "kind": "ffmpeg",
-      "prefix": "ffmpeg-8.1.2-essentials_build",
-      "probes": ["ffmpeg/bin/ffmpeg.exe", "ffmpeg/LICENSE"]
     }
   }
 }

@@ -20,6 +20,9 @@ class ReleasePackageTests(unittest.TestCase):
             payloads = {
                 'bin/rich4_sdl.exe': b'windows executable',
                 'bin/miyoo/rich4_sdl': b'arm executable',
+                'build/miyoo/mixer/tremor/libSDL_mixer-1.2.so.0': b'new Tremor mixer',
+                'build/miyoo/mixer/tremor/libmad.so.0': b'pinned MP3 decoder',
+                '.local/miyoo/sysroot/usr/lib/libSDL_mixer-1.2.so.0': b'old SDK mixer must not ship',
                 'packaging/miyoo/launch.sh': b'#!/bin/sh\r\nexec ./rich4_sdl\r\n',
                 '.local/sdl1/ucrt64/bin/zlib1.dll': b'zlib',
                 'assets/original/Data.mkf': b'private game data',
@@ -37,8 +40,14 @@ class ReleasePackageTests(unittest.TestCase):
                 'build/miyoo/package/App/Rich4/logo.png': b'stale full-size logo',
             }
             templates = Path(__file__).resolve().parents[2] / 'packaging/miyoo'
-            for name in ('config.json', 'icon.png'):
+            for name in ('config.json', 'icon.png', 'input.toml'):
                 payloads['packaging/miyoo/' + name] = (templates / name).read_bytes()
+            for name in ('libSDL_ttf-2.0.so.0', 'libpng16.so.16', 'libz.so.1', 'libfreetype.so.6'):
+                payloads['.local/miyoo/sysroot/usr/lib/' + name] = b'pinned SDK ' + name.encode()
+            payloads['build/miyoo/mixer/tremor/libgcc_s.so.1'] = b'pinned stripped libgcc'
+            for name, folder in (('SDL_mixer', 'SDL_mixer-1.2.12'), ('libogg', 'libogg-1.3.5'),
+                                 ('tremor', 'libvorbisidec-1.2.1+git20180316'), ('libmad', 'libmad-0.15.1b')):
+                payloads[f'.local/miyoo/mixer/src/{name}/{folder}/COPYING'] = b'upstream license'
             for name in ('SDL.dll', 'SDL_ttf.dll', 'libSDL_mixer-1-2-0.dll',
                          'libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll',
                          'zlib1.dll'):
@@ -71,7 +80,18 @@ class ReleasePackageTests(unittest.TestCase):
                                 'App/Rich4/rich4_sdl', 'App/Rich4/launch.sh',
                                 'App/Rich4/config.json', 'App/Rich4/icon.png',
                                 'App/Rich4/RICH4-SDL.CFG.example',
+                                'App/Rich4/config/input.toml',
+                                *('App/Rich4/lib/' + name for name in (
+                                    'libSDL_mixer-1.2.so.0', 'libmad.so.0', 'libSDL_ttf-2.0.so.0',
+                                    'libfreetype.so.6', 'libpng16.so.16', 'libz.so.1', 'libgcc_s.so.1')),
+                                *('App/Rich4/licenses/' + name + '.txt' for name in (
+                                    'SDL_mixer', 'libogg', 'tremor', 'libmad')),
                                 'README.txt'})
+                            self.assertEqual(archive.read('App/Rich4/lib/libSDL_mixer-1.2.so.0'),
+                                             b'new Tremor mixer')
+                            self.assertEqual(archive.read('App/Rich4/lib/libmad.so.0'),
+                                             b'pinned MP3 decoder')
+                            self.assertIn(b'complete runtime package', archive.read('README.txt'))
                             for name in ('config.json', 'icon.png'):
                                 self.assertEqual(archive.read('App/Rich4/' + name),
                                                  payloads['packaging/miyoo/' + name])

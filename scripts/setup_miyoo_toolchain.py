@@ -163,11 +163,6 @@ def install(name, packages, offline):
         run_extract(CACHE / packages['7zr']['filename'], archive, destination)
     elif kind == 'qemu':
         run_extract(SEVEN_ZIP, archive, destination)
-    elif kind == 'ffmpeg':
-        run_extract(SEVEN_ZIP, archive, destination)
-        # Upstream wraps its binaries, license and readme in a versioned folder.
-        nested = destination / package['prefix']
-        shutil.copytree(nested, destination, dirs_exist_ok=True)
     elif kind == 'kernel':
         KERNEL_DEB.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(archive, KERNEL_DEB)
@@ -186,7 +181,6 @@ def install(name, packages, offline):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu', action='store_true', help='also prepare ARM QEMU, kernel, BusyBox and ext4 tools')
-    parser.add_argument('--package', action='store_true', help='also prepare FFmpeg for full music packages')
     parser.add_argument('--offline', action='store_true', help='use installed tools or verified project-local downloads only')
     args = parser.parse_args()
     if os.name != 'nt':
@@ -196,12 +190,9 @@ def main():
         for name in ('gcc', 'sysroot'):
             install(name, packages, args.offline)
         require_build_tools()
-        if args.qemu or args.package:
+        if args.qemu:
             fetch(packages['7zr'], args.offline)
             install('7zip', packages, args.offline)
-        if args.package:
-            install('ffmpeg', packages, args.offline)
-        if args.qemu:
             for name in ('qemu', 'platform-tools', 'kernel', 'busybox'):
                 install(name, packages, args.offline)
             require_qemu_tools()

@@ -5,6 +5,7 @@ import hashlib
 from pathlib import Path
 import re
 import zipfile
+from miyoo_runtime import runtime_libraries, runtime_licenses
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -13,7 +14,7 @@ def write_checksum(path):
     checksum = path.with_name(path.name + '.sha256')
     checksum.write_text(
         f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n',
-        encoding='ascii')
+        encoding='ascii', newline='\n')
     return checksum
 
 
@@ -47,15 +48,20 @@ This package contains no original game data, music, fonts or personal settings.
         files['App/Rich4/RICH4-SDL.CFG.example'] = root / 'RICH4-SDL.CFG.example'
         for name in ('config.json', 'icon.png'):
             files['App/Rich4/' + name] = root / 'packaging/miyoo' / name
-        readme = '''Rich4 SDL - Miyoo Mini / Mini Plus program update
-Merge App/ into your SD card root, replacing the executable, launcher,
-Apps menu config.json and transparent 64x64 icon.png.
-Requires original MKF data, a CJK font and input configuration in App/Rich4.
-Keep assets/fonts/rich4.ttc and your existing data when updating.
-On the tested Onion device, SDL, SDL_mixer, SDL_ttf, FreeType and libgcc_s
-are supplied by the system; no additional runtime library files are needed.
+        files['App/Rich4/config/input.toml'] = root / 'packaging/miyoo/input.toml'
+        files.update({'App/Rich4/lib/' + name: source for name, source in runtime_libraries(root).items()})
+        files.update({'App/Rich4/licenses/' + name: source for name, source in runtime_licenses(root).items()})
+        readme = '''Rich4 SDL - Miyoo Mini / Mini Plus complete runtime package
+Merge App/ into your SD card root. Includes the executable, launcher,
+Apps menu artwork, input configuration and all application runtime libraries:
+SDL_mixer with Tremor Vorbis and MP3/libmad, SDL_ttf, FreeType, PNG, zlib and libgcc_s.
+Native SDL 1.2 and glibc (2.28 or newer) are supplied by the device firmware.
+Supply original MKFs in App/Rich4/assets/original/:
+Data.mkf, Map.mkf, Panel.mkf, Effect.mkf, Speaking.mkf, Jump.mkf, Help.mkf.
+Supply a CJK font at App/Rich4/assets/fonts/rich4.ttc.
+Optional OGG music goes in App/Rich4/assets/music/ and plays directly without conversion.
 The launcher includes /mnt/SDCARD/miyoo/lib, /config/lib and /lib in its
-library search path. An existing App/Rich4/lib directory is optional.
+library search path after the bundled App/Rich4/lib directory.
 Game data, fonts, music, saves and in-game configuration are not included or replaced.
 '''
     else:

@@ -59,6 +59,9 @@ python scripts/make_minimal.py package-miyoo --progress
 
 构建和打包会自动准备缺少的本地工具；固定下载清单、离线使用和 QEMU 验证说明见
 [Miyoo Mini 构建与打包](packaging/miyoo/README.md)。
+Mini 构建自动编译支持 Tremor Vorbis/MP3 的原生 SDL_mixer；本地完整包和
+GitHub Actions 完整运行库包均携带新库与依赖。个人完整包按原字节复制 OGG，
+保留 WAV 界面音效。
 
 Unix 只安装 SDL1 而没有 SDL_mixer 开发包时仍可构建，程序会明确使用静音 adapter；安装 mixer 后自动启用完整音效/音乐后端。
 

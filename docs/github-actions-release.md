@@ -6,7 +6,7 @@
 - 推送 `v` 开头、后接数字的标签（例如 `v0.1.0`）自动构建并发布 GitHub Release。
 - Actions → Release → Run workflow 手动运行只构建并上传 artifacts，不创建 Release。
 - Windows x64 运行 unit/resource 测试，然后构建程序并收集 SDL 运行库。
-- Miyoo Mini / Mini Plus 使用项目固定版本的 ARM 工具链构建程序更新包。
+- Miyoo Mini / Mini Plus 使用固定 ARM 工具链与固定源码构建支持 Tremor Vorbis/MP3 的完整运行库包。
 - macOS 构建自包含的 Universal 2（arm64 + x86_64）应用，检查每个 slice 的依赖和部署版本，并运行包校验回归测试。
 - 全部构建成功后，发布任务下载 Windows 与 Miyoo ZIP 并发布 Release。
 - 含 `-` 的标签（例如 `v0.1.0-rc.1`）创建为 prerelease。
@@ -17,7 +17,9 @@
 先提交工作流、`scripts/package_release.py`、`tests/unit/test_package_release.py`，
 以及当前工作区完整的构建依赖。尤其是 Miyoo 相关的 `scripts/build_miyoo.py`、
 `scripts/setup_miyoo_toolchain.py`、`scripts/miyoo_toolchain.py`、
-`scripts/miyoo_toolchain.lock.json` 和 `packaging/miyoo/launch.sh` 必须已在标签对应的提交中；
+`scripts/miyoo_toolchain.lock.json`、`scripts/build_miyoo_mixer.py`、
+`scripts/miyoo_mixer.lock.json`、`scripts/miyoo_runtime.py`、`scripts/miyoo_ttf_runtime.py`
+和 `packaging/miyoo/launch.sh` 必须已在标签对应的提交中；
 `packaging/miyoo/config.json`、`icon.png` 也须随代码提交。
 CI 不会读取本机尚未提交的文件。Makefile 引用的源码和架构检查脚本也须一起提交。
 
@@ -37,7 +39,7 @@ git push origin v0.1.0
 | 附件 | 内容 |
 | --- | --- |
 | `Rich4-SDL-Windows-x64-<tag>.zip` | Windows 程序、SDL 及工具链运行库、使用说明 |
-| `Rich4-SDL-MiyooMini-<tag>.zip` | `App/Rich4/rich4_sdl`、`launch.sh`、Apps 菜单 `config.json`、64×64 透明 `icon.png`、更新说明 |
+| `Rich4-SDL-MiyooMini-<tag>.zip` | 程序、启动器、Apps 菜单和图标、输入配置、Tremor SDL_mixer、MP3/libmad、SDL_ttf、FreeType、PNG、zlib、libgcc_s、许可证与使用说明 |
 
 每个 ZIP 都附带同名 `.zip.sha256`。ZIP 与校验文件作为独立的原始 artifact 上传，
 不会再由 GitHub Actions 包装为外层 ZIP。
@@ -47,11 +49,14 @@ git push origin v0.1.0
 
 发布包使用明确的文件清单，不遍历个人打包目录；不包含 MKF、音乐、字体及字体图集、
 存档或个人设置。Windows 使用者需自行放置七个原版 MKF 和 `assets/fonts/rich4.ttc`。
-Miyoo 包用于覆盖已有安装，保留原版数据、字体、输入配置和存档；
-它不作为首次安装包，也不调用会读取本机原版资源的 `packaging/miyoo/package.py`。
-在已测试的 Onion 设备上，SDL、SDL_mixer、SDL_ttf、FreeType 和 libgcc_s 均由设备提供，自动发布包无需额外携带运行库，也不要求已有 `App/Rich4/lib/`。
-启动器明确加入 `/mnt/SDCARD/miyoo/lib`、`/config/lib`、`/lib`，不依赖启动菜单继承的环境变量。
-已有的应用 `lib/` 仍优先使用；其他固件的库版本兼容性需单独确认。
+Miyoo 包可作为运行环境的首次安装：自带完整应用运行库和输入配置，使用者补充
+原版 MKF 与 CJK 字体即可使用；可选音乐放入 `App/Rich4/assets/music/`，直接使用 OGG。
+设备固件仍须提供原生 SDL 1.2 与 glibc 2.28 或更新版本。
+CI 不调用读取本机原版资源的 `packaging/miyoo/package.py`。
+SDL_mixer 从 `scripts/miyoo_mixer.lock.json` 固定源码构建，libmad、字体库和其余依赖
+来自固定 Mini SDK，构建不需要连接个人设备或读取本地私有运行库副本。
+`scripts/miyoo_runtime.py` 为个人完整包、CI 和 QEMU 提供同一份依赖清单。
+启动器优先使用应用 `lib/`，随后搜索 `/mnt/SDCARD/miyoo/lib`、`/config/lib`、`/lib`。
 
 本地检查或生成同样的包：
 

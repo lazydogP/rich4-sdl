@@ -23,13 +23,13 @@ ARMv7 Cortex-A7、NEON、hard-float，使用 Mini 的 glibc 头文件和 SDL 1.2
 可提前准备完整环境或离线复用下载缓存：
 
 ```powershell
-python scripts/setup_miyoo_toolchain.py --package --qemu
+python scripts/setup_miyoo_toolchain.py --qemu
 python scripts/make_minimal.py miyoo MIYOO_SETUP_ARGS=--offline --progress
 python scripts/make_minimal.py test-miyoo-toolchain
 ```
 
 固定版本、下载地址、SHA-256 和安装探针位于
-`scripts/miyoo_toolchain.lock.json`。离线机器需保留 `.local/miyoo`，或将清单中
+`scripts/miyoo_toolchain.lock.json` 和 `scripts/miyoo_mixer.lock.json`。离线机器需保留 `.local/miyoo`，或将清单中
 原始下载文件按 `filename` 放入 `.local/miyoo/cache/` 后运行 `--offline`。
 缓存校验失败会明确报错；删除该缓存文件后可重新下载。安装完成标记仅在解包和
 文件检查成功后写入 `.local/miyoo/.installed/`。这些本地文件由现有 `.gitignore`
@@ -39,7 +39,7 @@ python scripts/make_minimal.py test-miyoo-toolchain
 | --- | --- |
 | `gcc` | [Arm GNU-A 10.3-2021.07](https://developer.arm.com/downloads/-/gnu-a) 的 Windows ARM hard-float 编译器 |
 | `sysroot` | [Mini Buildroot v0.0.3](https://github.com/shauninman/miyoomini-toolchain-buildroot/releases/tag/v0.0.3) 的 glibc、SDL 1.2、mixer 和 TTF 头文件/库 |
-| `ffmpeg` | [Gyan FFmpeg 8.1.2 essentials](https://www.gyan.dev/ffmpeg/builds/)；完整打包时转换音乐 |
+| `mixer` | 固定源码 SDL_mixer 1.2.12、libogg 1.3.5、Tremor 定点 Vorbis；libmad 来自 Mini SDK |
 | `qemu`、`7zip` | [QEMU Windows 20260729](https://qemu.weilnetz.de/w64/)、[7-Zip 25.01](https://github.com/ip7z/7zip/releases/tag/25.01)；ARM 验证与证据提取 |
 | `platform-tools` | Google Platform-Tools 37.0.1 的 mke2fs；创建验证磁盘 |
 | `vm` | Debian ARM 内核 6.12.111 和静态 BusyBox 1.38.0；内核包同时提供匹配模块 |
@@ -50,17 +50,18 @@ sysroot 中的库链接在 Windows 上展开为项目内普通文件，不要求
 打包读取本工作区 `assets/original` 的七个 MKF 和预烘焙中文字库，
 输出 `bin/miyoo/Rich4-MiyooMini.zip`。解压，将 `App` 合并到 SD 卡根目录，
 在 Apps 启动“大富翁4”。包内程序及 SDL_mixer 已剥离调试符号；系统提供
-SDL 和 glibc。Mini SDL_mixer 不支持 OGG，打包时通过项目内 ffmpeg 转成
-22050Hz 立体声 WAV，使用现有音乐加载器的 WAV 路径。
+原生 SDL 1.2 和 glibc 2.28 或更新版本。构建自动从固定源码编译支持 Tremor
+Vorbis 和 MP3/libmad 的 SDL_mixer。OGG 按原字节复制，不转码、不改变采样率；
+原有 WAV 界面音效仍保留 WAV。复用旧暂存目录时清理过时的音乐文件，归档使用明确清单。
 
-CI 程序更新包使用设备自带运行库，不要求先安装完整个人包的 `lib/`。
-启动器将应用 `lib/`、`/mnt/SDCARD/miyoo/lib`、`/config/lib`、`/lib` 加入搜索路径。
-2026-10-27 在 Onion 设备、glibc 2.28 上，仅用设备自带的 SDL、SDL_mixer、SDL_ttf、
-FreeType 和 libgcc_s 完成菜单、2000 帧游戏场景、TTF 中文绘制和音频退出测试；
-无需额外补库。120 帧游戏对照与个人包运行库的 framebuffer 和序列摘要相同。
-该结论对应这台设备的库版本，其他固件需另行确认。
+个人完整包和 CI 完整运行库包共用 `scripts/miyoo_runtime.py` 的库清单：
+SDL_mixer、libmad、SDL_ttf、FreeType、PNG、zlib 与剥离符号的 libgcc_s。
+依赖均来自固定源码或固定 Mini SDK，CI 不需要读取设备或本地私有库副本。
+启动器依次搜索应用 `lib/`、`/mnt/SDCARD/miyoo/lib`、`/config/lib`、`/lib`。
+CI 包包含输入配置，但不含原版 MKF、字体、音乐和个人设置；使用者自行提供资源。
+共享同一套运行库的 QEMU 验证仍不能代替真机验收。
 
-完整包、`--update-only` 增量包和 CI 发布更新包均包含本目录的
+个人完整包和 CI 完整运行库包均包含本目录的
 `config.json` 与 `icon.png`，安装到 `App/Rich4/`。
 `config.json` 来自提供的 `G:/App/Rich4/config.json`，按原文件复制，
 Apps 菜单通过其中的 `icon` 字段读取 64×64 RGBA 透明图标。
@@ -246,26 +247,25 @@ Miyoo 统一使用 SDL_ttf/FreeType，并一起打包 CJK 字体
 Panel[63/78/79/80] 与 Data[553]，占用同一个预算，不固定驻留。后续资源需求
 可能使它们被淘汰。原始 MKF 和解码算法保持不变。
 
-增量打包命令：
+指定个人完整包输出路径：
 
 ```powershell
-python scripts/make_minimal.py package-miyoo "MIYOO_PACKAGE_ARGS=--update-only --output bin/miyoo/Rich4-MiyooMini-save-event-ttf-update.zip"
+python scripts/make_minimal.py package-miyoo "MIYOO_PACKAGE_ARGS=--output bin/miyoo/Rich4-MiyooMini-full.zip"
 ```
 
-增量包包含程序、启动脚本、CJK 字体及 TTF 的四项库依赖，不包含存档、
-游戏配置、音乐或 MKF。量化结果与验证状态见
+个人完整包包含程序、启动脚本、CJK 字体、运行库、OGG 音乐及原版 MKF，
+不包含存档和实际游戏配置。历史量化结果与验证状态见
 `build/miyoo/save-event-ttf-validation.json`；ARM/QEMU 的 CPU、dummy 显示与
 内存结果不代表 Miyoo 真机 SD 卡耗时或帧率。
 
-FreeType 随包使用设备 SD 卡原有库的副本，仅要求 GLIBC_2.4；SDL_ttf 所需
-全部 FT_* 符号已核对。`scripts/miyoo_ttf_runtime.py` 为打包和 QEMU 提供同一
-依赖清单，避免验证使用一种库、安装包使用另一种库。
+当前 FreeType 随包使用固定 Mini SDK 的库，要求 GLIBC_2.28。
+`scripts/miyoo_runtime.py` 为个人包、CI 和 QEMU 提供同一依赖清单。
 
-本次 TTF 发布测量（ARM/QEMU，128 MB，无交换）：600 帧地图、
+以下为历史 TTF 发布测量（ARM/QEMU，128 MB，无交换），不作为当前 SDK 库的重新验收：600 帧地图、
 7152 次文字绘制累计 465 ms，包含首次字体加载。整帧绘图平均
 7.31 ms，地图峰值 RSS 46.93 MiB。
 TTF 四人新局峰值 56.95 MiB，最低采样可用内存 24.96 MiB。TTF 字体与四项
-依赖新增磁盘占用 27.0 MiB；增量包 14.78 MiB。字体会改变文字像素和度量，
+依赖新增磁盘占用 27.0 MiB；当时测量包 14.78 MiB。字体会改变文字像素和度量，
 这些 QEMU 数据不能替代真机显示驱动、SD 卡及音频测试。
 
 同一份 459340 字节真机存档在 ARM 中各写十次，新旧编码输出逐字节一致；

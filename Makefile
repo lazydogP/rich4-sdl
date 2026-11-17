@@ -272,13 +272,17 @@ setup-miyoo:
 test-miyoo-toolchain:
 	$(PYTHON) tests/unit/test_miyoo_toolchain.py
 
+.PHONY: miyoo-mixer
+miyoo-mixer: setup-miyoo
+	$(PYTHON) scripts/build_miyoo_mixer.py $(filter --offline,$(MIYOO_SETUP_ARGS))
+
 .PHONY: miyoo
 miyoo: setup-miyoo
-	$(PYTHON) scripts/build_miyoo.py
+	$(PYTHON) scripts/build_miyoo.py $(filter --offline,$(MIYOO_SETUP_ARGS))
 
 .PHONY: miyoo-qa-build
 miyoo-qa-build: setup-miyoo
-	$(PYTHON) scripts/build_miyoo.py --qa
+	$(PYTHON) scripts/build_miyoo.py --qa $(filter --offline,$(MIYOO_SETUP_ARGS))
 
 .PHONY: test-miyoo-qemu
 
@@ -301,10 +305,10 @@ $(BIN_DIR)/test_miyoo_asset_scope: tests/sdl/test_miyoo_asset_scope.c $(MKF_OBJS
 .PHONY: test-package-release
 test-package-release:
 	$(PYTHON) tests/unit/test_package_release.py
+	$(PYTHON) tests/unit/test_miyoo_package.py
 
 MIYOO_PACKAGE_ARGS ?=
 package-miyoo: miyoo
-	$(PYTHON) scripts/setup_miyoo_toolchain.py --package $(MIYOO_SETUP_ARGS)
 	$(PYTHON) packaging/miyoo/package.py $(MIYOO_PACKAGE_ARGS)
 
 $(BUILD_DIR)/sdl1_runtime_pacing_test.o: src/platform/sdl1/runtime.c | dirs
