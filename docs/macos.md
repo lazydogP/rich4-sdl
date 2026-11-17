@@ -1,6 +1,6 @@
 # macOS 开发构建与验收
 
-目标为自包含的 Universal 2（arm64 + x86_64）`Rich4.app`：Intel 最低部署到 OS X 10.10，Apple Silicon 最低部署到 macOS 11。最低版本尚待真机验收。本实现提供开发产物；人工试听、干净系统和真实设备验收完成前，不向 GitHub Release 发布 macOS 包。
+目标为自包含的 Universal 2（arm64 + x86_64）`Rich4.app`：Intel 最低部署到 OS X 10.10，Apple Silicon 最低部署到 macOS 11。最低版本尚待真机验收。标签 Release 提供使用 ad-hoc 签名的开发包与 SHA-256 校验文件；人工试听、干净系统和真实设备验收仍待完成，当前包尚未 Developer ID 签名或公证。
 
 ## 构建
 

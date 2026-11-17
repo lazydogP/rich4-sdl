@@ -26,10 +26,16 @@ jobs:
         include:
           - platform: windows-x64
             os: windows-2022
+            package-dir: build/release
           - platform: miyoo-mini
             os: windows-2022
+            package-dir: build/release
           - platform: macos-universal-development
             os: macos-26
+            package-dir: build/release
+          - platform: portmaster-aarch64
+            os: ubuntu-22.04
+            package-dir: build/portmaster
     defaults:
       run:
         shell: pwsh
@@ -66,24 +72,6 @@ jobs:
         if: matrix.os == 'windows-2022'
         run: python scripts/package_release.py --platform "${{ matrix.platform }}" --version "$env:RELEASE_VERSION"
 
-      - name: Upload release package
-        if: matrix.os == 'windows-2022'
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          path: build/release/*.zip
-          archive: false
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload release checksum
-        if: matrix.os == 'windows-2022'
-        uses: actions/upload-artifact@v7.0.2
-        with:
-          path: build/release/*.zip.sha256
-          archive: false
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Build and inspect macOS development bundle
         shell: bash
         if: matrix.platform == 'macos-universal-development'
@@ -94,22 +82,28 @@ jobs:
         if: matrix.platform == 'macos-universal-development'
         run: python3 scripts/make_minimal.py test-macos-original --progress
 
-      # Deliberately excluded from the public Windows and Miyoo release downloads.
-      # Desktop/listening acceptance and Developer ID notarization are still pending.
-      - name: Upload macOS development bundle
-        if: matrix.platform == 'macos-universal-development'
+      - name: Verify PortMaster package isolation and launcher
+        shell: bash
+        if: matrix.platform == 'portmaster-aarch64'
+        run: python scripts/make_minimal.py test-portmaster-package --progress
+
+      - name: Build PortMaster aarch64 experimental package
+        shell: bash
+        if: matrix.platform == 'portmaster-aarch64'
+        run: python scripts/make_minimal.py package-portmaster --progress
+
+      - name: Upload release package
         uses: actions/upload-artifact@v7.0.2
         with:
-          path: build/release/Rich4-SDL-macOS-${{ env.RELEASE_VERSION }}.zip
+          path: ${{ matrix.package-dir }}/Rich4-SDL-*-${{ env.RELEASE_VERSION }}.zip
           archive: false
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload macOS development checksum
-        if: matrix.platform == 'macos-universal-development'
+      - name: Upload release checksum
         uses: actions/upload-artifact@v7.0.2
         with:
-          path: build/release/Rich4-SDL-macOS-${{ env.RELEASE_VERSION }}.zip.sha256
+          path: ${{ matrix.package-dir }}/Rich4-SDL-*-${{ env.RELEASE_VERSION }}.zip.sha256
           archive: false
           if-no-files-found: error
           retention-days: 14
@@ -123,34 +117,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download Windows package
+      - name: Download release packages
         uses: actions/download-artifact@v8.0.2
         with:
-          pattern: Rich4-SDL-Windows-x64-*.zip
+          pattern: Rich4-SDL-*-${{ github.ref_name }}.zip
           merge-multiple: true
           skip-decompress: true
           path: dist
 
-      - name: Download Windows checksum
+      - name: Download release checksums
         uses: actions/download-artifact@v8.0.2
         with:
-          pattern: Rich4-SDL-Windows-x64-*.zip.sha256
-          merge-multiple: true
-          skip-decompress: true
-          path: dist
-
-      - name: Download MiyooMini package
-        uses: actions/download-artifact@v8.0.2
-        with:
-          pattern: Rich4-SDL-MiyooMini-*.zip
-          merge-multiple: true
-          skip-decompress: true
-          path: dist
-
-      - name: Download MiyooMini checksum
-        uses: actions/download-artifact@v8.0.2
-        with:
-          pattern: Rich4-SDL-MiyooMini-*.zip.sha256
+          pattern: Rich4-SDL-*-${{ github.ref_name }}.zip.sha256
           merge-multiple: true
           skip-decompress: true
           path: dist
@@ -165,24 +143,27 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
+          platforms=(Windows-x64 MiyooMini PortMaster macOS)
           archives=(*.zip)
           checksums=(*.zip.sha256)
-          test "${#archives[@]}" -eq 2
-          test "${#checksums[@]}" -eq 2
-          test -f "Rich4-SDL-Windows-x64-${RELEASE_TAG}.zip"
-          test -f "Rich4-SDL-Windows-x64-${RELEASE_TAG}.zip.sha256"
-          test -f "Rich4-SDL-MiyooMini-${RELEASE_TAG}.zip"
-          test -f "Rich4-SDL-MiyooMini-${RELEASE_TAG}.zip.sha256"
+          test "${#archives[@]}" -eq "${#platforms[@]}"
+          test "${#checksums[@]}" -eq "${#platforms[@]}"
+          for platform in "${platforms[@]}"; do
+            test -f "Rich4-SDL-${platform}-${RELEASE_TAG}.zip"
+            test -f "Rich4-SDL-${platform}-${RELEASE_TAG}.zip.sha256"
+          done
           sha256sum --check -- "${checksums[@]}"
           cat > notes.txt <<'EOF'
-          Windows x64 portable runtime and Miyoo Mini / Mini Plus complete runtime package.
+          Windows x64 portable runtime, Miyoo Mini / Mini Plus complete runtime,
+          macOS Universal 2 development bundle and PortMaster aarch64 experimental package.
 
           Packages exclude original game data, music, fonts, saves and personal settings.
-          Supply legally obtained MKF files and a CJK font as described in each package's README.txt.
+          Supply legally obtained MKF files and a CJK font as described in the platform documentation.
           The Miyoo package includes Tremor SDL_mixer, MP3/libmad, SDL_ttf, FreeType and their dependencies.
           Supply game data and a CJK font; OGG music is supported directly without conversion.
-          macOS Universal 2 (arm64 + x86_64) is available only as a development CI artifact until real-resource desktop,
-          listening, clean-system, Developer ID and notarization acceptance is complete.
+          macOS Universal 2 (arm64 + x86_64) uses ad-hoc signing; Developer ID signing and notarization are not included.
+          Real-resource desktop, listening and clean-system acceptance are still pending.
+          PortMaster is an experimental aarch64 package; handheld firmware acceptance is still pending.
           EOF
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then

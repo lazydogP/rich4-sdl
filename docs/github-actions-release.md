@@ -1,14 +1,15 @@
 # GitHub Actions 自动发布
 
 工作流位于 `.github/workflows/release.yml`，使用现有 Windows 本地工具链脚本和
-`scripts/make_minimal.py` 构建，Windows 与 Miyoo 构建运行在 `windows-2022`；macOS Universal 2 开发包在 `macos-26` 构建。
+`scripts/make_minimal.py` 构建，Windows 与 Miyoo 构建运行在 `windows-2022`；macOS Universal 2 开发包在 `macos-26` 构建，PortMaster aarch64 试验包在 `ubuntu-22.04` 构建。
 
 - 推送 `v` 开头、后接数字的标签（例如 `v0.1.0`）自动构建并发布 GitHub Release。
 - Actions → Release → Run workflow 手动运行只构建并上传 artifacts，不创建 Release。
 - Windows x64 运行 unit/resource 测试，然后构建程序并收集 SDL 运行库。
 - Miyoo Mini / Mini Plus 使用固定 ARM 工具链与固定源码构建支持 Tremor Vorbis/MP3 的完整运行库包。
 - macOS 构建自包含的 Universal 2（arm64 + x86_64）应用，检查每个 slice 的依赖和部署版本，并运行包校验回归测试。
-- 全部构建成功后，发布任务下载 Windows 与 Miyoo ZIP 并发布 Release。
+- PortMaster 使用独立的固定工具链与 glibc sysroot，先检查包隔离和启动器，再构建 aarch64 试验包。
+- 全部构建成功后，发布任务下载四个平台的 ZIP 与 `.sha256`，检查附件完整性和 SHA-256 后发布 Release。
 - 含 `-` 的标签（例如 `v0.1.0-rc.1`）创建为 prerelease。
 - 同标签任务串行执行；重新运行会更新同名附件。首次发布先创建 draft，附件上传完成后公开。
 
@@ -40,12 +41,15 @@ git push origin v0.1.0
 | --- | --- |
 | `Rich4-SDL-Windows-x64-<tag>.zip` | Windows 程序、SDL 及工具链运行库、使用说明 |
 | `Rich4-SDL-MiyooMini-<tag>.zip` | 程序、启动器、Apps 菜单和图标、输入配置、Tremor SDL_mixer、MP3/libmad、SDL_ttf、FreeType、PNG、zlib、libgcc_s、许可证与使用说明 |
+| `Rich4-SDL-macOS-<tag>.zip` | 自包含 Universal 2 开发版 `Rich4.app`、动态库、配置模板和许可证；使用 ad-hoc 签名，尚未 Developer ID 签名或公证 |
+| `Rich4-SDL-PortMaster-<tag>.zip` | aarch64 试验程序、启动器、按键配置、SDL 兼容层与运行库、许可证和对应源码 |
 
 每个 ZIP 都附带同名 `.zip.sha256`。ZIP 与校验文件作为独立的原始 artifact 上传，
 不会再由 GitHub Actions 包装为外层 ZIP。
 
-两个平台的程序目录均附带 `RICH4-SDL.CFG.example`。需要自定义时，复制为同目录的
+Windows、Miyoo 和 PortMaster 的程序目录均附带 `RICH4-SDL.CFG.example`。需要自定义时，复制为同目录的
 `RICH4-SDL.CFG` 后修改；没有实际配置时使用内置默认值，升级时保留已有配置。
+macOS 的配置模板位于应用资源目录，用户配置由启动器保存在用户数据目录。
 
 发布包使用明确的文件清单，不遍历个人打包目录；不包含 MKF、音乐、字体及字体图集、
 存档或个人设置。Windows 使用者需自行放置七个原版 MKF 和 `assets/fonts/rich4.ttc`。
@@ -68,10 +72,13 @@ python scripts/make_minimal.py miyoo --progress
 python scripts/package_release.py --platform miyoo-mini --version v0.1.0
 ```
 
-产物在 `build/release/`，每个程序 ZIP 旁生成对应的 `.zip.sha256`。
+Windows、Miyoo 和 macOS 产物在 `build/release/`，PortMaster 产物在 `build/portmaster/`；
+每个程序 ZIP 旁生成对应的 `.zip.sha256`。
 Actions artifacts 保留 14 天，公开 Release 附件独立保存。
-macOS 开发产物命名为 `Rich4-SDL-macOS-<version>.zip`，与对应 `.zip.sha256`
-分别作为 artifact 保存；真实设备、试听、Developer ID 签名及公证验收完成前不发布到 Release。
+macOS 开发包与 PortMaster 试验包同时保存为 CI artifact 和标签 Release 附件。
+macOS 仍待真实设备、试听与干净系统验收，当前仅有 ad-hoc 签名；Developer ID 签名与公证
+继续使用独立的验收流程，见 [macOS 构建与验收](macos.md)。PortMaster 的设备要求和
+真机验收状态见 [PortMaster 试验包](../packaging/portmaster/README.md)。
 CI 不提供原版资源，因此不执行真实资源 SDL smoke、QEMU 游戏回放或真机验证。
 
 参考：[GitHub Actions 权限](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)、
