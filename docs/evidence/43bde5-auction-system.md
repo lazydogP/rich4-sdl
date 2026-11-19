@@ -169,20 +169,22 @@ AI 选择最高价支持的最大按钮档位。已有领先者时，还会以
 | 音效 | `Effect.MKF[29]` | 成交落槌 |
 | 音乐 | 固定音乐索引 5 | `MIDI06.MID`，运行时 track 15 |
 
-普通入口在模态期间切到音乐索引 5，退出后恢复地图播放列表。原破产函数在三次
-共享拍卖外层只切换一次；SDL 将三个连续请求都标为管理拍卖音乐，模态音乐状态
-跨队列保持活动，只在整个队列结束后恢复，听感与生命周期等价。
+普通入口在模态期间切到音乐索引 5，退出后恢复地图播放列表。破产入口
+`0x40D1E3` 的第三参为 0；SDL 的三个破产请求同样使用 `manage_music=0`，
+保留外层破产音乐，不为每个标的启动或恢复拍卖音乐。
 
 ## SDL 分层实现
 
 - `core/auction.c`：底价、资格、轮转、PASS/Give Up、AI 上限、结算。
-- `app/auction_flow.c`：事件排队、语音阶段、100 ms 动画节拍、真人/AI 调度。
+- `app/auction_flow.c`：事件排队、语音阶段、100 ms 动画节拍、真人/AI 调度，
+  以及成交后的地图聚焦、过户和两段最多 1000 ms 等待。
 - `platform/sdl1/game_auction_render.c`：Panel 26、标的公式、Big5 名称、人物状态、
   精确按钮坐标、按下态、动作反馈气泡、成交标题和逐帧人物资源。
 - `core/card.c`、`core/special_event_commit.c`、`core/special_event_magic.c`、
   `core/ledger.c`：四类入口只发 typed auction request，不再提前伪结算。
 - `platform/sdl1/game_loop_modal_music.c` 与 SDL audio：固定拍卖音乐、两项 Effect
-  资源和 Speaking 队列；拍卖期间吞掉取消键与右键，不存在退出捷径。
+  资源和 Speaking 队列；主拍卖回调吞掉键盘与右键，不存在退出捷径。成交后的
+  两段地图等待按 `0x4528B9` 接受任意键抬起或左右键抬起。
 - 单元测试覆盖底价/资格、PASS 重置、单人竞价、AI 档位、所有权与资金结算、
   四类请求策略、破产三标的无放回选择、精确 hitbox 和完整语音阶段链。
 

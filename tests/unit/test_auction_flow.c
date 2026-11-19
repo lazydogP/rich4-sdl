@@ -28,6 +28,8 @@ static void setup(GameSession *session, int players)
     session->state.land_price[0] = 1000;
     session->state.land_price_per_level[0] = 500;
     session->state.land_value[0] = 1000;
+    session->state.tool_land_x[0] = 640;
+    session->state.tool_land_y[0] = 960;
 }
 
 static GameEvent request(int seller, unsigned int flags)
@@ -117,8 +119,27 @@ static void human_sale_timeline_and_settlement(void)
     assert(sound.type == RICH4_AUDIO_EVENT_SPEECH_START &&
            sound.value == 136);
     rich4_auction_flow_skip_speech(&session, NULL);
-    assert(!rich4_auction_flow_update(&session, 2000, 0, &audio, &events));
+    assert(rich4_auction_flow_update(&session, 2000, 0, &audio, &events));
+    assert(session.presentation.auction.stage ==
+           RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER);
+    assert(session.presentation.has_view_override &&
+           session.presentation.view_world_x == 640 &&
+           session.presentation.view_world_y == 960);
+    assert(session.state.land_owner[0] == -1);
+    assert(session.state.players[0].cash == 20000);
+    assert(rich4_auction_flow_update(&session, 2999, 0, &audio, &events));
+    assert(session.state.land_owner[0] == -1);
+    assert(rich4_auction_flow_release_wait(&session));
+    assert(rich4_auction_flow_update(&session, 2999, 0, &audio, &events));
+    assert(session.presentation.auction.stage ==
+           RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER);
     assert(session.state.land_owner[0] == 0);
+    assert(session.state.players[0].cash == 20000);
+    assert(session.state.system_cash == 100);
+    assert(rich4_auction_flow_update(&session, 3998, 0, &audio, &events));
+    assert(session.state.players[0].cash == 20000);
+    assert(rich4_auction_flow_release_wait(&session));
+    assert(!rich4_auction_flow_update(&session, 3998, 0, &audio, &events));
     assert(session.state.players[0].cash == 18900);
     assert(session.state.system_cash == 1200);
     assert(events.count == 2);
@@ -150,6 +171,48 @@ static void deferred_speech_and_unsold_policy(void)
     assert(!rich4_auction_flow_update(&session, 0, 0, &audio, &events));
     assert(session.state.land_owner[0] == -1);
     assert(session.state.fixed_asset_value[0] == 0);
+}
+
+static void owned_sale_repairs_stale_asset_cache(void)
+{
+    GameSession session;
+    GameEventQueue events;
+    GameAuctionPresentationState *presentation;
+    setup(&session, 2);
+    rich4_game_event_queue_reset(&events);
+    session.state.land_owner[0] = 1;
+    /* Reproduces a card-auction save whose derived aggregate was not
+     * populated.  This used to reject the transfer forever. */
+    session.state.fixed_asset_value[0] = 0;
+    session.state.fixed_asset_value[1] = 0;
+    presentation = &session.presentation.auction;
+    presentation->active = 1;
+    presentation->stage = RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER;
+    presentation->action_until = 1000;
+    presentation->bidding.active = 1;
+    presentation->bidding.phase = GAME_AUCTION_SOLD;
+    presentation->bidding.seller = 1;
+    presentation->bidding.target =
+        rich4_game_domain_ref(GAME_DOMAIN_LAND, 0);
+    presentation->bidding.leader = 0;
+    presentation->bidding.current_price = 1100;
+    presentation->request.seller = 1;
+
+    assert(rich4_auction_flow_update(
+        &session, 1000, 0, &session.audio_events, &events));
+    assert(presentation->stage == RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER);
+    assert(session.state.land_owner[0] == 0);
+    assert(session.state.fixed_asset_value[0] == 1000);
+    assert(session.state.fixed_asset_value[1] == 0);
+    assert(session.state.players[0].cash == 20000);
+    assert(session.state.players[1].cash == 20000);
+
+    assert(rich4_auction_flow_release_wait(&session));
+    assert(!rich4_auction_flow_update(
+        &session, 1000, 0, &session.audio_events, &events));
+    assert(session.state.players[0].cash == 18900);
+    assert(session.state.players[1].cash == 20000);
+    assert(session.state.players[1].bank == 1100);
 }
 
 static void invalid_bid_and_cash_overrun_follow_callback(void)
@@ -288,6 +351,12 @@ static void settlement_keeps_the_ending_continuation(void)
     rich4_auction_flow_skip_speech(&session, NULL);
     assert(rich4_auction_flow_update(&session, 2000, 0, &audio, &events));
     rich4_auction_flow_skip_speech(&session, NULL);
+    assert(rich4_auction_flow_update(&session, 2000, 0, &audio, &events));
+    assert(!session.presentation.ending.active);
+    assert(rich4_auction_flow_release_wait(&session));
+    assert(rich4_auction_flow_update(&session, 2000, 0, &audio, &events));
+    assert(!session.presentation.ending.active);
+    assert(rich4_auction_flow_release_wait(&session));
     assert(!rich4_auction_flow_update(&session, 2000, 0, &audio, &events));
     assert(session.state.game_over);
     /* SDL discards the temporary output queue; the continuation must survive. */
@@ -360,6 +429,7 @@ int main(void)
     hit_boxes_are_original();
     human_sale_timeline_and_settlement();
     deferred_speech_and_unsold_policy();
+    owned_sale_repairs_stale_asset_cache();
     invalid_bid_and_cash_overrun_follow_callback();
     puts("auction flow tests: ok");
     return 0;

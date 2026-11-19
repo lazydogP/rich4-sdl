@@ -120,13 +120,16 @@ static int land_toll_for_owner(const GameState *state, int land, int owner,
     return bounded_price(total, out_toll);
 }
 
+int rich4_land_base_toll(const GameState *state, int land, int *out_toll)
+{
+    if (!valid_land(state, land)) return 0;
+    return land_toll_for_owner(state, land, state->land_owner[land], out_toll);
+}
+
 int rich4_land_toll(const GameState *state, int land, int *out_toll)
 {
-    int owner, toll;
-    if (!valid_land(state, land) || out_toll == NULL) return 0;
-    owner = state->land_owner[land];
-    if (owner < 0 || owner >= state->player_count ||
-        !land_toll_for_owner(state, land, owner, &toll)) return 0;
+    int toll;
+    if (out_toll == NULL || !rich4_land_base_toll(state, land, &toll)) return 0;
     if (state->land_price_status[land] != 0) {
         if (toll > INT_MAX / 2) return 0;
         toll *= 2;

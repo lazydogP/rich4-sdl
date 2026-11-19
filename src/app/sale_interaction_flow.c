@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "core/card.h"
+#include "core/ledger.h"
 #include "core/tool.h"
 
 enum {
@@ -26,8 +27,6 @@ enum {
     SALE_HIT_PURCHASE_CONFIRM_YES = 500,
     SALE_HIT_PURCHASE_CONFIRM_NO
 };
-
-enum { SALE_PICKER_OPEN = -1 };
 
 static GameSaleInteractionPresentationState *sale_state(GameSession *session)
 {
@@ -77,8 +76,17 @@ static void sale_update_property_filter(
 
 static int sale_rows_per_page(const GameSaleInteractionPresentationState *state)
 {
-    return state != NULL && state->category == RICH4_SALE_CATEGORY_PROPERTY
-        ? SALE_PROPERTY_ROWS_PER_PAGE : SALE_ROWS_PER_PAGE;
+    if (state->page != RICH4_SALE_PAGE_ITEMS) return SALE_ROWS_PER_PAGE;
+    switch (state->category) {
+    case RICH4_SALE_CATEGORY_PROPERTY:
+        return SALE_PROPERTY_ROWS_PER_PAGE;
+    case RICH4_SALE_CATEGORY_STOCK:
+        return GAME_STOCK_COUNT;
+    case RICH4_SALE_CATEGORY_TOOL:
+        return GAME_TOOL_COUNT;
+    default:
+        return GAME_PLAYER_CARD_SLOTS;
+    }
 }
 
 static int sale_current_player(const GameState *state)
@@ -90,6 +98,21 @@ static int sale_current_player(const GameState *state)
     if ((state->players[state->current_player].play_state & 0xff) == 0)
         return -1;
     return state->current_player;
+}
+
+static void sale_open_picker(GameSession *session)
+{
+    GameSaleInteractionPresentationState *state = sale_state(session);
+    int player = sale_current_player(&session->state);
+    if (player < 0) return;
+    /* 0x427EE0 checks the seventh slot before opening the SELL picker. */
+    state->message =
+        session->state.market_listings[player][GAME_MARKET_LISTING_SLOT_COUNT - 1]
+            .type != GAME_MARKET_LISTING_EMPTY
+        ? RICH4_SALE_NOTICE_BOARD_FULL : RICH4_SALE_PICKER_OPEN;
+    state->selected_row = -1;
+    if (state->message == RICH4_SALE_NOTICE_BOARD_FULL)
+        state->pressed_control = SALE_HIT_NONE;
 }
 
 static void sale_result_clear(Rich4AppSaleInteractionResult *result)
@@ -206,7 +229,7 @@ static int sale_control_at(
 {
     if (state == NULL) return SALE_HIT_NONE;
     if (state->page == RICH4_SALE_PAGE_BROWSE) {
-        if (state->message == SALE_PICKER_OPEN)
+        if (state->message == RICH4_SALE_PICKER_OPEN)
             return sale_picker_category_at(x, y);
         /* 0x427C21 uses strict hit bounds for the two original top-right
          * controls. Sell opens its menu on button-down. */
@@ -489,54 +512,49 @@ static int sale_activate_item(GameSession *session)
     return 1;
 }
 
-static int sale_entry_reference_price(
-    const GameSession *session,
-    const GameSaleInteractionPresentationState *state)
+int rich4_app_sale_market_value(const GameState *state, GameDomainRef item,
+                                int quantity)
 {
     long long value = 0;
-    if (session == NULL || state == NULL) return 0;
-    switch (state->selected_item.kind) {
+    if (state == NULL || !rich4_game_domain_ref_is_valid(item)) return 0;
+    switch (item.kind) {
     case GAME_DOMAIN_STOCK:
-        if (state->selected_item.id >= 0 &&
-            state->selected_item.id < GAME_STOCK_COUNT &&
-            state->quantity > 0) {
-            double price = (double)state->quantity *
-                session->state.stocks[state->selected_item.id].f20;
+        if (quantity > 0) {
+            double price = (double)quantity * state->stocks[item.id].f20;
             if (price >= INT_MAX) return INT_MAX;
             if (price > 0.0) return (int)price;
         }
         return 0;
     case GAME_DOMAIN_LAND:
-        if (state->selected_item.id >= 0 &&
-            state->selected_item.id < session->state.land_count)
-            value = (long long)session->state.land_value[
-                        state->selected_item.id] * session->state.price_index;
+        if (item.id < state->land_count)
+            value = state->land_price[item.id] +
+                (long long)state->land_level[item.id] *
+                state->land_price_per_level[item.id];
         break;
     case GAME_DOMAIN_FACILITY:
-        if (state->selected_item.id >= 0 &&
-            state->selected_item.id < session->state.facility_count)
-            value = (long long)session->state.facility_value[
-                        state->selected_item.id] * session->state.price_index;
+        if (item.id < state->facility_count)
+            value = state->facility_price[item.id] +
+                (long long)state->facility_level[item.id] *
+                state->facility_price_per_level[item.id];
         break;
     case GAME_DOMAIN_CARD: {
-        const GameCardInfo *info = rich4_card_info(state->selected_item.id);
-        if (info != NULL)
-            value = (long long)info->shop_price * 100 *
-                    session->state.price_index;
+        const GameCardInfo *info = rich4_card_info(item.id);
+        if (info != NULL) value = info->shop_price * 100;
         break;
     }
     case GAME_DOMAIN_TOOL: {
-        const GameToolInfo *info = rich4_tool_info(state->selected_item.id);
-        if (info != NULL)
-            value = (long long)info->shop_price * 100 *
-                    session->state.price_index;
+        const GameToolInfo *info = rich4_tool_info(item.id);
+        if (info != NULL) value = info->shop_price * 100;
         break;
     }
     default:
         return 0;
     }
-    if (value <= 0) return 0;
-    return value > INT_MAX ? INT_MAX : (int)value;
+    /* 0x424AEA and 0x42704E use the same current market value as the
+     * four listing callbacks. Property prices use the raw level. */
+    if (value <= 0 || state->price_index <= 0) return 0;
+    if (value > INT_MAX / state->price_index) return INT_MAX;
+    return (int)value * state->price_index;
 }
 
 int rich4_app_sale_interaction_entry_value(const GameSession *session)
@@ -554,7 +572,8 @@ int rich4_app_sale_interaction_entry_maximum(const GameSession *session)
     long long maximum;
     if (state == NULL || state->page != RICH4_SALE_PAGE_PRICE) return 0;
     if (state->edit_quantity) return state->item_quantity_max;
-    maximum = (long long)sale_entry_reference_price(session, state) * 10;
+    maximum = (long long)rich4_app_sale_interaction_entry_reference_price(
+        session) * 10;
     return maximum > INT_MAX ? INT_MAX : (int)maximum;
 }
 
@@ -566,7 +585,8 @@ int rich4_app_sale_interaction_entry_reference_price(
     if (state == NULL || state->page != RICH4_SALE_PAGE_PRICE ||
         state->edit_quantity)
         return 0;
-    return sale_entry_reference_price(session, state);
+    return rich4_app_sale_market_value(&session->state, state->selected_item,
+                                       state->quantity);
 }
 
 int rich4_app_sale_interaction_entry_is_quantity(const GameSession *session)
@@ -671,6 +691,7 @@ static void sale_prepare_command(GameSession *session,
     } else if (state->page == RICH4_SALE_PAGE_PURCHASE_CONFIRM &&
                state->selected_seller != player) {
         const GameMarketListing *listing;
+        int notice = 0;
         if (state->selected_seller < 0 ||
             state->selected_seller >= session->state.player_count ||
             state->selected_slot < 0 ||
@@ -679,15 +700,20 @@ static void sale_prepare_command(GameSession *session,
         listing = &session->state.market_listings[state->selected_seller]
                                                  [state->selected_slot];
         if (listing->type == GAME_MARKET_LISTING_EMPTY ||
-            listing->ask_price <= 0 ||
-            session->state.players[player].cash < listing->ask_price) {
-            /* The original purchase path checks cash before transferring an
-             * asset and shows the centered Panel[73] warning on failure. */
+            listing->ask_price <= 0)
+            return;
+        if (session->state.players[player].cash < listing->ask_price)
+            notice = RICH4_SALE_NOTICE_CASH;
+        else if (rich4_ledger_market_inventory_full(
+                     &session->state, player, listing))
+            notice = listing->type == GAME_MARKET_LISTING_TOOL
+                ? RICH4_SALE_NOTICE_TOOLS_FULL : RICH4_SALE_NOTICE_CARDS_FULL;
+        if (notice != 0) {
             state->page = RICH4_SALE_PAGE_CONFIRM;
             state->selected_row = state->selected_seller *
                                   GAME_MARKET_LISTING_SLOT_COUNT +
                                   state->selected_slot;
-            state->message = 4;
+            state->message = notice;
             result->audio_cue = RICH4_APP_SALE_AUDIO_CANCEL;
             return;
         }
@@ -792,8 +818,7 @@ static void sale_activate(GameSession *session, int control,
         return;
     }
     if (control == SALE_HIT_SELL) {
-        state->message = SALE_PICKER_OPEN;
-        state->selected_row = -1;
+        sale_open_picker(session);
         return;
     }
     if (control == SALE_HIT_BROWSE) {
@@ -867,7 +892,9 @@ static void sale_activate(GameSession *session, int control,
         state->page_offset = new_offset;
         state->selected_row = -1;
         state->selected_seller = -1;
-        state->selected_slot = -1;
+        if (state->page != RICH4_SALE_PAGE_ITEMS ||
+            state->category != RICH4_SALE_CATEGORY_PROPERTY)
+            state->selected_slot = -1;
         result->audio_cue = RICH4_APP_SALE_AUDIO_SELECT;
         return;
     }
@@ -956,7 +983,7 @@ void rich4_app_sale_interaction_cancel(GameSession *session)
     GameSaleInteractionPresentationState *state = sale_state(session);
     if (state == NULL || !state->active) return;
     state->pressed_control = SALE_HIT_NONE;
-    if (state->message == SALE_PICKER_OPEN) {
+    if (state->message == RICH4_SALE_PICKER_OPEN) {
         state->message = 0;
         state->selected_row = -1;
     } else if (state->page == RICH4_SALE_PAGE_PRICE) {
@@ -993,8 +1020,7 @@ void rich4_app_sale_interaction_mouse_down(
         confirm_dialog_width, confirm_dialog_height);
     if (state->page == RICH4_SALE_PAGE_BROWSE &&
         state->pressed_control == SALE_HIT_SELL) {
-        state->message = SALE_PICKER_OPEN;
-        state->selected_row = -1;
+        sale_open_picker(session);
     } else if (state->page == RICH4_SALE_PAGE_BROWSE &&
                state->pressed_control >= SALE_HIT_GRID_BASE &&
                state->pressed_control < SALE_HIT_GRID_BASE +
@@ -1029,7 +1055,7 @@ void rich4_app_sale_interaction_mouse_motion(
             rich4_app_sale_interaction_entry_maximum(session), x);
         if (value >= 0) sale_set_entry_value(session, value);
     } else if (state->page == RICH4_SALE_PAGE_BROWSE &&
-        state->message == SALE_PICKER_OPEN &&
+        state->message == RICH4_SALE_PICKER_OPEN &&
         state->pressed_control == SALE_HIT_SELL) {
         /* 0x427C21 tracks picker hover only during the held SELL click. */
         if (!mouse_left_down) return;
@@ -1068,11 +1094,8 @@ void rich4_app_sale_interaction_mouse_release(
                               stock_panel_width, property_panel_width,
                               confirm_dialog_width, confirm_dialog_height);
     if (button == RICH4_SALE_POINTER_BUTTON_RIGHT) {
-        if (state->page == RICH4_SALE_PAGE_PRICE) {
-            sale_close_price_entry(state);
-            state->pressed_control = SALE_HIT_NONE;
-            out_result->audio_cue = RICH4_APP_SALE_AUDIO_CANCEL;
-        }
+        rich4_app_sale_interaction_cancel(session);
+        out_result->audio_cue = RICH4_APP_SALE_AUDIO_CANCEL;
         return;
     }
     if (button != RICH4_SALE_POINTER_BUTTON_LEFT) return;
@@ -1222,17 +1245,11 @@ void rich4_app_sale_interaction_command_applied(
         return;
     }
     state->message = 0;
-    if (state->page == RICH4_SALE_PAGE_PRICE) {
-        /* The quantity/price prompt is a child of the selected sell list.
-         * Closing the child after submit leaves that category window open. */
-        sale_close_price_entry(state);
-        if (state->category == RICH4_SALE_CATEGORY_PROPERTY &&
-            state->selected_slot < 0)
-            state->selected_slot = 0;
-    } else {
-        state->page_offset = 0;
-        state->page = RICH4_SALE_PAGE_BROWSE;
-        sale_clear_selection(state);
-    }
+    /* 0x425FB6/0x426665/0x426B6E/0x426F8A post WM_RBUTTONUP to
+     * close the category window after a successful listing. */
+    if (state->page == RICH4_SALE_PAGE_PRICE) sale_close_price_entry(state);
+    state->page_offset = 0;
+    state->page = RICH4_SALE_PAGE_BROWSE;
+    sale_clear_selection(state);
     result->audio_cue = RICH4_APP_SALE_AUDIO_OK;
 }

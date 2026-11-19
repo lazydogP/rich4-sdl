@@ -231,7 +231,8 @@ reserve = price_index * trunc(base_price * (1 + 0.5*level))
 
 - `tests/unit/test_auction.c`：规则、底价先截断后乘指数及资金/产权结算。
 - `tests/unit/test_auction_flow.c`：无语音时的 2 秒展示、跳过当前台词、
-  拍卖语音阶段、动作间隔、新闻 7 成交/流标退出嵌套模态、结算后的结束事件。
+  拍卖语音阶段、动作间隔、地图聚焦、过户前后两段 1000 ms 等待及抬起中断、
+  付款时点、新闻 7 成交/流标退出嵌套模态、结算后的结束事件。
 - `tests/sdl/test_auction_presentation.c`：36 组人物资源、12 名角色全部加价帧、
   普通/成交嘴型的开闭及不透明背景恢复整帧像素比较、未落地玩家不占行。
 

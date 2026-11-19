@@ -184,6 +184,7 @@ int main(void)
                 assert(rich4_game_event_auction_seller(event) == -1);
                 assert(rich4_game_event_auction_trigger(event) ==
                        GAME_AUCTION_TRIGGER_BANKRUPTCY);
+                assert(rich4_game_event_auction_manage_music(event) == 0);
                 requests++;
             }
         }
@@ -253,6 +254,36 @@ int main(void)
         GAME_COMMAND_SOURCE_HUMAN, 1, 0, 0);
     assert(!rich4_ledger_apply_market_command(&s, &command, &q));
     assert(s.players[1].cash == 1000 && s.land_owner[0] == 0);
+
+    /* 0x4255DA gives tools a limit of nine per type and cards fifteen
+     * slots shared by all card types. */
+    init_state(&s, 2); rich4_game_event_queue_reset(&q);
+    s.players[1].cash = 1000;
+    s.players[0].tool_inventory[0] = 1;
+    s.players[1].tool_inventory[0] = 9;
+    s.players[1].tool_inventory[1] = 9;
+    command = rich4_game_command_create_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 0,
+        rich4_game_domain_ref(GAME_DOMAIN_TOOL, 0), 500, 0);
+    assert(rich4_ledger_apply_market_command(&s, &command, &q));
+    command = rich4_game_command_buy_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 1, 0, 0);
+    assert(!rich4_ledger_apply_market_command(&s, &command, &q));
+    assert(s.players[1].cash == 1000 && s.players[0].tool_inventory[0] == 1);
+    s.players[1].tool_inventory[0] = 8;
+    assert(rich4_ledger_apply_market_command(&s, &command, &q));
+    assert(s.players[1].tool_inventory[0] == 9);
+
+    s.players[0].card_inventory[0] = 1;
+    for (i = 0; i < 9; i++) s.players[1].card_inventory[i] = 1;
+    command = rich4_game_command_create_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 0,
+        rich4_game_domain_ref(GAME_DOMAIN_CARD, 0), 500, 0);
+    assert(rich4_ledger_apply_market_command(&s, &command, &q));
+    command = rich4_game_command_buy_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 1, 0, 0);
+    assert(rich4_ledger_apply_market_command(&s, &command, &q));
+    assert(s.players[1].card_inventory[9] == 1);
     puts("ledger/payment/bankruptcy: ok");
     return 0;
 }

@@ -10,6 +10,15 @@ enum {
     RICH4_SALE_POINTER_BUTTON_RIGHT = 3
 };
 
+typedef enum Rich4SaleMessage {
+    RICH4_SALE_PICKER_OPEN = -1,
+    RICH4_SALE_NOTICE_CASH = 4,
+    RICH4_SALE_NOTICE_BOARD_FULL,
+    RICH4_SALE_NOTICE_TOOLS_FULL,
+    RICH4_SALE_NOTICE_CARDS_FULL,
+    RICH4_SALE_NOTICE_COMPANY_CONTROL
+} Rich4SaleMessage;
+
 typedef enum Rich4AppSaleAudioCue {
     RICH4_APP_SALE_AUDIO_NONE = 0,
     RICH4_APP_SALE_AUDIO_SELECT,
@@ -36,6 +45,8 @@ void rich4_app_sale_interaction_open(GameSession *session);
 void rich4_app_sale_interaction_cancel(GameSession *session);
 int rich4_app_sale_interaction_entry_value(const GameSession *session);
 int rich4_app_sale_interaction_entry_maximum(const GameSession *session);
+int rich4_app_sale_market_value(const GameState *state, GameDomainRef item,
+                                int quantity);
 int rich4_app_sale_interaction_entry_reference_price(
     const GameSession *session);
 int rich4_app_sale_interaction_entry_is_quantity(

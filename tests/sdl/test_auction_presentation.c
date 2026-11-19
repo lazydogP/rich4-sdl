@@ -184,6 +184,25 @@ int main(void)
                     (unsigned char *)expected->pixels+y*expected->pitch, 1280));
         }
     }
+    /* Human and AI action frames must be identical: the original restores
+     * the controls immediately after the human submits an action. */
+    SDL_FillRect(actual, NULL, 0x1234);
+    SDL_BlitSurface(actual, NULL, expected, NULL);
+    state.players[0].is_ai = 1;
+    draw_auction_presentation(expected, &assets, &snapshot);
+    state.players[0].is_ai = 0;
+    draw_auction_presentation(actual, &assets, &snapshot);
+    assert(!memcmp(actual->pixels, expected->pixels, actual->pitch * 480));
+    /* 0x43C766 has already destroyed the auction window while the map is
+     * shown before and after ownership transfer. */
+    SDL_FillRect(actual, NULL, 0x1234);
+    SDL_BlitSurface(actual, NULL, expected, NULL);
+    presentation.auction.stage = RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER;
+    draw_auction_presentation(actual, &assets, &snapshot);
+    assert(!memcmp(actual->pixels, expected->pixels, actual->pitch * 480));
+    presentation.auction.stage = RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER;
+    draw_auction_presentation(actual, &assets, &snapshot);
+    assert(!memcmp(actual->pixels, expected->pixels, actual->pitch * 480));
     if (getenv("RICH4_AUCTION_SNAPSHOT")) {
         state.player_count = 4;
         for (character = 0; character < 4; character++) {

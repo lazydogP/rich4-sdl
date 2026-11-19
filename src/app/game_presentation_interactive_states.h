@@ -14,7 +14,9 @@ typedef enum Rich4AuctionPresentationStage {
     RICH4_AUCTION_PRESENT_ACTION,
     RICH4_AUCTION_PRESENT_SOLD_CALL,
     RICH4_AUCTION_PRESENT_WINNER,
-    RICH4_AUCTION_PRESENT_UNSOLD
+    RICH4_AUCTION_PRESENT_UNSOLD,
+    RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER,
+    RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER
 } Rich4AuctionPresentationStage;
 
 /* sub_435062's n7 states.  Keeping the original numeric values makes the

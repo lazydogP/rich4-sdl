@@ -6,12 +6,12 @@
 #include <SDL/SDL.h>
 
 #include "app/sale_interaction_flow.h"
-#include "core/card.h"
-#include "core/tool.h"
+#include "core/property.h"
 #include "platform/sdl1/game_asset_api.h"
 #include "platform/sdl1/game_flow_api.h"
 #include "platform/sdl1/game_loop_panels.h"
 #include "platform/sdl1/render/blit.h"
+#include "platform/sdl1/render/game_bank_render.h"
 #include "platform/sdl1/render/game_panel_render.h"
 #include "platform/sdl1/runtime.h"
 #include "platform/sdl1/runtime_render_api.h"
@@ -34,10 +34,18 @@ enum {
     SALE_HIT_PRICE_KEY_BASE = 400
 };
 
-static Uint32 sale_cash_warning_started_at;
-static int sale_cash_warning_active;
+static Uint32 sale_notice_started_at;
+static int sale_notice_message;
+static int sale_notice_seller;
+static GameMarketListing sale_notice_listing;
 
-static int sale_indexed_price(int base_price, int price_index);
+static int sale_draw_panel_chunk(SDL_Surface *screen,
+                                 const GamePreviewAssets *assets,
+                                 size_t chunk, int x, int y)
+{
+    /* 0x4563F5 copies the sale panel rectangles as opaque SMP chunks. */
+    return draw_game_panel_chunk_at(screen, assets, 73, chunk, x, y, 0);
+}
 
 static int sale_panel_chunk_width(const GamePreviewAssets *assets,
                                  size_t chunk_index)
@@ -89,8 +97,6 @@ static Rich4StockQuantityMask sale_quantity_mask(
     }
     return mask;
 }
-
-enum { SALE_PICKER_OPEN = -1 };
 
 static void sale_draw_text(SDL_Surface *screen, int x, int y,
                            const char *text, int height, uint16_t foreground,
@@ -254,27 +260,13 @@ static void sale_press_rect(SDL_Surface *screen, int x, int y,
     SDL_UnlockSurface(screen);
 }
 
-static void sale_format_grouped_number(int value, char *out, size_t out_size)
+static void sale_draw_number(SDL_Surface *screen, int x, int y, int value,
+                             int currency_unit)
 {
-    char digits[32];
-    size_t length;
-    size_t source;
-    size_t target = 0;
-    size_t digit_start;
-    size_t digit_count;
-    if (out == NULL || out_size == 0) return;
-    snprintf(digits, sizeof(digits), "%d", value);
-    length = strlen(digits);
-    digit_start = digits[0] == '-' ? 1u : 0u;
-    digit_count = length - digit_start;
-    for (source = 0; source < length && target + 1 < out_size; source++) {
-        if (source > digit_start && digit_count > 0 &&
-            digit_count % 3 == 0 && target + 1 < out_size)
-            out[target++] = ',';
-        out[target++] = digits[source];
-        if (source >= digit_start && digit_count > 0) digit_count--;
-    }
-    out[target] = '\0';
+    char text[32];
+    format_hud_number(text, sizeof(text) - 2, value, 0);
+    if (currency_unit) strcat(text, "\xa4\xb8");
+    sale_draw_text(screen, x, y, text, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
 }
 
 static int sale_listing_item_ref(const GameMarketListing *listing,
@@ -432,8 +424,8 @@ static void sale_draw_browse_rows(
             const GameMarketListing *listing =
                 &session->state.market_listings[player][slot];
             if (listing->type == GAME_MARKET_LISTING_EMPTY) continue;
-            draw_confinement_panel_chunk(
-                screen, assets, 73,
+            sale_draw_panel_chunk(
+                screen, assets,
                 (size_t)(8 + sex_group * 4 + (int)listing->type),
                 slot_x, row_y);
             if (ui != NULL && ui->selected_seller == player &&
@@ -446,22 +438,6 @@ static void sale_draw_browse_rows(
     }
 }
 
-static int sale_scaled_price(int base_price, int price_index)
-{
-    long long value;
-    if (base_price <= 0 || price_index <= 0) return 0;
-    value = (long long)base_price * 100 * price_index;
-    return value > INT_MAX ? INT_MAX : (int)value;
-}
-
-static int sale_indexed_price(int base_price, int price_index)
-{
-    long long value;
-    if (base_price <= 0 || price_index <= 0) return 0;
-    value = (long long)base_price * price_index;
-    return value > INT_MAX ? INT_MAX : (int)value;
-}
-
 static void sale_draw_stock_page(
     SDL_Surface *screen, const GamePreviewAssets *assets,
     const GameSession *session,
@@ -471,8 +447,15 @@ static void sale_draw_stock_page(
     int row;
     int count;
     if (session == NULL ||
-        !draw_confinement_panel_chunk(screen, assets, 73, 1, 152, 32))
+        !sale_draw_panel_chunk(screen, assets, 1, 152, 32))
         return;
+    /* 0x42853D..0x42857B writes these labels onto Panel[73] chunk 1. */
+    sale_draw_text(screen, 200, 48, "\xaa\xd1\xb2\xbc\xa6\x57\xba\xd9",
+                   16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
+    sale_draw_text(screen, 296, 48, "\xab\xf9\xa6\xb3\xb1\x69\xbc\xc6",
+                   16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
+    sale_draw_text(screen, 402, 48, "\xc1\x60 \xa5\xab \xbb\xf9",
+                   16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
     player = session->state.current_player;
     if (player < 0 || player >= session->state.player_count) return;
     count = rich4_app_sale_item_count(
@@ -480,28 +463,16 @@ static void sale_draw_stock_page(
     for (row = 0; row < count && row < GAME_STOCK_COUNT; row++) {
         GameDomainRef item;
         int maximum;
-        char quantity[32];
-        char value[32];
-        const char *name;
-        int stock;
         int y = 80 + row * 32;
-        int amount;
         if (!rich4_app_sale_item_at(session, RICH4_SALE_CATEGORY_STOCK,
                                     row, &item, &maximum))
             continue;
-        stock = item.id;
-        amount = maximum;
-        name = game_stock_name_for_state(&session->state, stock);
-        sale_format_grouped_number(amount, quantity, sizeof(quantity));
-        sale_format_grouped_number(
-            (int)(amount * session->state.stocks[stock].f20),
-            value, sizeof(value));
-        sale_draw_text(screen, 200, y, name != NULL ? name : "",
+        sale_draw_text(screen, 200, y,
+                       game_stock_name_for_state(&session->state, item.id),
                        16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
-        sale_draw_text(screen, 332, y, quantity, 16,
-                       SALE_TEXT_LIGHT, 0x1082, 3, 6);
-        sale_draw_text(screen, 478, y, value, 16,
-                       SALE_TEXT_LIGHT, 0x1082, 3, 6);
+        sale_draw_number(screen, 332, y, maximum, 0);
+        sale_draw_number(screen, 478, y,
+            rich4_app_sale_market_value(&session->state, item, maximum), 0);
     }
     if (ui != NULL && ui->selected_row >= 0 && ui->selected_row < 12 &&
         SDL_LockSurface(screen) == 0) {
@@ -526,25 +497,38 @@ static void sale_draw_property_page(
         "\xa9\xd0\x20\x20\xab\xce", /* 房  屋 */
         "\xb3\x73\xc2\xea\xa9\xb1"  /* 連鎖店 */
     };
+    static const char *const headers[] = {
+        "\xa6\x61  \xc2\x49", "\xb6\x7d\xb5\x6f\xaa\xac\xaa\x70",
+        "\xbb\xf9  \xae\xe6", "\xa6\xac  \xb6\x4f",
+        "\xaf\xb2  \xb4\xc1"
+    };
+    static const int column_x[] = {147, 231, 319, 395, 471};
+    const GameState *state = &session->state;
     int filter = ui != NULL && ui->selected_slot >= 0 &&
                  ui->selected_slot < 5 ? ui->selected_slot : 0;
     int count = rich4_app_sale_item_count(
         session, RICH4_SALE_CATEGORY_PROPERTY);
     int row;
-    if (!draw_confinement_panel_chunk(screen, assets, 73, 2, 112, 32))
+    int i;
+    if (!sale_draw_panel_chunk(screen, assets, 2, 112, 32))
         return;
-    draw_confinement_panel_chunk(screen, assets, 73, 19,
-                           112 + filter * 80, 32);
-    sale_draw_text(screen, 152 + filter * 80, 48,
-                   filter_labels[filter], 20, 0x1082, 0, 2, 2);
+    sale_draw_panel_chunk(screen, assets, 19, 112 + filter * 80, 32);
+    /* 0x42877F/0x4287BD and 0x424C33. */
+    for (i = 0; i < 5; i++) {
+        sale_draw_text(screen, 152 + i * 80, 48,
+                       filter_labels[i], 20, 0x1082, 0, 2, 2);
+        sale_draw_text(screen, column_x[i], 80, headers[i],
+                       20, 0xffff, 0, 2, 2);
+    }
     for (row = 0; row < SALE_PROPERTY_VISIBLE_ROWS; row++) {
         GameDomainRef item;
         int maximum;
         int ordinal = (ui != NULL ? ui->page_offset : 0) + row;
         int y = 112 + row * 32;
-        int level;
-        int value;
-        int charge;
+        const char *development;
+        const char *lease;
+        uint32_t lease_date;
+        int charge = 0;
         char text[32];
         char label[96];
         if (ordinal >= count || !rich4_app_sale_item_at(
@@ -553,35 +537,38 @@ static void sale_draw_property_page(
             break;
         sale_item_label(assets, session, item, label, sizeof(label));
         if (item.kind == GAME_DOMAIN_LAND) {
-            level = session->state.land_level[item.id];
-            value = sale_indexed_price(
-                session->state.land_price[item.id] +
-                    level * session->state.land_price_per_level[item.id],
-                session->state.price_index);
-            if (level < 0) level = 0;
-            if (level > 5) level = 5;
-            charge = session->state.land_toll_by_level[item.id][level];
+            development = game_land_development_big5_name(
+                state->land_type[item.id], state->land_level[item.id]);
+            (void)rich4_land_base_toll(state, item.id, &charge);
+            lease_date = state->land_lease_date[item.id];
         } else {
-            level = session->state.facility_level[item.id];
-            value = sale_indexed_price(
-                session->state.facility_price[item.id] +
-                    level * session->state.facility_price_per_level[item.id],
-                session->state.price_index);
-            if (level < 0) level = 0;
-            if (level > 5) level = 5;
-            charge = session->state.facility_charge_by_level[item.id][level];
+            int level = state->facility_level[item.id];
+            int type = state->facility_type[item.id];
+            development = game_facility_big5_name(type, level);
+            if (type != 0 && level > 0 && level <= 5) {
+                long long fee = (long long)state->price_index *
+                    state->facility_charge_by_level[item.id][level];
+                charge = fee > INT_MAX ? INT_MAX : (int)fee;
+            }
+            lease_date = state->facility_last_change[item.id];
         }
-        sale_draw_text(screen, 147, y, label, 16,
+        if (lease_date != 0) {
+            snprintf(text, sizeof(text), "%02u/%u/%u",
+                     (lease_date >> 16) % 100u,
+                     (lease_date >> 8) & 0x0fu, lease_date & 0xffu);
+            lease = text;
+        } else {
+            lease = "\xb5\x4c\xad\xad\xb4\xc1"; /* 無限期 @ 0x463E42 */
+        }
+        sale_draw_text(screen, column_x[0], y, label, 16,
                        SALE_TEXT_LIGHT, 0x1082, 3, 2);
-        snprintf(text, sizeof(text), "%d", level);
-        sale_draw_text(screen, 231, y, text, 16,
+        sale_draw_text(screen, column_x[1], y, development, 16,
                        SALE_TEXT_LIGHT, 0x1082, 3, 2);
-        sale_format_grouped_number(value, text, sizeof(text));
-        sale_draw_text(screen, 352, y, text, 16,
-                       SALE_TEXT_LIGHT, 0x1082, 3, 6);
-        sale_format_grouped_number(charge, text, sizeof(text));
-        sale_draw_text(screen, 424, y, text, 16,
-                       SALE_TEXT_LIGHT, 0x1082, 3, 6);
+        sale_draw_number(screen, column_x[2] + 33, y,
+                         rich4_app_sale_market_value(state, item, 0), 0);
+        sale_draw_number(screen, column_x[3] + 29, y, charge, 0);
+        sale_draw_text(screen, column_x[4], y, lease, 16,
+                       SALE_TEXT_LIGHT, 0x1082, 3, 2);
     }
     if (ui != NULL && ui->selected_row >= 0 &&
         ui->selected_row < SALE_PROPERTY_VISIBLE_ROWS &&
@@ -617,7 +604,7 @@ static void sale_draw_card_page(
     int x = 176;
     int y = 208;
     if (session == NULL ||
-        !draw_confinement_panel_chunk(screen, assets, 73, 4, 140, 160))
+        !sale_draw_panel_chunk(screen, assets, 4, 140, 160))
         return;
     count = rich4_app_sale_item_count(session, RICH4_SALE_CATEGORY_CARD);
     for (slot = ui != NULL ? ui->page_offset : 0; slot < count; slot++) {
@@ -626,8 +613,8 @@ static void sale_draw_card_page(
         if (!rich4_app_sale_item_at(session, RICH4_SALE_CATEGORY_CARD,
                                     slot, &item, &maximum))
             break;
-        sale_draw_text(screen, x, y, game_card_big5_name(item.id),
-                       16, 0xffff, 0x1082, 3, 2);
+        draw_big5_text_with_spacing(screen, x, y, game_card_big5_name(item.id),
+                                    16, 0xffff, 0x1082, 3, 0, 2);
         if (ui != NULL &&
             ui->pressed_control == SALE_HIT_ROW_BASE + ordinal) {
             int column = ordinal % 5;
@@ -657,7 +644,7 @@ static void sale_draw_tool_page(
     int x = 176;
     int y = 208;
     if (session == NULL ||
-        !draw_confinement_panel_chunk(screen, assets, 73, 3, 140, 160))
+        !sale_draw_panel_chunk(screen, assets, 3, 140, 160))
         return;
     player = session->state.current_player;
     if (player < 0 || player >= session->state.player_count) return;
@@ -668,9 +655,9 @@ static void sale_draw_tool_page(
                                x - 16, y);
         {
             char count_text[16];
-            snprintf(count_text, sizeof(count_text), "%d", amount);
-            sale_draw_text(screen, x + 30, y, count_text, 16,
-                           0xffff, 0x1082, 3, 6);
+            snprintf(count_text, sizeof(count_text), "\xa1\xd1%d", amount);
+            draw_big5_text_with_spacing(screen, x + 30, y, count_text,
+                                        16, 0xffff, 0x1082, 3, 0, 6);
         }
         if (ui != NULL &&
             ui->pressed_control == SALE_HIT_ROW_BASE + ordinal) {
@@ -695,8 +682,8 @@ static void sale_draw_sell_picker(
     const GameSaleInteractionPresentationState *ui)
 {
     int category;
-    if (ui == NULL || ui->message != SALE_PICKER_OPEN) return;
-    if (!draw_confinement_panel_chunk(screen, assets, 73, 17, 464, 116))
+    if (ui == NULL || ui->message != RICH4_SALE_PICKER_OPEN) return;
+    if (!sale_draw_panel_chunk(screen, assets, 17, 464, 116))
         return;
     category = ui->selected_row;
     if (category >= 0 && category < RICH4_SALE_CATEGORY_COUNT) {
@@ -726,25 +713,13 @@ static void sale_draw_price_page(
     const GameSession *session,
     const GameSaleInteractionPresentationState *ui)
 {
-    static const int pressed_origins[16][2] = {
-        {0,0},{0,0},{264,207},{320,207},
-        {264,239},{304,239},{344,239},
-        {264,263},{304,263},{344,263},
-        {264,287},{304,287},{344,287},
-        {264,311},{304,311},{344,311}
-    };
     char prompt[128];
-    char value_text[32];
-    int value;
-    int maximum;
-    int bar_width;
-    int control;
     if (screen == NULL || assets == NULL || session == NULL || ui == NULL)
         return;
 
     /* IDA sub_424502 draws this reference prompt over the selected sell
      * panel before sub_453544 opens Panel[21]'s numeric keypad. */
-    draw_confinement_panel_chunk(screen, assets, 73, 5, 227, 42);
+    if (!sale_draw_panel_chunk(screen, assets, 5, 227, 42)) return;
     if (rich4_app_sale_interaction_entry_is_quantity(session)) {
         snprintf(prompt, sizeof(prompt),
                  "\xbd\xd0\xbf\xe9\xa4\x4a\xb1\xfd\xbd\xe6\xa5\x58"
@@ -759,43 +734,11 @@ static void sale_draw_price_page(
     sale_draw_text(screen, 320, 86, prompt, 16,
                    0x1082, 0x0000, 2, 4);
 
-    /* sub_453544 centers the 128x192 keypad at (256,144). Keep the source
-     * Panel[22] shape map for pointer hit testing in the app flow. */
-    if (!game_asset_ready(assets, &assets->ui.has_panel[21])) return;
-    draw_confinement_panel_chunk(screen, assets, 21, 0, 256, 144);
-    value = rich4_app_sale_interaction_entry_value(session);
-    maximum = rich4_app_sale_interaction_entry_maximum(session);
-    snprintf(value_text, sizeof(value_text), "%d", value);
-    {
-        int digit_index = (int)strlen(value_text) - 1;
-        int digit_count = 0;
-        while (digit_index >= 0 && digit_count < 9) {
-            int digit = value_text[digit_index] - '0';
-            if (digit >= 0 && digit <= 9)
-                draw_confinement_panel_chunk(
-                    screen, assets, 21, (size_t)(16 + digit),
-                    363 - digit_count * 12, 155);
-            digit_index--;
-            digit_count++;
-        }
-    }
-    draw_confinement_panel_chunk(screen, assets, 21, 1, 266, 186);
-    bar_width = rich4_app_stock_quantity_bar_width(value, maximum);
-    if (bar_width > 0) {
-        SDL_Rect fill;
-        fill.x = 266;
-        fill.y = 186;
-        fill.w = (Uint16)bar_width;
-        fill.h = 12;
-        /* sub_45297E crops an auxiliary 128x192 buffer here; it does not
-         * crop Panel[21] chunk 0 (the keypad artwork). */
-        SDL_FillRect(screen, &fill, SDL_MapRGB(screen->format, 0, 0, 0));
-    }
-    control = ui->pressed_control - SALE_HIT_PRICE_KEY_BASE;
-    if (control >= RICH4_STOCK_QUANTITY_CONTROL_MAX && control <= 15)
-        draw_confinement_panel_chunk(
-            screen, assets, 21, (size_t)control,
-            pressed_origins[control][0], pressed_origins[control][1]);
+    /* 0x453544 draws the palette-indexed Panel[21] keypad at (256,144). */
+    draw_game_quantity_panel(
+        screen, assets, rich4_app_sale_interaction_entry_value(session),
+        rich4_app_sale_interaction_entry_maximum(session),
+        ui->pressed_control - SALE_HIT_PRICE_KEY_BASE, 256, 144);
 }
 
 static void sale_draw_confirm_page(
@@ -803,8 +746,16 @@ static void sale_draw_confirm_page(
     const GameSession *session,
     const GameSaleInteractionPresentationState *ui)
 {
+    static const char *const labels[] = {
+        "\xc3\xfe\xab\xac\xa1\x47", /* 類型： */
+        "\xa6\x61\xc2\x49\xa1\x47", /* 地點： */
+        "\xb5\xa5\xaf\xc5\xa1\x47", /* 等級： */
+        "\xb1\x69\xbc\xc6\xa1\x47", /* 張數： */
+        "\xa5\xab\xbb\xf9\xa1\x47", /* 市價： */
+        "\xbd\xe6\xbb\xf9\xa1\x47"  /* 賣價： */
+    };
+    const GameState *state = &session->state;
     char label[128];
-    char value[48];
     int seller = ui->selected_seller;
     int slot = ui->selected_slot;
     int modal_chunk;
@@ -812,12 +763,18 @@ static void sale_draw_confirm_page(
     int action_y;
     int modal_left;
     int modal_top;
-    if (seller < 0 || seller >= session->state.player_count || slot < 0 ||
-        slot >= GAME_MARKET_LISTING_SLOT_COUNT)
-        return;
+    const GameMarketListing *listing;
+    if (ui->message == RICH4_SALE_NOTICE_COMPANY_CONTROL &&
+        sale_notice_message == ui->message) {
+        seller = sale_notice_seller;
+        listing = &sale_notice_listing;
+    } else {
+        if (seller < 0 || seller >= state->player_count || slot < 0 ||
+            slot >= GAME_MARKET_LISTING_SLOT_COUNT)
+            return;
+        listing = &state->market_listings[seller][slot];
+    }
     {
-        const GameMarketListing *listing =
-            &session->state.market_listings[seller][slot];
         GameDomainRef item;
         switch (listing->type) {
         case GAME_MARKET_LISTING_STOCK:
@@ -843,12 +800,11 @@ static void sale_draw_confirm_page(
         modal_left = (screen->w - 192) / 2;
         modal_top = (screen->h - modal_height) / 2;
         /* IDA 0x42704E selects Panel[73] detail chunks 6/7/8 by raw type. */
-        if (!draw_confinement_panel_chunk(screen, assets, 73,
-                                    (size_t)modal_chunk,
-                                    modal_left, modal_top))
+        if (!sale_draw_panel_chunk(screen, assets, (size_t)modal_chunk,
+                                   modal_left, modal_top))
             return;
-        draw_confinement_panel_chunk(
-            screen, assets, 73,
+        sale_draw_panel_chunk(
+            screen, assets,
             (size_t)(8 + (session->state.players[seller].sex == 0 ? 0 : 4) +
                      (int)listing->type),
             modal_left + 112, modal_top + 6);
@@ -857,88 +813,70 @@ static void sale_draw_confirm_page(
                 session->state.players[seller].character),
             16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
         sale_item_label(assets, session, item, label, sizeof(label));
+        /* 0x428581..0x42875B puts these labels on Panel[73] chunks 6..8.
+         * 0x42704E writes the values and their units at runtime. */
+        sale_draw_text(screen, modal_left + 31, modal_top + 92, labels[0],
+                       16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
         if (listing->type == GAME_MARKET_LISTING_ASSET) {
-            const char *asset_type = item.kind == GAME_DOMAIN_LAND
-                ? "\xa4\x67\xa6\x61" : "\xb3\x5d\xac\x49";
+            const char *asset_type;
+            const char *development;
             int index = item.id;
-            int level = 0;
-            int base_price = 0;
-            if (item.kind == GAME_DOMAIN_LAND && index >= 0 &&
-                index < session->state.land_count) {
-                level = session->state.land_level[index];
-                base_price = session->state.land_price[index] +
-                    level * session->state.land_price_per_level[index];
-            } else if (item.kind == GAME_DOMAIN_FACILITY && index >= 0 &&
-                       index < session->state.facility_count) {
-                level = session->state.facility_level[index];
-                base_price = session->state.facility_price[index] +
-                    level * session->state.facility_price_per_level[index];
+            if (item.kind == GAME_DOMAIN_LAND) {
+                int type = state->land_type[index];
+                asset_type = "\xa6\xed\xa6\x76\xa5\xce\xa6\x61";
+                development = game_land_development_big5_name(
+                    type, state->land_level[index]);
+            } else {
+                int level = state->facility_level[index];
+                asset_type = level == 0
+                    ? "\xb0\xd3\xb7\x7e\xa5\xce\xa6\x61"
+                    : game_facility_big5_name(state->facility_type[index], level);
+                development = game_facility_level_big5_name(level);
             }
+            sale_draw_text(screen, modal_left + 31, modal_top + 124,
+                           labels[1], 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
+            sale_draw_text(screen, modal_left + 31, modal_top + 156,
+                           labels[2], 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
             sale_draw_text(screen, modal_left + 120, modal_top + 92,
                            asset_type, 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
             sale_draw_text(screen, modal_left + 120, modal_top + 124,
                            label, 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
-            snprintf(value, sizeof(value), "%d", level);
             sale_draw_text(screen, modal_left + 120, modal_top + 156,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
-            sale_format_grouped_number(
-                sale_indexed_price(base_price, session->state.price_index),
-                value, sizeof(value));
-            sale_draw_text(screen, modal_left + 178, modal_top + 188,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
+                           development, 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
         } else {
             sale_draw_text(screen, modal_left + 120, modal_top + 92,
                            label, 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
         }
 
         if (listing->type == GAME_MARKET_LISTING_STOCK) {
-            snprintf(value, sizeof(value), "%d", listing->quantity);
+            char quantity[24];
+            snprintf(quantity, sizeof(quantity), "%d\xb1\x69", listing->quantity);
+            sale_draw_text(screen, modal_left + 31, modal_top + 124,
+                           labels[3], 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
             sale_draw_text(screen, modal_left + 178, modal_top + 124,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
-            if (item.id >= 0 && item.id < GAME_STOCK_COUNT) {
-                sale_format_grouped_number(
-                    (int)(listing->quantity *
-                          session->state.stocks[item.id].f20),
-                    value, sizeof(value));
-                sale_draw_text(screen, modal_left + 178, modal_top + 156,
-                               value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
-            }
-            sale_format_grouped_number(listing->ask_price,
-                                       value, sizeof(value));
-            sale_draw_text(screen, modal_left + 178, modal_top + 188,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
-        } else if (listing->type == GAME_MARKET_LISTING_ASSET) {
-            sale_format_grouped_number(listing->ask_price,
-                                       value, sizeof(value));
-            sale_draw_text(screen, modal_left + 178, modal_top + 220,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
-        } else {
-            int reference_price = 0;
-            if (item.kind == GAME_DOMAIN_CARD) {
-                const GameCardInfo *info = rich4_card_info(item.id);
-                if (info != NULL)
-                    reference_price = sale_scaled_price(
-                        info->shop_price, session->state.price_index);
-            } else if (item.kind == GAME_DOMAIN_TOOL) {
-                const GameToolInfo *info = rich4_tool_info(item.id);
-                if (info != NULL)
-                    reference_price = sale_scaled_price(
-                        info->shop_price, session->state.price_index);
-            }
-            sale_format_grouped_number(reference_price,
-                                       value, sizeof(value));
-            sale_draw_text(screen, modal_left + 178, modal_top + 122,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
-            sale_format_grouped_number(listing->ask_price,
-                                       value, sizeof(value));
-            sale_draw_text(screen, modal_left + 178, modal_top + 152,
-                           value, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
+                           quantity, 16, SALE_TEXT_LIGHT, 0x1082, 3, 6);
+        }
+        {
+            int market_y = listing->type == GAME_MARKET_LISTING_ASSET ? 188
+                         : listing->type == GAME_MARKET_LISTING_STOCK ? 156
+                         : 122;
+            int ask_y = market_y + (modal_chunk == 6 ? 30 : 32);
+            sale_draw_text(screen, modal_left + 31, modal_top + market_y,
+                           labels[4], 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
+            sale_draw_text(screen, modal_left + 31, modal_top + ask_y,
+                           labels[5], 16, SALE_TEXT_LIGHT, 0x1082, 3, 2);
+            sale_draw_number(screen, modal_left + 178, modal_top + market_y,
+                rich4_app_sale_market_value(state, item, listing->quantity), 1);
+            sale_draw_number(screen, modal_left + 178, modal_top + ask_y,
+                             listing->ask_price, 1);
         }
     }
     sale_draw_text(screen, modal_left + 52, modal_top + action_y,
         seller == session->state.current_player
             ? "\xba\x4d \xa5\xf3" : "\xc1\xca \xb6\x52",
         16, 0xffff, 0x8000, 3, 2);
+    sale_draw_text(screen, modal_left + 140, modal_top + action_y,
+                   "EXIT", 16, 0xffff, 0x8000, 3, 2);
     if (ui->pressed_control == SALE_HIT_CONFIRM_YES ||
         ui->pressed_control == SALE_HIT_CONFIRM_NO) {
         int button_y = modal_top + action_y;
@@ -950,19 +888,44 @@ static void sale_draw_confirm_page(
     }
 }
 
+static int sale_notice_visible(int message)
+{
+    return message >= RICH4_SALE_NOTICE_CASH &&
+           message == sale_notice_message &&
+           (Uint32)(rich4_sdl1_ticks() - sale_notice_started_at) < 1500;
+}
+
 static void sale_draw_message(SDL_Surface *screen,
                               const GamePreviewAssets *assets, int message)
 {
-    if (screen == NULL || assets == NULL || message != 4 ||
-        !sale_cash_warning_active ||
-        (Uint32)(rich4_sdl1_ticks() - sale_cash_warning_started_at) >= 1500)
+    const char *text;
+    if (!sale_notice_visible(message)) return;
+    /* 0x4255DA and 0x427EF6 use the centered 0x424502 notice. */
+    switch (message) {
+    case RICH4_SALE_NOTICE_CASH:
+        text = "\xb1\x7a\xaa\xba\xb2\x7b\xaa\xf7\xa4\xa3\xa8\xac\xa1\x49";
+        break;
+    case RICH4_SALE_NOTICE_BOARD_FULL:
+        text = "\xa4\xbd\xa7\x47\xc4\xe6\xa4\x77\xba\xa1\n\n"
+               "\xbd\xd0\xa5\xfd\xba\x4d\xa5\xf3\xa1\x49";
+        break;
+    case RICH4_SALE_NOTICE_TOOLS_FULL:
+        text = "\xb9\x44\xa8\xe3\xc4\xe6\xa4\x77\xba\xa1\n\n"
+               "\xb5\x4c\xaa\x6b\xc1\xca\xb6\x52\xa1\x49";
+        break;
+    case RICH4_SALE_NOTICE_CARDS_FULL:
+        text = "\xa5\x64\xa4\xf9\xc4\xe6\xa4\x77\xba\xa1\n\n"
+               "\xb5\x4c\xaa\x6b\xc1\xca\xb6\x52\xa1\x49";
+        break;
+    case RICH4_SALE_NOTICE_COMPANY_CONTROL:
+        text = "\xae\xa5\xb3\xdf\xb1\x7a\xc0\xf2\xb1\x6f"
+               "\xb8\x67\xc0\xe7\xc5\x76\xa1\x49";
+        break;
+    default:
         return;
-    /* sub_4255DA reports insufficient cash through sub_424502(text, 1):
-     * Panel.mkf[73] chunk 5 at (227,196), with centered text at (320,240). */
-    draw_confinement_panel_chunk(screen, assets, 73, 5, 227, 196);
-    sale_draw_text(screen, 320, 240,
-                   "\xb1\x7a\xaa\xba\xb2\x7b\xaa\xf7\xa4\xa3\xa8\xac\xa1\x49",
-                   16, 0x1082, 0, 2, 4);
+    }
+    if (sale_draw_panel_chunk(screen, assets, 5, 227, 196))
+        sale_draw_text(screen, 320, 240, text, 16, 0x1082, 0, 2, 4);
 }
 
 static void sale_draw_purchase_dialog(
@@ -1002,28 +965,60 @@ static void sale_play_audio(Rich4Audio *audio, Rich4AppSaleAudioCue cue)
         rich4_audio_play_ok(audio);
 }
 
+static int sale_waiting_for_notice(GameSession *session)
+{
+    GameSaleInteractionPresentationState *ui;
+    if (session == NULL) return 0;
+    ui = &session->presentation.sale_interaction;
+    if (sale_notice_visible(ui->message)) return 1;
+    if (ui->message >= RICH4_SALE_NOTICE_CASH) ui->message = 0;
+    sale_notice_message = 0;
+    return 0;
+}
+
+static void sale_start_notice(int message)
+{
+    if (message < RICH4_SALE_NOTICE_CASH) return;
+    sale_notice_message = message;
+    sale_notice_started_at = rich4_sdl1_ticks();
+}
+
 static void sale_apply_result(
     GameSession *session, const GamePreviewAssets *assets,
     const NewGameSettings *settings, Rich4Audio *audio,
     Rich4AppSaleInteractionResult *result)
 {
-    int succeeded = 0;
+    GameSaleInteractionPresentationState *ui;
     if (result == NULL || session == NULL) return;
-    if (result->command_ready)
+    ui = &session->presentation.sale_interaction;
+    if (result->command_ready) {
+        int seller = ui->selected_seller;
+        int stock = -1;
+        int succeeded;
+        if (result->command.type == GAME_COMMAND_BUY_MARKET_LISTING) {
+            const GameMarketListing *listing =
+                &session->state.market_listings[seller][ui->selected_slot];
+            if (listing->type == GAME_MARKET_LISTING_STOCK &&
+                listing->item_id < GAME_STOCK_COUNT &&
+                session->state.stock_company_owner[listing->item_id] !=
+                    result->command.player) {
+                stock = listing->item_id;
+                sale_notice_listing = *listing;
+            }
+        }
         succeeded = game_session_apply_command(
             session, assets, settings, &result->command,
             rich4_sdl1_ticks());
-    if (result->command_ready)
         rich4_app_sale_interaction_command_applied(
             session, succeeded, result);
-    if (session->presentation.sale_interaction.message == 4) {
-        if (!sale_cash_warning_active) {
-            sale_cash_warning_started_at = rich4_sdl1_ticks();
-            sale_cash_warning_active = 1;
+        /* 0x425739 acknowledges a change in the listed company's owner. */
+        if (succeeded && stock >= 0 &&
+            session->state.stock_company_owner[stock] == result->command.player) {
+            ui->message = RICH4_SALE_NOTICE_COMPANY_CONTROL;
+            sale_notice_seller = seller;
         }
-    } else {
-        sale_cash_warning_active = 0;
     }
+    sale_start_notice(ui->message);
     sale_play_audio(audio, result->audio_cue);
 }
 
@@ -1033,9 +1028,11 @@ void game_sale_panel_mouse_release(
     int button, int x, int y)
 {
     Rich4AppSaleInteractionResult result;
-    Rich4StockQuantityMask mask = sale_quantity_mask(assets);
+    Rich4StockQuantityMask mask;
     int dialog_width;
     int dialog_height;
+    if (sale_waiting_for_notice(session)) return;
+    mask = sale_quantity_mask(assets);
     sale_confirm_dialog_size(assets, &dialog_width, &dialog_height);
     rich4_app_sale_interaction_mouse_release(
         session, &mask, button, x, y, sale_stock_panel_width(assets),
@@ -1047,22 +1044,27 @@ void game_sale_panel_mouse_release(
 void game_sale_panel_mouse_down(
     GameSession *session, const GamePreviewAssets *assets, int x, int y)
 {
-    Rich4StockQuantityMask mask = sale_quantity_mask(assets);
+    Rich4StockQuantityMask mask;
     int dialog_width;
     int dialog_height;
+    if (sale_waiting_for_notice(session)) return;
+    mask = sale_quantity_mask(assets);
     sale_confirm_dialog_size(assets, &dialog_width, &dialog_height);
     rich4_app_sale_interaction_mouse_down(
         session, &mask, x, y, sale_stock_panel_width(assets),
         sale_property_panel_width(assets), dialog_width, dialog_height);
+    if (session != NULL) sale_start_notice(session->presentation.sale_interaction.message);
 }
 
 void game_sale_panel_mouse_motion(
     GameSession *session, const GamePreviewAssets *assets,
     int x, int y, int mouse_left_down)
 {
-    Rich4StockQuantityMask mask = sale_quantity_mask(assets);
+    Rich4StockQuantityMask mask;
     int dialog_width;
     int dialog_height;
+    if (sale_waiting_for_notice(session)) return;
+    mask = sale_quantity_mask(assets);
     sale_confirm_dialog_size(assets, &dialog_width, &dialog_height);
     rich4_app_sale_interaction_mouse_motion(
         session, &mask, x, y, mouse_left_down,
@@ -1075,6 +1077,7 @@ void game_sale_panel_key_down(
     const NewGameSettings *settings, Rich4Audio *audio, Rich4AppKey key)
 {
     Rich4AppSaleInteractionResult result;
+    if (sale_waiting_for_notice(session)) return;
     rich4_app_sale_interaction_key_down(session, key, &result);
     sale_apply_result(session, assets, settings, audio, &result);
 }
@@ -1084,7 +1087,7 @@ static int sale_draw_browse_page(
     const GameSession *session,
     const GameSaleInteractionPresentationState *interaction)
 {
-    if (!draw_confinement_panel_chunk(screen, assets, 73, 0, 22, 66))
+    if (!sale_draw_panel_chunk(screen, assets, 0, 22, 66))
         return 0;
     sale_draw_browse_rows(screen, assets, session, interaction);
     if (interaction->page == RICH4_SALE_PAGE_BROWSE) {
@@ -1121,7 +1124,9 @@ void game_draw_sale_panel(
     /* Panel[73] is the sale UI; Panel[74] is an icon sheet in the original. */
     if (!sale_draw_browse_page(screen, assets, session, interaction)) return;
     sale_draw_sell_picker(screen, assets, interaction);
-    if (interaction->page == RICH4_SALE_PAGE_CONFIRM) {
+    if (interaction->page == RICH4_SALE_PAGE_CONFIRM ||
+        (interaction->message == RICH4_SALE_NOTICE_COMPANY_CONTROL &&
+         sale_notice_visible(interaction->message))) {
         sale_draw_confirm_page(screen, assets, session, interaction);
     } else if (interaction->page == RICH4_SALE_PAGE_PURCHASE_CONFIRM) {
         sale_draw_confirm_page(screen, assets, session, interaction);

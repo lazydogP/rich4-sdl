@@ -46,6 +46,7 @@ uint32_t rich4_property_lease_deadline(const GameState *state);
 void rich4_property_begin_lease(GameState *state, GameDomainRef property);
 int rich4_land_upgrade_price(const GameState *state, int land, int *out_price);
 int rich4_land_toll(const GameState *state, int land, int *out_toll);
+int rich4_land_base_toll(const GameState *state, int land, int *out_toll);
 int rich4_land_inspect(const GameState *state, int actor, int land,
                        GameLandAction *out_action);
 int rich4_land_apply_command(GameState *state, const GameCommand *command,

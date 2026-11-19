@@ -271,6 +271,11 @@ void draw_auction_presentation(
         return;
     auction = &snapshot->presentation->auction;
     if (!auction->active || !game_asset_ready(assets, &assets->ui.has_panel[26])) return;
+    /* 0x43C766 closes the auction window before centering the map for the
+     * two 0x4528B9 waits. */
+    if (auction->stage == RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER ||
+        auction->stage == RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER)
+        return;
 
     /* sub_43BDE5: fullscreen base, heading and property surround. */
     draw_game_panel_chunk(screen, assets, 26, 0, 0, 0, 0);
@@ -313,11 +318,11 @@ void draw_auction_presentation(
         screen, assets, auction, snapshot);
     draw_auction_speech(screen, assets, auction);
 
-    if (auction->stage == RICH4_AUCTION_PRESENT_BIDDING ||
-        auction->stage == RICH4_AUCTION_PRESENT_ACTION ||
-        auction->stage == RICH4_AUCTION_PRESENT_UNSOLD) {
-        int current = auction->stage == RICH4_AUCTION_PRESENT_BIDDING ?
-            auction->bidding.current_player : auction->bidding.last_player;
+    /* 0x43B345..0x43B37B restores the button rectangle as soon as the
+     * private action message is accepted.  The following n5 == 9 action
+     * delay keeps the character animation, but not the controls. */
+    if (auction->stage == RICH4_AUCTION_PRESENT_BIDDING) {
+        int current = auction->bidding.current_player;
         if (current >= 0 && current < snapshot->state->player_count &&
             !snapshot->state->players[current].is_ai) {
             int action;

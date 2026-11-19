@@ -15,6 +15,9 @@ int rich4_auction_flow_is_human_turn(const GameSession *session);
 /* 0x43BB27 calls 0x44EE18(1) before checking the bid controls. */
 void rich4_auction_flow_skip_speech(
     GameSession *session, Rich4AudioEventQueue *audio_events);
+/* 0x4528B9: any key-up or left/right button-up interrupts either
+ * post-sale map wait. */
+int rich4_auction_flow_release_wait(GameSession *session);
 
 /* Starts immediately when idle and otherwise preserves request order. */
 int rich4_auction_flow_enqueue(

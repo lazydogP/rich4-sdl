@@ -38,8 +38,10 @@ static void queue_bankruptcy_auctions(
         do {
             selected = rich4_rng_state_range(&rng, property_count);
         } while (property[selected].kind == GAME_DOMAIN_NONE);
+        /* 0x40D1E3 passes 0 as 0x43BDE5's music-management argument;
+         * the surrounding bankruptcy flow owns its music lifecycle. */
         request = rich4_game_event_auction_request(
-            player, property[selected], -1, 1,
+            player, property[selected], -1, 0,
             GAME_AUCTION_TRIGGER_BANKRUPTCY, 0);
         (void)rich4_game_event_queue_push(events, &request);
         property[selected] =
@@ -1102,14 +1104,8 @@ static int market_transfer_item(GameState *state, int buyer, int seller,
             buyer, item, rich4_game_domain_ref(GAME_DOMAIN_PLAYER, seller),
             buyer, state->facility_level[item.id], value);
     }
-    case GAME_DOMAIN_CARD: {
-        int count = 0;
-        int i;
-        for (i = 0; i < GAME_PLAYER_CARD_SLOTS; i++)
-            if (state->players[buyer].card_inventory[i] == item.id + 1)
-                count++;
-        if (count >= 9 || !rich4_card_inventory_transfer(
-                state, seller, buyer, item.id))
+    case GAME_DOMAIN_CARD:
+        if (!rich4_card_inventory_transfer(state, seller, buyer, item.id))
             return 0;
         return rich4_game_event_emit_typed_domain(
                    events, rich4_game_event_inventory_changed_from_fields,
@@ -1119,11 +1115,8 @@ static int market_transfer_item(GameState *state, int buyer, int seller,
                    events, rich4_game_event_inventory_changed_from_fields,
                    buyer, item, none, 1,
                    rich4_card_inventory_count(state, buyer), 0);
-    }
     case GAME_DOMAIN_TOOL:
-        if (rich4_tool_inventory_count(state, buyer) >= 15 ||
-            state->players[seller].tool_inventory[item.id] == 0 ||
-            state->players[buyer].tool_inventory[item.id] == UINT8_MAX)
+        if (state->players[seller].tool_inventory[item.id] == 0)
             return 0;
         state->players[seller].tool_inventory[item.id]--;
         state->players[buyer].tool_inventory[item.id]++;
@@ -1138,6 +1131,21 @@ static int market_transfer_item(GameState *state, int buyer, int seller,
     default:
         return 0;
     }
+}
+
+int rich4_ledger_market_inventory_full(
+    const GameState *state, int buyer, const GameMarketListing *listing)
+{
+    if (state == NULL || listing == NULL || buyer < 0 ||
+        buyer >= state->player_count || buyer >= GAME_MAX_PLAYERS)
+        return 0;
+    /* 0x4257D4 / 0x425843: tools have a per-type limit. Cards share
+     * the fifteen inventory slots, including duplicate cards. */
+    if (listing->type == GAME_MARKET_LISTING_TOOL && listing->item_id > 0 &&
+        listing->item_id <= GAME_TOOL_COUNT)
+        return state->players[buyer].tool_inventory[listing->item_id - 1] >= 9;
+    return listing->type == GAME_MARKET_LISTING_CARD &&
+           rich4_card_inventory_count(state, buyer) >= GAME_PLAYER_CARD_SLOTS;
 }
 
 static int market_buy_listing(GameState *state, const GameCommand *command,
@@ -1163,8 +1171,7 @@ static int market_buy_listing(GameState *state, const GameCommand *command,
         !market_listing_item_ref(&listing, &item) ||
         !market_item_is_owned(state, seller, &listing, item))
         return 0;
-    if (item.kind == GAME_DOMAIN_CARD &&
-        rich4_card_inventory_count(state, buyer) >= GAME_PLAYER_CARD_SLOTS)
+    if (rich4_ledger_market_inventory_full(state, buyer, &listing))
         return 0;
     next = *state;
     rich4_game_event_queue_reset(&staged);

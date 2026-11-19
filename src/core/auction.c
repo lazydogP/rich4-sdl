@@ -316,6 +316,101 @@ static int update_fixed_assets(
     return 1;
 }
 
+static void recompute_fixed_assets(GameState *state)
+{
+    int64_t totals[GAME_MAX_PLAYERS] = {0};
+    int i;
+    for (i = 0; i < state->land_count; i++) {
+        int owner = state->land_owner[i];
+        if (owner >= 0 && owner < state->player_count)
+            totals[owner] += state->land_value[i];
+    }
+    for (i = 0; i < state->facility_count; i++) {
+        int owner = state->facility_owner[i];
+        if (owner >= 0 && owner < state->player_count)
+            totals[owner] += state->facility_value[i];
+    }
+    for (i = 0; i < GAME_MAX_PLAYERS; i++) {
+        if (totals[i] < 0) totals[i] = 0;
+        if (totals[i] > INT_MAX) totals[i] = INT_MAX;
+        state->fixed_asset_value[i] = (int)totals[i];
+    }
+}
+
+int rich4_auction_transfer_owner(
+    GameAuctionState *auction, GameState *state, int *out_owner_changed)
+{
+    int owner, level, base_price, asset_value;
+    int buyer;
+    if (auction == NULL || state == NULL || out_owner_changed == NULL ||
+        !auction->active || auction->phase != GAME_AUCTION_SOLD)
+        return 0;
+    buyer = auction->leader;
+    if (buyer < 0 || buyer >= state->player_count ||
+        !property_facts(state, auction->target, &owner, &level, &base_price,
+                        &asset_value))
+        return 0;
+    (void)level;
+    (void)base_price;
+    (void)asset_value;
+    if (owner < 0) rich4_property_begin_lease(state, auction->target);
+    if (auction->target.kind == GAME_DOMAIN_LAND)
+        state->land_owner[auction->target.id] = buyer;
+    else
+        state->facility_owner[auction->target.id] = buyer;
+    /* 0x43C80C..0x43C813 writes the owner byte unconditionally.  The SDL
+     * aggregate is derived bookkeeping and may be stale (notably for an
+     * auction-card target), so repair it after the authoritative write
+     * instead of allowing it to reject the transfer and stall the flow. */
+    recompute_fixed_assets(state);
+    *out_owner_changed = owner != buyer;
+    return 1;
+}
+
+GameAuctionSettlementResult rich4_auction_settle_transferred(
+    GameAuctionState *auction, GameState *state, unsigned int caller_flags,
+    GameEventQueue *events)
+{
+    GameState next;
+    GameEventQueue staged;
+    GamePaymentResult payment;
+    GameLedgerParty payee;
+    int owner, level, base_price, asset_value;
+    int buyer;
+    (void)caller_flags;
+    if (auction == NULL || state == NULL || events == NULL ||
+        !auction->active || auction->phase != GAME_AUCTION_SOLD)
+        return GAME_AUCTION_SETTLEMENT_REJECTED;
+    buyer = auction->leader;
+    if (buyer < 0 || buyer >= state->player_count ||
+        !property_facts(state, auction->target, &owner, &level, &base_price,
+                        &asset_value) || owner != buyer)
+        return GAME_AUCTION_SETTLEMENT_REJECTED;
+    (void)level;
+    (void)base_price;
+    (void)asset_value;
+    next = *state;
+    rich4_game_event_queue_reset(&staged);
+    payee = auction->seller >= 0 ?
+        rich4_ledger_player(auction->seller) : rich4_ledger_system();
+    payment = rich4_ledger_pay(
+        &next, buyer, payee, auction->current_price, 0, &staged);
+    if (payment == GAME_PAYMENT_REJECTED ||
+        !rich4_game_event_emit_typed_domain(
+            &staged, rich4_game_event_property_owner_changed_from_fields,
+            auction->seller, auction->target,
+            rich4_game_domain_ref(GAME_DOMAIN_PLAYER, buyer), buyer,
+            auction->current_price, 0) ||
+        events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
+        !rich4_game_event_queue_append(events, &staged))
+        return GAME_AUCTION_SETTLEMENT_REJECTED;
+    *state = next;
+    auction->phase = GAME_AUCTION_SETTLED;
+    auction->active = 0;
+    return payment == GAME_PAYMENT_BANKRUPTCY ?
+        GAME_AUCTION_SETTLEMENT_BANKRUPTCY : GAME_AUCTION_SETTLEMENT_SOLD;
+}
+
 GameAuctionSettlementResult rich4_auction_settle(
     GameAuctionState *auction, GameState *state, unsigned int caller_flags,
     GameEventQueue *events)

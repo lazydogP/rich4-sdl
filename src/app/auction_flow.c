@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "app/bankruptcy_flow.h"
+#include "app/game_speech_flow.h"
 #include "app/turn_status_flow.h"
 #include "core/game_event_payload.h"
 
@@ -14,7 +15,8 @@ enum {
     RICH4_AUCTION_SOLD_SPEECH = 135,
     RICH4_AUCTION_WINNER_SPEECH_BASE = 136,
     RICH4_AUCTION_UNSOLD_SPEECH = 148,
-    RICH4_AUCTION_ACTION_DELAY_MS = 1000
+    RICH4_AUCTION_ACTION_DELAY_MS = 1000,
+    RICH4_AUCTION_MAP_WAIT_MS = 1000
 };
 
 static int request_from_event(
@@ -172,7 +174,9 @@ int rich4_auction_flow_is_human_turn(const GameSession *session)
     return presentation->active &&
            presentation->stage == RICH4_AUCTION_PRESENT_BIDDING &&
            player >= 0 && player < session->state.player_count &&
-           !session->state.players[player].is_ai;
+           !session->state.players[player].is_ai &&
+           presentation->bidding.current_price <=
+               session->state.players[player].cash;
 }
 
 void rich4_auction_flow_set_pressed(GameSession *session, int action)
@@ -182,6 +186,19 @@ void rich4_auction_flow_set_pressed(GameSession *session, int action)
         rich4_auction_flow_is_human_turn(session) &&
         action >= GAME_AUCTION_PASS && action <= GAME_AUCTION_GIVE_UP
             ? action : -1;
+}
+
+int rich4_auction_flow_release_wait(GameSession *session)
+{
+    GameAuctionPresentationState *presentation;
+    if (session == NULL) return 0;
+    presentation = &session->presentation.auction;
+    if (!presentation->active ||
+        (presentation->stage != RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER &&
+         presentation->stage != RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER))
+        return 0;
+    presentation->speech_skipped = 1;
+    return 1;
 }
 
 int rich4_auction_flow_enqueue(
@@ -254,27 +271,30 @@ GameAuctionStepResult rich4_auction_flow_submit(
     return apply_action(session, action, now, audio_events);
 }
 
-static void finish_current(
+static int settle_current(
     GameSession *session, Rich4AudioEventQueue *audio_events,
-    GameEventQueue *out_events, uint32_t now)
+    GameEventQueue *out_events, uint32_t now, int owner_transferred)
 {
     GameAuctionPresentationState *presentation =
         &session->presentation.auction;
     GameEventQueue local_events;
-    GameAuctionPresentationRequest next_request;
-    int have_next = 0;
     int first_event;
+    (void)audio_events;
     if (out_events == NULL) {
         rich4_game_event_queue_reset(&local_events);
         out_events = &local_events;
     }
     first_event = out_events->count;
-    presentation->last_settlement = rich4_auction_settle(
-        &presentation->bidding, &session->state,
-        presentation->request.flags, out_events);
+    presentation->last_settlement = owner_transferred ?
+        rich4_auction_settle_transferred(
+            &presentation->bidding, &session->state,
+            presentation->request.flags, out_events) :
+        rich4_auction_settle(
+            &presentation->bidding, &session->state,
+            presentation->request.flags, out_events);
     if (presentation->last_settlement ==
         GAME_AUCTION_SETTLEMENT_REJECTED)
-        return;
+        return 0;
     /* The SDL caller must not discard terminal events produced by payment.
      * 0x43C855 returns to the outer game dispatcher after settlement. */
     {
@@ -291,6 +311,16 @@ static void finish_current(
             }
         }
     }
+    return 1;
+}
+
+static void complete_current(
+    GameSession *session, Rich4AudioEventQueue *audio_events, uint32_t now)
+{
+    GameAuctionPresentationState *presentation =
+        &session->presentation.auction;
+    GameAuctionPresentationRequest next_request;
+    int have_next = 0;
     if (presentation->pending_count > 0) {
         next_request = presentation->pending[presentation->pending_head];
         presentation->pending_head = (presentation->pending_head + 1) %
@@ -308,6 +338,43 @@ static void finish_current(
         (void)start_request(session, &next_request, audio_events);
     else
         rich4_bankruptcy_finish_auctions(session, now);
+}
+
+static void finish_current(
+    GameSession *session, Rich4AudioEventQueue *audio_events,
+    GameEventQueue *out_events, uint32_t now)
+{
+    if (settle_current(
+            session, audio_events, out_events, now, 0))
+        complete_current(session, audio_events, now);
+}
+
+static void begin_post_sale_wait(GameSession *session, uint32_t now)
+{
+    GameAuctionPresentationState *presentation =
+        &session->presentation.auction;
+    GameDomainRef target = presentation->bidding.target;
+    int x;
+    int y;
+    if (target.kind == GAME_DOMAIN_LAND && target.id >= 0 &&
+        target.id < session->state.land_count) {
+        x = session->state.tool_land_x[target.id];
+        y = session->state.tool_land_y[target.id];
+        game_focus_view_at(session, x, y);
+    } else if (target.kind == GAME_DOMAIN_FACILITY && target.id >= 0 &&
+               target.id < session->state.facility_count) {
+        x = session->state.tool_facility_x[target.id];
+        y = session->state.tool_facility_y[target.id];
+        game_focus_view_at(session, x, y);
+    }
+    presentation->speech_resource = -1;
+    presentation->speech_pending = 0;
+    presentation->speech_visible = 0;
+    presentation->speech_skipped = 0;
+    presentation->pressed_action = -1;
+    presentation->stage = RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER;
+    presentation->action_started = now;
+    presentation->action_until = now + RICH4_AUCTION_MAP_WAIT_MS;
 }
 
 int rich4_auction_flow_update(
@@ -402,15 +469,46 @@ int rich4_auction_flow_update(
         if (presentation->celebration_tick > 60)
             presentation->celebration_tick = 60;
         if (speech_done)
-            finish_current(session, audio_events, out_events, now);
+            begin_post_sale_wait(session, now);
         break;
     case RICH4_AUCTION_PRESENT_UNSOLD:
         if (speech_done)
             finish_current(session, audio_events, out_events, now);
         break;
+    case RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER:
+        if (presentation->speech_skipped ||
+            (int32_t)(now - presentation->action_until) >= 0) {
+            int owner_changed = 0;
+            if (!rich4_auction_transfer_owner(
+                    &presentation->bidding, &session->state,
+                    &owner_changed))
+                break;
+            presentation->speech_skipped = 0;
+            if (owner_changed) {
+                presentation->stage =
+                    RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER;
+                presentation->action_started = now;
+                presentation->action_until =
+                    now + RICH4_AUCTION_MAP_WAIT_MS;
+            } else if (settle_current(
+                           session, audio_events, out_events, now, 1)) {
+                complete_current(session, audio_events, now);
+            }
+        }
+        break;
+    case RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER:
+        if ((presentation->speech_skipped ||
+             (int32_t)(now - presentation->action_until) >= 0) &&
+            settle_current(
+                session, audio_events, out_events, now, 1))
+            complete_current(session, audio_events, now);
+        break;
     default:
         break;
     }
-    if (presentation->active) update_auctioneer(session, now);
+    if (presentation->active &&
+        presentation->stage != RICH4_AUCTION_PRESENT_MAP_BEFORE_TRANSFER &&
+        presentation->stage != RICH4_AUCTION_PRESENT_MAP_AFTER_TRANSFER)
+        update_auctioneer(session, now);
     return session->presentation.auction.active;
 }

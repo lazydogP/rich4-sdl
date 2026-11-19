@@ -84,6 +84,13 @@ GameAuctionAction rich4_auction_ai_action(
 GameAuctionStepResult rich4_auction_apply_action(
     GameAuctionState *auction, const GameState *state, int player,
     GameAuctionAction action);
+/* 0x43C7A8..0x43C7F7 changes the displayed owner before the second
+ * 0x4528B9 wait. Payment at 0x43C855 is deliberately separate. */
+int rich4_auction_transfer_owner(
+    GameAuctionState *auction, GameState *state, int *out_owner_changed);
+GameAuctionSettlementResult rich4_auction_settle_transferred(
+    GameAuctionState *auction, GameState *state, unsigned int caller_flags,
+    GameEventQueue *events);
 GameAuctionSettlementResult rich4_auction_settle(
     GameAuctionState *auction, GameState *state, unsigned int caller_flags,
     GameEventQueue *events);
