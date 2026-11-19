@@ -334,7 +334,7 @@ int rich4_game_command_is_valid(const GameCommand *command)
         if (command->flags != 0) return 0;
         if (command->type == GAME_COMMAND_USE_TOOL &&
             command->subject.kind == GAME_DOMAIN_TOOL &&
-            command->subject.id == 6) {
+            (command->subject.id == 6 || command->subject.id == 12)) {
             if (command->value2 < 0 || command->value2 >= 8) return 0;
         } else if (command->value2 != 0) return 0;
     }

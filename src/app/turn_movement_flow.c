@@ -432,7 +432,6 @@ int rich4_app_update_turn_movement(
         phase == RICH4_MOVE_AFTER_BEGGAR) {
         int node = actor->move_to_node;
         int natural_stop = session->flow.steps_remaining <= 0;
-        int object_type = GAME_ROUTE_OBJECT_NONE;
         GameToolTriggerResult trigger = GAME_TOOL_TRIGGER_NONE;
         GameEventQueue events;
         if (phase == RICH4_MOVE_ARRIVAL && !natural_stop &&
@@ -450,13 +449,9 @@ int rich4_app_update_turn_movement(
             begin_arrival_beggar(session, node, now))
             return 1;
         rich4_game_event_queue_reset(&events);
-        rich4_app_route_object_at(map, node, NULL, &object_type, NULL);
-        if (player->attached_timed_bomb_slot >= 0 ||
-            (player->traffic_method > 3 && (player->traffic_method & 3) == 3)) {
+        if (player->attached_timed_bomb_slot >= 0) {
             trigger = rich4_tool_advance_step_deferred_hospital(
-                &session->state, session->state.current_player, node,
-                object_type == GAME_ROUTE_OBJECT_LAND ||
-                object_type == GAME_ROUTE_OBJECT_FACILITY, &events);
+                &session->state, session->state.current_player, node, &events);
         }
         /* 0x41B42D returns immediately on an attached-bomb explosion. */
         if (trigger != GAME_TOOL_TRIGGER_STOP_DEFERRED_EFFECT)

@@ -138,7 +138,8 @@ void rich4_sdl1_game_view_model_input_build(const GameFlowState *flow,
     out_input->turn_state = flow->turn_state;
     out_input->turn_state_frame = flow->turn_state_frame;
     if (presentation != NULL) {
-        out_input->dice_status_visible = presentation->dice.status_visible;
+        out_input->dice_status_visible =
+            rich4_presentation_dice_status_visible(presentation);
         out_input->dice_status_x = presentation->dice.status_x;
         out_input->dice_status_y = presentation->dice.status_y;
         out_input->dice_status_variant = presentation->dice.status_variant;

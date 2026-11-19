@@ -18,10 +18,8 @@ static void defense_popup(GameSession *session, uint32_t now)
 {
     GameCardUsePresentationState *use = &session->presentation.card_use;
     GameCardDefenseState *d = &use->defense;
-    int node = session->state.players[d->actor].node;
-    if (node > 0 && node < session->state.tool_route_node_count)
-        game_focus_view_at(session, session->state.tool_route_x[node],
-            session->state.tool_route_y[node]);
+    /* 0x4446B8 uses the defender's coordinates after prison admission. */
+    game_focus_view_on_player(session, d->actor);
     d->phase = GAME_PROPERTY_PRESENT_INSURANCE_CARD;
     d->started = now;
     d->skip_requested = 0;
@@ -179,6 +177,8 @@ int rich4_card_defense_update(GameSession *session, uint32_t now)
     case GAME_PROPERTY_PRESENT_INSURANCE_CARD_SPEECH:
         d->phase = GAME_PROPERTY_PRESENT_INSURANCE_VICTIM_SPEECH;
         if (d->card == 18) defense_say(session, d->target, 2, 18, 2, now);
+        /* 0x444753 lets the original attacker speak before retaliation. */
+        else if (d->card == 17) defense_say(session, use->command.player, 2, 17, 2, now);
         else if (d->card == 19) defense_say(session, use->command.player, 2, 19, 1, now);
         return 1;
     case GAME_PROPERTY_PRESENT_INSURANCE_VICTIM_SPEECH:

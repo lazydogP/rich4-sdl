@@ -45,6 +45,7 @@ void rich4_card_panel_open(CardPanelState *panel, GameSession *session)
     if (panel == NULL || session == NULL || !session->state.active ||
         session->state.player_count <= 0) return;
     session->presentation.has_view_override = 0;
+    session->presentation.dice.status_dragging = 0;
     rich4_card_panel_reset(panel);
     panel->phase = CARD_PANEL_INVENTORY;
     panel->player = rich4_card_panel_wrap_index(
@@ -144,11 +145,30 @@ int rich4_card_panel_map_target_kind(const CardPanelState *panel)
     return info == NULL ? GAME_CARD_TARGET_NONE : info->target_kind;
 }
 
+static int card_panel_allows_edge_scroll(
+    const GameSession *session, const CardPanelState *panel)
+{
+    if (session == NULL || panel == NULL || panel->phase != CARD_PANEL_MAP_TARGET)
+        return 0;
+    GameDomainRef source = rich4_card_panel_current_property_ref(session);
+    /* 0x44609B tests bit 7 of the selector mask before checking the edges. */
+    return (rich4_card_map_mask(panel->selected_card, source.kind) & 0x80u) != 0;
+}
+
+int rich4_card_panel_edge_scroll_direction(
+    const GameSession *session, const CardPanelState *panel)
+{
+    if (panel == NULL || panel->edge_scroll.direction < 1 ||
+        panel->edge_scroll.direction > 4 || !card_panel_allows_edge_scroll(session, panel))
+        return 0;
+    return panel->edge_scroll.direction;
+}
+
 void rich4_card_panel_update_edge_scroll(
     GameSession *session, CardPanelState *panel,
     int cursor_x, int cursor_y, int inset, uint32_t now)
 {
-    if (panel == NULL || panel->phase != CARD_PANEL_MAP_TARGET) {
+    if (!card_panel_allows_edge_scroll(session, panel)) {
         if (panel != NULL)
             rich4_app_map_edge_scroll_reset(&panel->edge_scroll);
         return;

@@ -49,10 +49,6 @@ void game_handle_confirm_input(GameConfirmInputContext *context)
             /* Physical WM_LBUTTONDOWN only depresses the control.  The
              * original posts action 0x407 from WM_LBUTTONUP. */
             rich4_auction_flow_set_pressed(context->session, action);
-        } else if (action >= 0) {
-            (void)rich4_auction_flow_submit(
-                context->session, (GameAuctionAction)action,
-                rich4_sdl1_ticks(), audio_events);
         }
         game_session_audio_flush(context->session, context->audio);
         context->cursor->confirm_pressed = 0;

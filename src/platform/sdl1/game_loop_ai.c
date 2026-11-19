@@ -8,6 +8,7 @@
 #include "app/card_use_flow.h"
 #include "app/command_event_flow.h"
 #include "app/card_panel_flow.h"
+#include "app/dice_flow.h"
 #include "core/card.h"
 #include "app/game_speech_flow.h"
 #include "core/tool.h"
@@ -303,8 +304,10 @@ int game_update_card_use(GameSession *session, const GamePreviewAssets *assets,
         player = use->command.player;
         ai = use->command.source == GAME_COMMAND_SOURCE_AI;
         if (!ai && !use->resume_panel_phase) {
-            if (use->accepted) rich4_card_panel_reset(&session->presentation.card_panel);
-            else {
+            if (use->accepted) {
+                rich4_card_panel_reset(&session->presentation.card_panel);
+                rich4_dice_finish_inventory_action(session);
+            } else {
                 rich4_card_panel_command_rejected(&session->presentation.card_panel);
                 rich4_audio_play_invalid(audio);
             }

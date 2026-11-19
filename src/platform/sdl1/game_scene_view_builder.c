@@ -25,6 +25,26 @@
  * adapter builds the read-only scene snapshot consumed by game renderers and
  * modal panels; it does not mutate session state or own preview assets. */
 
+static int build_missile_background(const GameState *state, const GameMissileScene *before,
+    const GameViewModelInput *input, const MapData *map, GameViewModel *out)
+{
+    GameState background = *state;
+    for (int i = 0; i < state->land_count; ++i) {
+        background.land_owner[i] = before->lands[i].owner;
+        background.land_type[i] = before->lands[i].type;
+        background.land_level[i] = before->lands[i].level;
+    }
+    for (int i = 0; i < state->facility_count; ++i) {
+        background.facility_owner[i] = before->facilities[i].owner;
+        background.facility_type[i] = before->facilities[i].type;
+        background.facility_level[i] = before->facilities[i].level;
+    }
+    memcpy(background.players, before->players, sizeof(before->players));
+    memcpy(background.special_player_node, before->special_node, sizeof(before->special_node));
+    memcpy(background.special_player_play_state, before->special_play_state, sizeof(before->special_play_state));
+    return rich4_game_view_model_build(&background, input, map, out);
+}
+
 int build_game_session_render_view_for_state(
                                            const GamePreviewAssets *assets,
                                            const NewGameSettings *settings,
@@ -39,6 +59,16 @@ int build_game_session_render_view_for_state(
     out_view->bank_calendar_map_index = -1;
     out_view->bank_calendar_event_index = -1;
     if (session == NULL || state == NULL || !state->active) return 0;
+    const GameMissileScene *before = NULL;
+    if (state == &session->state && session->missile_scene_active &&
+        session->presentation.tool_animation_count > 0) {
+        const GameToolAnimationRequest *effect = &session->presentation.tool_animation[
+            session->presentation.tool_animation_head];
+        if ((effect->resource == 528 || effect->resource == 530) &&
+            !effect->animation_done && effect->frame < 8) {
+            before = &session->missile_scene;
+        }
+    }
     background_index = settings != NULL
         ? settings->stage * GAME_MAPS_PER_STAGE + settings->map : -1;
     if (assets != NULL && background_index >= 0 &&
@@ -47,8 +77,9 @@ int build_game_session_render_view_for_state(
                                            &session->presentation,
                                            &view_input);
     view_input.active_info_tab = rich4_app_current_info_tab(session);
-    if (!rich4_game_view_model_build(state, &view_input,
-                                     map, &out_view->game)) return 0;
+    int built = before ? build_missile_background(state, before, &view_input, map, &out_view->game) :
+        rich4_game_view_model_build(state, &view_input, map, &out_view->game);
+    if (!built) return 0;
     if (state->tool_robot.active && map != NULL &&
         !(session->presentation.speech.active &&
           !session->presentation.tool_robot_motion.initialized)) {
@@ -76,7 +107,7 @@ int build_game_session_render_view_for_state(
                 session->presentation.tool_robot_motion.animation_frame;
         }
     }
-    memcpy(out_view->dynamic_objects, session->presentation.dynamic_objects,
+    memcpy(out_view->dynamic_objects, before ? before->objects : session->presentation.dynamic_objects,
            sizeof(out_view->dynamic_objects));
     if (session->presentation.card_use.phase == GAME_CARD_USE_FLIGHT &&
         session->presentation.card_use.command.subject.id == 22) {

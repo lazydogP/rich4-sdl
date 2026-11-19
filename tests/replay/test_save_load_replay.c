@@ -199,6 +199,47 @@ static void lease_fixture_put_u32(unsigned char *p, uint32_t value)
     for (int i = 0; i < 4; i++) p[i] = (unsigned char)(value >> (8 * i));
 }
 
+static void test_tool_animation_round_trip(const char *directory)
+{
+    static GameSession source, loaded;
+    char path[512];
+    initialize_session(&source);
+    assert(snprintf(path, sizeof(path), "%s/tool-animation.R4S", directory) > 0);
+    source.missile_scene_active = 1;
+    source.missile_scene.world_x = 700;
+    source.missile_scene.world_y = 1000;
+    source.missile_scene.lands[0] = (GameMissileBuilding){-1, 1, 1};
+    source.missile_scene.facilities[0] = (GameMissileBuilding){0, 4, 5};
+    source.missile_scene.objects[17].node = 1;
+    source.presentation.tool_animation_count = 1;
+    source.presentation.tool_animation[0].active = 1;
+    source.presentation.tool_animation[0].resource = 530;
+    source.presentation.tool_animation[0].after_sync_player = -1;
+    source.presentation.tool_animation[0].after_speech_player = -1;
+    source.presentation.tool_animation[0].after_speech_next_player = -1;
+    source.presentation.tool_animation[0].frame = 7;
+    assert(rich4_game_save_write(path, 2, &source));
+    assert(rich4_game_save_read(path, 2, &loaded));
+    assert(loaded.missile_scene_active && loaded.presentation.tool_animation[0].frame == 7);
+    assert(loaded.missile_scene.world_x == 700 && loaded.missile_scene.world_y == 1000);
+    assert(loaded.missile_scene.lands[0].owner == -1 && loaded.missile_scene.lands[0].type == 1);
+    assert(loaded.missile_scene.facilities[0].level == 5 && loaded.missile_scene.objects[17].node == 1);
+    initialize_session(&source);
+    source.state.players[0].tool_inventory[2] = 1;
+    GameToolPlacementAnimation *flight = &source.presentation.tool_placement_animation;
+    flight->active = 1;
+    flight->tool = 2;
+    flight->slot = 10;
+    flight->debit_player_plus_one = 1;
+    flight->frame = 3;
+    flight->frame_count = 7;
+    assert(rich4_game_save_write(path, 2, &source));
+    assert(rich4_game_save_read(path, 2, &loaded));
+    flight = &loaded.presentation.tool_placement_animation;
+    assert(flight->frame == 3 && flight->frame_count == 7 && flight->debit_player_plus_one == 1);
+    assert(remove(path) == 0);
+}
+
 static void test_format_10_lease_compatibility(const char *directory)
 {
     static GameSession source, loaded;
@@ -247,7 +288,9 @@ static void test_format_10_lease_compatibility(const char *directory)
     size = (size_t)length;
     bytes = malloc(size);
     assert(bytes != NULL && fread(bytes, 1, size, file) == size);
-    assert(fclose(file) == 0 && lease_fixture_u32(bytes + 4) == 12);
+    assert(fclose(file) == 0 && lease_fixture_u32(bytes + 4) == 13);
+    /* Drop format 13's tool continuation trailer (no active missile). */
+    size -= (2 * 6 + 1) * 4;
     for (at = 20; at + 4 <= size; at++) {
         uint32_t marker = lease_fixture_u32(bytes + at);
         if (marker == 0x13572466u) legacy_elapsed_start = at;
@@ -829,6 +872,7 @@ int main(void)
     runtime_load_reseeds_special_targets(directory);
     runtime_load_preserves_dynamic_gods(directory);
     initialize_map(&map);
+    test_tool_animation_round_trip(directory);
     test_format_10_lease_compatibility(directory);
     test_attached_bomb_roundtrip(directory, &map);
     initialize_session(source);

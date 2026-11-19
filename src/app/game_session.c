@@ -153,6 +153,7 @@ int rich4_app_time_machine_restore(GameSession *session, int player)
                                     &dynamic_objects))
         return 0;
     live_rng_state = session->state.ai_rng_state;
+    session->missile_scene_active = 0;
     session->state = *state;
     session->state.ai_rng_state = live_rng_state;
     session->flow = *flow;

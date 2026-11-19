@@ -40,12 +40,28 @@ typedef struct GameTimeMachineSnapshot {
     int valid;
 } GameTimeMachineSnapshot;
 
+typedef struct GameMissileBuilding {
+    int8_t owner;
+    uint8_t type, level;
+} GameMissileBuilding;
+
+typedef struct GameMissileScene {
+    int world_x, world_y;
+    GameMissileBuilding lands[GAME_MAX_MAP_PROPERTIES], facilities[GAME_MAX_MAP_PROPERTIES];
+    int special_node[GAME_SPECIAL_PLAYER_COUNT], special_play_state[GAME_SPECIAL_PLAYER_COUNT];
+    GamePlayerState players[GAME_MAX_PLAYERS];
+    GameMapDynamicObjectState objects[GAME_MAP_DYNAMIC_OBJECT_COUNT];
+} GameMissileScene;
+
 typedef struct GameSession {
     GameState state;
     GameAiSelectionMemory ai_selection;
     GameDebugTrace debug;
     GameFlowState flow;
     GamePresentationState presentation;
+    /* 0x90001 keeps the target map beneath the first eight FLC frames. */
+    int missile_scene_active;
+    GameMissileScene missile_scene;
     GameState time_machine_state;
     GameFlowState time_machine_flow;
     GamePresentationState time_machine_presentation;

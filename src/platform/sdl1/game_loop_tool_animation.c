@@ -59,6 +59,12 @@ static int game_tool_animation_target_xy(
     if (session == NULL || assets == NULL || event == NULL ||
         out_x == NULL || out_y == NULL) return 0;
     target = rich4_game_event_tool_target(event);
+    if (session->missile_scene_active &&
+        (rich4_game_event_tool_resource(event) == 528 || rich4_game_event_tool_resource(event) == 530)) {
+        *out_x = session->missile_scene.world_x;
+        *out_y = session->missile_scene.world_y;
+        return 1;
+    }
     if (target.kind == GAME_DOMAIN_LAND && target.id >= 0 &&
         target.id < session->state.land_count) {
         *out_x = session->state.tool_land_x[target.id];
@@ -124,7 +130,6 @@ void game_tool_animation_enqueue_from_platform(
         world_y = session->presentation.view_world_y;
         has_world_position = 1;
     }
-    now = rich4_sdl1_ticks();
     rich4_tool_animation_enqueue(
         session, event, frame_count, game_graph_frame_delay_ms_data(data, size),
         world_x, world_y,

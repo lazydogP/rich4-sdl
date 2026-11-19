@@ -272,16 +272,10 @@ void game_update_input_hovers(GameInputHoverContext *context)
                 card_slot >= 0 ? card_slot :
                 (tool >= 0 ? (0x8000 | tool) : -1));
         } else if (context->tool_panel->phase == TOOL_PANEL_REMOTE_DICE) {
-            int face, hover = -1;
-            for (face = 0; face < 6; face++)
-                if (cursor->x >= 104 + face * 40 &&
-                    cursor->x < 134 + face * 40 &&
-                    cursor->y >= 314 && cursor->y < 343) hover = face;
-            rich4_tool_panel_set_hover(context->tool_panel, hover);
+            rich4_tool_panel_set_hover(context->tool_panel,
+                rich4_tool_panel_remote_dice_face_at(cursor->x, cursor->y));
         } else if (context->tool_panel->phase == TOOL_PANEL_WORKER_CHOICE) {
-            int hover = (cursor->x >= 50 && cursor->x < 390 &&
-                         cursor->y >= 286 && cursor->y < 353)
-                ? (cursor->x - 50) / 68 : -1;
+            int hover = rich4_tool_panel_worker_choice_at(cursor->x, cursor->y);
             if (hover != context->tool_panel->hover && hover >= 0)
                 rich4_audio_play_select(context->audio);
             rich4_tool_panel_set_hover(context->tool_panel, hover);

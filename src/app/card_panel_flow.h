@@ -79,6 +79,8 @@ int rich4_card_panel_robbery_card_slot_at(int x, int y);
 int rich4_card_panel_robbery_tool_at(
     const GameSession *session, int primary_target, int x, int y);
 int rich4_card_panel_map_target_kind(const CardPanelState *panel);
+int rich4_card_panel_edge_scroll_direction(
+    const GameSession *session, const CardPanelState *panel);
 void rich4_card_panel_update_edge_scroll(
     GameSession *session, CardPanelState *panel,
     int cursor_x, int cursor_y, int inset, uint32_t now);

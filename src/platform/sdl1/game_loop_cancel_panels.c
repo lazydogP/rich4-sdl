@@ -12,7 +12,7 @@ int game_handle_cancel_panels(GameCancelPanelsContext *context)
 {
     if (context->app_state == RICH4_SCENE_GAME &&
         context->card_panel->phase != CARD_PANEL_CLOSED) {
-        game_card_panel_cancel_input(context->card_panel, context->audio);
+        game_card_panel_cancel_input(context->session, context->card_panel, context->audio);
         context->cursor->cancel_pressed = 0;
         return 1;
     } else if (context->app_state == RICH4_SCENE_GAME &&

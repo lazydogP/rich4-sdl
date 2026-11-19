@@ -20,6 +20,7 @@
 #include "app/game_command_flow.h"
 #include "app/monster_card_flow.h"
 #include "platform/sdl1/game_loop_event_poll.h"
+#include "platform/sdl1/game_loop_confirm_input.h"
 #include "platform/sdl1/game_loop_mouse_button_up_input.h"
 #include "platform/sdl1/runtime.h"
 #include "app/card_defense_flow.h"
@@ -27,12 +28,104 @@
 #include "platform/sdl1/game_loop_confirm_company_issue.h"
 #include "app/card_panel_flow.h"
 #include "app/game_speech_flow.h"
+#include "app/map_input_flow.h"
 #include "app/special_place_notice_flow.h"
 #include "core/game_event_payload.h"
 #include "core/character_speech_rules.h"
+#include "core/rng.h"
 #include "view/map_renderer.h"
 #include "resource/mkf.h"
 #include "resource/flc_animation.h"
+
+static int dice_panel_visible(const GamePreviewAssets *assets,
+    const NewGameSettings *settings, const GameSession *session)
+{
+    GameSceneView view;
+    assert(build_game_session_render_view(assets, settings, session, &view));
+    return view.game.dice.status_visible;
+}
+
+static void auction_card_yields_pointer_to_auction(GamePreviewAssets *assets)
+{
+    static GameSession session;
+    Rich4SceneId scene = RICH4_SCENE_GAME;
+    NewGameSettings settings = {0};
+    Rich4Config config = {0};
+    Rich4SdlConfig sdl_config = {0};
+    Rich4OptionsPanelState options = {0};
+    Rich4SceneMachine scene_machine = {0};
+    HelpPanelState help = {0};
+    HelpAssets help_assets = {0};
+    SmallMapPanelState small_map = {0};
+    Rich4AiSettingsState ai_settings = {0};
+    StockPanelState stock = {0};
+    VirtualCursor cursor = {.x = 406, .y = 133};
+    int held = 0;
+    GameMouseButtonDownInputContext down;
+    GameConfirmInputContext confirm;
+    GameMouseButtonUpInputContext up;
+
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 1;
+    session.state.players[0].play_state = 1;
+    session.state.players[0].cash = 2000;
+    session.presentation.card_use.phase = GAME_CARD_USE_EFFECTS;
+    session.presentation.auction.active = 1;
+    session.presentation.auction.stage = RICH4_AUCTION_PRESENT_BIDDING;
+    session.presentation.auction.pressed_action = -1;
+    session.presentation.auction.bidding.active = 1;
+    session.presentation.auction.bidding.phase = GAME_AUCTION_BIDDING;
+    session.presentation.auction.bidding.seller = -1;
+    session.presentation.auction.bidding.current_player = 0;
+    session.presentation.auction.bidding.current_price = 1000;
+    session.presentation.auction.bidding.eligible_count = 1;
+    session.presentation.auction.bidding.participant[0] =
+        GAME_AUCTION_PARTICIPANT_READY;
+
+    down = (GameMouseButtonDownInputContext){
+        .app_state = &scene, .config = &config, .sdl_config = &sdl_config,
+        .assets = assets, .session = &session, .settings = &settings,
+        .options_panel = &options, .scene_machine = &scene_machine,
+        .help_panel = &help, .help_assets = &help_assets,
+        .small_map_panel = &small_map, .ai_settings_panel = &ai_settings,
+        .card_panel = &session.presentation.card_panel,
+        .tool_panel = &session.presentation.tool_panel, .stock_panel = &stock,
+        .cursor = &cursor, .mouse_left_down = &held,
+        .button = SDL_BUTTON_LEFT
+    };
+    confirm = (GameConfirmInputContext){
+        .app_state = &scene, .assets = assets, .session = &session,
+        .settings = &settings, .config = &config, .sdl_config = &sdl_config,
+        .options_panel = &options, .scene_machine = &scene_machine,
+        .help_panel = &help, .help_assets = &help_assets,
+        .small_map_panel = &small_map, .ai_settings_panel = &ai_settings,
+        .card_panel = &session.presentation.card_panel,
+        .tool_panel = &session.presentation.tool_panel, .stock_panel = &stock,
+        .cursor = &cursor
+    };
+    up = (GameMouseButtonUpInputContext){
+        .app_state = scene, .session = &session, .assets = assets,
+        .settings = &settings, .stock_panel = &stock, .help_panel = &help,
+        .help_assets = &help_assets, .small_map_panel = &small_map,
+        .tool_panel = &session.presentation.tool_panel, .cursor = &cursor,
+        .button = SDL_BUTTON_LEFT, .mouse_left_down = &held,
+        .config = &config, .sdl_config = &sdl_config,
+        .options_panel = &options, .scene_machine = &scene_machine
+    };
+
+    assert(rich4_app_input_display_visible(
+        RICH4_SCENE_GAME, NULL, &session, 0));
+    assert(!game_handle_mouse_button_down_input(&down));
+    assert(held && cursor.confirm_pressed && cursor.confirm_pointer_pressed);
+    game_handle_confirm_input(&confirm);
+    assert(session.presentation.auction.pressed_action == GAME_AUCTION_PASS);
+    assert(!game_handle_mouse_button_up_input(&up));
+    assert(!held);
+    assert(session.presentation.auction.stage == RICH4_AUCTION_PRESENT_ACTION);
+    assert(session.presentation.auction.bidding.last_action == GAME_AUCTION_PASS);
+    assert(session.presentation.card_use.phase == GAME_CARD_USE_EFFECTS);
+}
 
 static void human_card_clicks(GamePreviewAssets *assets)
 {
@@ -58,6 +151,8 @@ static void human_card_clicks(GamePreviewAssets *assets)
         session.state.active = 1;
         session.state.player_count = 2;
         session.state.players[0].play_state = session.state.players[1].play_state = 1;
+        session.presentation.dice.status_visible = 1;
+        assert(dice_panel_visible(assets, &settings, &session));
         session.state.calendar_start_year = 2000;
         session.state.calendar_start_month = 1;
         session.state.calendar_start_day = 3;
@@ -67,7 +162,9 @@ static void human_card_clicks(GamePreviewAssets *assets)
         uint8_t *hand = session.state.players[0].card_inventory;
         hand[0] = 2;
         hand[1] = hand[2] = card;
-        rich4_card_panel_open(panel, &session);
+        Rich4AppToolbarAction action = rich4_app_top_panel_action_at(340, 20);
+        assert(rich4_app_apply_top_panel_action(&session, &action));
+        assert(!dice_panel_visible(assets, &settings, &session));
         cursor.x = 110;
         cursor.y = 145;
         down.button = up.button = SDL_BUTTON_LEFT;
@@ -76,6 +173,7 @@ static void human_card_clicks(GamePreviewAssets *assets)
         cursor.x = 25;
         assert(game_handle_mouse_button_up_input(&up));
         assert(!held && panel->phase == CARD_PANEL_EFFECT && panel->selected_card == card - 1);
+        assert(!dice_panel_visible(assets, &settings, &session));
         assert(panel->effect_until - panel->effect_started == 1500);
         assert(!rich4_card_panel_effect_due(panel, panel->effect_started + 1499));
         assert(hand[1] == card && hand[2] == card);
@@ -93,6 +191,7 @@ static void human_card_clicks(GamePreviewAssets *assets)
         game_update_card_panel_timed_effect(panel, &session, assets, &settings, NULL);
         assert(panel->phase == CARD_PANEL_WAIT_HANDLER);
         assert(session.presentation.speech.active && !session.presentation.speech.skip_requested);
+        assert(!dice_panel_visible(assets, &settings, &session));
         assert(hand[0] == 2 && hand[1] == card && hand[2] == (card == 1 ? 0 : card));
         assert(session.state.card_amount[card - 1] == (card == 1));
         uint32_t started = rich4_sdl1_ticks();
@@ -105,6 +204,7 @@ static void human_card_clicks(GamePreviewAssets *assets)
             assert(session.state.card_amount[0] == 1);
         } else {
             assert(panel->phase == CARD_PANEL_STOCK_TARGET);
+            assert(!dice_panel_visible(assets, &settings, &session));
             if (card == 25) {
                 cursor.x = 600;
                 cursor.y = 80 + 7 * 32;
@@ -113,24 +213,36 @@ static void human_card_clicks(GamePreviewAssets *assets)
                 uint32_t selected = rich4_sdl1_ticks();
                 assert(game_update_card_use(&session, assets, &settings, NULL, selected));
                 assert(session.presentation.card_use.phase == GAME_CARD_USE_STOCK_HOLD);
+                assert(!dice_panel_visible(assets, &settings, &session));
                 assert(session.state.stocks[7].f20 == 90 && hand[2] == 25);
                 assert(game_handle_mouse_button_up_input(&up));
                 assert(game_update_card_use(&session, assets, &settings, NULL, selected + 999));
                 assert(session.state.card_amount[24] == 0);
                 assert(game_update_card_use(&session, assets, &settings, NULL, selected + 1000));
                 assert(session.state.stocks[7].f20 == 90 && hand[2] == 0 && session.state.card_amount[24] == 1);
-                continue;
+                started = selected + 1000;
+            } else {
+                down.button = up.button = SDL_BUTTON_RIGHT;
+                assert(game_handle_mouse_button_down_input(&down));
+                assert(panel->phase == CARD_PANEL_STOCK_TARGET);
+                assert(game_handle_mouse_button_up_input(&up));
+                assert(panel->phase == CARD_PANEL_INVENTORY && panel->selected_slot == -1);
+                assert(!dice_panel_visible(assets, &settings, &session));
+                assert(hand[1] == card && hand[2] == card && !session.state.card_amount[card - 1]);
+                up.button = SDL_BUTTON_LEFT;
+                assert(game_handle_mouse_button_up_input(&up));
+                assert(panel->phase == CARD_PANEL_INVENTORY);
+                up.button = SDL_BUTTON_RIGHT;
+                assert(game_handle_mouse_button_up_input(&up));
             }
-            down.button = up.button = SDL_BUTTON_RIGHT;
-            assert(game_handle_mouse_button_down_input(&down));
-            assert(panel->phase == CARD_PANEL_STOCK_TARGET);
-            assert(game_handle_mouse_button_up_input(&up));
-            assert(panel->phase == CARD_PANEL_INVENTORY && panel->selected_slot == -1);
-            assert(hand[1] == card && hand[2] == card && !session.state.card_amount[card - 1]);
-            up.button = SDL_BUTTON_LEFT;
-            assert(game_handle_mouse_button_up_input(&up));
-            assert(panel->phase == CARD_PANEL_INVENTORY);
         }
+        for (int tick = 1; tick <= 8 && panel->phase == CARD_PANEL_WAIT_HANDLER; ++tick) {
+            assert(!dice_panel_visible(assets, &settings, &session));
+            (void)game_update_card_use(&session, assets, &settings, NULL,
+                                       started + 1000 * (uint32_t)tick);
+        }
+        assert(panel->phase == CARD_PANEL_CLOSED);
+        assert(dice_panel_visible(assets, &settings, &session));
     }
     rich4_sdl1_set_deterministic_ticks(0);
 }
@@ -272,6 +384,97 @@ static void ai_waits_before_applying(GamePreviewAssets *assets)
     assert(session.presentation.card_use.phase == GAME_CARD_USE_NONE);
     assert(session.flow.turn_flow_active && session.flow.turn_state == GAME_TURN_STATE_PREROLL);
     assert(session.state.players[0].cash == 500);
+}
+
+static void human_frame_card_revenge(GamePreviewAssets *assets)
+{
+    static GameSession session;
+    NewGameSettings settings = {0};
+    MapRouteNode routes[4] = {
+        [1] = {.x = 1000, .y = 1100}, [2] = {.x = 1600, .y = 1700},
+        [3] = {.x = 2100, .y = 2200}
+    };
+    MapSpecialRecord specials[3] = {[2] = {.x = 2300, .y = 2400}};
+    MapData saved_map = assets->map.maps[0];
+    GameSceneView view;
+    uint32_t rng = 1, last_speech = UINT32_MAX;
+    int defender_reaction = rich4_rng_next_at(&rng) & 1;
+    int attacker_reaction = rich4_rng_next_at(&rng) & 1;
+    int speech_count = 0, saw_notice = 0;
+    const struct {
+        int player, type, x, y;
+        const Rich4CharacterSpeech *line;
+    } expected[] = {
+        {0, 3, 1000, 1100, rich4_character_card_speech(0, 0, 16)},
+        {1, 2, 1600, 1700, rich4_character_special_event_speech(1, 0, defender_reaction)},
+        {1, 2, 2300, 2400, rich4_character_confinement_speech(1, 0)},
+        {1, 1, 2300, 2400, rich4_character_card_speech(1, 2, 16)},
+        {1, 0, 2300, 2400, rich4_character_card_speech(1, 0, 17)},
+        {0, 2, 1000, 1100, rich4_character_card_speech(0, 2, 17)},
+        {0, 2, 1000, 1100, rich4_character_special_event_speech(0, 0, attacker_reaction)},
+        {0, 2, 2300, 2400, rich4_character_confinement_speech(0, 0)}
+    };
+
+    assets->map.maps[0] = (MapData){
+        .routes = routes, .route_count = 4, .specials = specials, .special_count = 3
+    };
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 2;
+    session.state.price_index = 1;
+    session.state.ai_rng_state = 1;
+    session.state.prison_node = 3;
+    session.state.tool_route_node_count = 4;
+    for (int node = 1; node < 4; ++node) {
+        session.state.tool_route_x[node] = routes[node].x;
+        session.state.tool_route_y[node] = routes[node].y;
+    }
+    for (int player = 0; player < 2; ++player) {
+        session.state.players[player].play_state = 1;
+        session.state.players[player].character = player;
+        session.state.players[player].node = player + 1;
+        session.state.players[player].card_inventory[0] = player + 17;
+    }
+    GameCommand command = rich4_game_domain_command(GAME_COMMAND_USE_CARD,
+        GAME_COMMAND_SOURCE_HUMAN, 0, rich4_game_domain_ref(GAME_DOMAIN_CARD, 16),
+        rich4_game_domain_ref(GAME_DOMAIN_PLAYER, 1), 0);
+    rich4_sdl1_set_deterministic_ticks(1);
+    assert(game_begin_card_use(&session, assets, &settings, &command, 0, rich4_sdl1_ticks()));
+    for (int frame = 0; frame < 40 &&
+         session.presentation.card_use.phase != GAME_CARD_USE_NONE; ++frame) {
+        const GameCardUsePresentationState *use = &session.presentation.card_use;
+        if (use->phase == GAME_CARD_USE_REVENGE &&
+            use->defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_CARD) {
+            assert(build_game_session_render_view(assets, &settings, &session, &view));
+            assert(view.game.viewport.center_world_x == specials[2].x);
+            assert(view.game.viewport.center_world_y == specials[2].y);
+            saw_notice = 1;
+        }
+        const GameSpeechPresentationState *speech = &session.presentation.speech;
+        if (speech->active && speech->tick != last_speech) {
+            assert(speech_count < (int)(sizeof(expected) / sizeof(expected[0])));
+            assert(speech->player == expected[speech_count].player);
+            assert(speech->type == expected[speech_count].type);
+            assert(speech->current == expected[speech_count].line);
+            assert(build_game_session_render_view(assets, &settings, &session, &view));
+            assert(view.game.viewport.center_world_x == expected[speech_count].x);
+            assert(view.game.viewport.center_world_y == expected[speech_count].y);
+            if (speech_count == 5 || speech_count == 6)
+                assert(session.state.players[0].days_in_prison == 0);
+            last_speech = speech->tick;
+            ++speech_count;
+        }
+        rich4_sdl1_delay(1000);
+        update_game_session(&session, assets, &settings, NULL, NULL, rich4_sdl1_ticks(), 0);
+    }
+    assert(saw_notice && speech_count == (int)(sizeof(expected) / sizeof(expected[0])));
+    assert(session.presentation.card_use.phase == GAME_CARD_USE_NONE);
+    assert(!session.presentation.has_view_override);
+    assert(session.state.players[0].days_in_prison == 5);
+    assert(session.state.players[1].days_in_prison == 5);
+    assert(session.state.players[1].card_inventory[0] == 0);
+    rich4_sdl1_set_deterministic_ticks(0);
+    assets->map.maps[0] = saved_map;
 }
 
 static void stock_card_waits(GamePreviewAssets *assets, int card, int skip)
@@ -560,11 +763,13 @@ int main(void)
         assets.map.data_map_status_data[19] = NULL;
     }
     destruction_background(&assets);
+    auction_card_yields_pointer_to_auction(&assets);
     human_card_clicks(&assets);
     angel_building_choice_keeps_debit(&assets);
     rejected_use_restores_hand(&assets);
     human_card_key_release(&assets);
     ai_waits_before_applying(&assets);
+    human_frame_card_revenge(&assets);
     for (card = 23; card <= 24; card++)
         for (int skip = 0; skip < 2; skip++) stock_card_waits(&assets, card, skip);
     stock_notice_names(surface, reference, &assets, mkf);

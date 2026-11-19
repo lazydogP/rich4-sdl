@@ -52,7 +52,7 @@ static int save_game_state_matches_map(const GameState *state,
 }
 
 enum {
-    GAME_SAVE_FORMAT_VERSION = 12,
+    GAME_SAVE_FORMAT_VERSION = 13,
     GAME_SAVE_HEADER_SIZE = 20,
     GAME_SAVE_MAX_FILE_SIZE = 64 * 1024 * 1024
 };
@@ -525,6 +525,26 @@ static int save_snapshot_valid(const GameState *state,
         presentation->mode > RICH4_PRESENTATION_GOD ||
         !save_actors_valid(state, presentation->actors))
         return 0;
+    const ToolPanelState *tool = &presentation->tool_panel;
+    const GameToolPlacementAnimation *flight = &presentation->tool_placement_animation;
+    if ((tool->worker_prepaid || tool->vehicle_debit_pending) &&
+        (tool->player < 0 || tool->player >= state->player_count)) return 0;
+    if (tool->worker_prepaid &&
+        (tool->selected_tool != 8 || tool->phase != TOOL_PANEL_WORKER_CHOICE ||
+         tool->primary_target.kind != GAME_DOMAIN_FACILITY ||
+         tool->primary_target.id < 0 || tool->primary_target.id >= state->facility_count))
+        return 0;
+    if (tool->vehicle_debit_pending &&
+        (tool->phase != TOOL_PANEL_SPEECH ||
+         (tool->selected_tool != 4 && tool->selected_tool != 5 && tool->selected_tool != 11) ||
+         !state->players[tool->player].tool_inventory[tool->selected_tool])) return 0;
+    if (flight->debit_player_plus_one &&
+        (!flight->active || flight->debit_player_plus_one < 1 ||
+         flight->debit_player_plus_one > state->player_count || flight->tool < 1 || flight->tool > 3 ||
+         !state->players[flight->debit_player_plus_one - 1].tool_inventory[flight->tool]))
+        return 0;
+    if (flight->frame_count < 0 || flight->frame < -1 || flight->frame > flight->frame_count)
+        return 0;
     /* These original blocking modals do not admit a save operation. */
     if (presentation->card_use.phase != GAME_CARD_USE_NONE ||
         presentation->card_use.reserved_card_slot)
@@ -568,6 +588,8 @@ static int save_session_valid(const GameSession *session)
         !save_snapshot_valid(&session->state, &session->flow,
                              &session->presentation) ||
         session->time_machine_valid < 0 || session->time_machine_valid > 1)
+        return 0;
+    if (session->missile_scene_active < 0 || session->missile_scene_active > 1)
         return 0;
     for (map = 0; map < GAME_MAPS_PER_STAGE; map++)
         if (session->map_access_flags[map] > 1)
@@ -745,6 +767,7 @@ int rich4_game_save_read(const char *path, int slot,
     if (fclose(file) != 0) ok = 0;
     if (!ok || memcmp(bytes, magic, sizeof(magic)) != 0 ||
         (save_get_u32(bytes + 4) != GAME_SAVE_FORMAT_VERSION &&
+         save_get_u32(bytes + 4) != 12 &&
          save_get_u32(bytes + 4) != 11 &&
          save_get_u32(bytes + 4) != 10 &&
          save_get_u32(bytes + 4) != 9 &&

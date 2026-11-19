@@ -113,11 +113,10 @@ static int tool_area_contains(int x, int y, int center_x, int center_y,
     int full_destroy, int map_direction)
 {
     int dx, dy;
-    if (full_destroy)
-        return rich4_tool_in_square(x, y, center_x, center_y, 220);
+    int half = full_destroy ? 220 : 100;
     return rich4_map_project_offset(map_direction, center_x, center_y,
                x, y, &dx, &dy) &&
-        dx >= -100 && dx < 100 && dy >= -100 && dy < 100;
+        dx >= -half && dx < half && dy >= -half && dy < half;
 }
 
 static int tool_area_effect(GameState *next, int actor, GameDomainRef center,
@@ -332,7 +331,7 @@ int rich4_tool_transfer_effect(GameState *next, int actor,
         next->special_player_node[source.id] = destination.id;
     } else if (source.kind == GAME_DOMAIN_MAP_OBJECT) {
         next->tool_placed_objects[source.id].node = destination.id;
-    } else {
+    } else if (source.kind != GAME_DOMAIN_LOOSE_MAP_OBJECT) {
         return 0;
     }
     return rich4_game_event_emit_typed_domain(
@@ -419,29 +418,33 @@ static GameToolUseResult tool_apply_command(GameState *state,
     } else if (tool == 7) {
         player->remote_dice_value = command->value;
     } else if (tool == 8) {
+        static const int facility_limit[5] = {1, 5, 5, 1, 5};
         int id = command->target.id;
-        int level;
-        if (command->target.kind == GAME_DOMAIN_LAND) {
-            next.land_level[id]++;
-            level = next.land_level[id];
-        } else {
-            if (next.facility_level[id] == 0)
-                next.facility_type[id] = command->value;
-            next.facility_level[id]++;
+        int level, limit;
+        int facility = command->target.kind == GAME_DOMAIN_FACILITY;
+        if (facility) {
             level = next.facility_level[id];
+            if (level == 0) next.facility_type[id] = command->value;
+            limit = facility_limit[next.facility_type[id]];
+        } else {
+            level = next.land_level[id];
+            limit = next.land_type[id] == 0 ? 5 : next.land_type[id] == 1 ? 1 : 0;
         }
-        if (!rich4_game_event_emit_typed_domain(
+        int changed = level < limit;
+        if (changed) {
+            ++level;
+            if (facility) next.facility_level[id] = level;
+            else next.land_level[id] = level;
+        }
+        if ((changed && !rich4_game_event_emit_typed_domain(
                 &staged, rich4_game_event_property_level_changed_from_fields,
-                command->player,
-                command->target, command->subject, level,
-                command->target.kind == GAME_DOMAIN_FACILITY
-                    ? next.facility_type[id] : 0,
-                level == 5 ? 1u : 0u) ||
+                command->player, command->target, command->subject,
+                level, facility ? next.facility_type[id] : 0, level == 5 ? 1u : 0u)) ||
             !rich4_game_event_emit_typed_domain(
                 &staged, rich4_game_event_tool_presentation_requested_from_fields,
                 command->player, command->subject, command->target,
-                553, 91, 0) ||
-            (level == 5 && !rich4_game_event_emit_typed_domain(
+                553, 91, changed ? 0 : GAME_TOOL_WORKER_UNCHANGED) ||
+            (changed && level == 5 && !rich4_game_event_emit_typed_domain(
                 &staged, rich4_game_event_tool_presentation_requested_from_fields,
                 command->player, command->subject, command->target,
                 523, 90, 1)))
@@ -471,9 +474,9 @@ static GameToolUseResult tool_apply_command(GameState *state,
             return GAME_TOOL_USE_INVALID;
     if (player->tool_inventory[tool] == 0) return GAME_TOOL_USE_INVALID;
     player->tool_inventory[tool]--;
-    /* sub_445AA2 replenishes the public shop pool only for original IDs
-     * 1..8; IDs 9..13 remain scarce. */
-    if (tool < 8 && next.tool_amount[tool] < 255)
+    /* Placed objects and equipped vehicles leave inventory directly.
+     * Only these handlers call 0x445AA2 on use. */
+    if ((tool == 0 || tool == 6 || tool == 7) && next.tool_amount[tool] < 255)
         next.tool_amount[tool]++;
     if (!rich4_game_event_emit_typed_domain(
             &staged, rich4_game_event_inventory_changed_from_fields,
@@ -590,8 +593,28 @@ int rich4_tool_emit_hospital_events(GameEventQueue *events, int player, int days
                days, 2, 0);
 }
 
+int rich4_tool_tick_engineering(GamePlayerState *player)
+{
+    int saved, vehicle;
+    if (!player || (player->traffic_method & 3) != 3 || player->traffic_method <= 3)
+        return 0;
+    player->traffic_method -= 4;
+    if (player->traffic_method != 3) return 0;
+    saved = player->engineering_saved_traffic_method;
+    vehicle = saved & 3;
+    if ((vehicle == 1 || vehicle == 2) && player->tool_inventory[3 + vehicle]) {
+        player->traffic_method = saved;
+        player->ndices = player->engineering_saved_ndices;
+        if (saved == 1 || saved == 2) player->tool_inventory[3 + vehicle]--;
+    } else {
+        player->traffic_method = 0;
+        player->ndices = 1;
+    }
+    return 1;
+}
+
 static GameToolTriggerResult tool_advance_step(GameState *state, int player,
-                                               int node, int settlement,
+                                               int node,
                                                GameEventQueue *events,
                                                int defer_hospital)
 {
@@ -605,32 +628,6 @@ static GameToolTriggerResult tool_advance_step(GameState *state, int player,
     next = *state;
     rich4_game_event_queue_reset(&staged);
     actor = &next.players[player];
-
-    if (settlement && actor->traffic_method > 3 &&
-        (actor->traffic_method & 3) == 3) {
-        actor->traffic_method -= 4;
-        if (actor->traffic_method == 3) {
-            int restored = actor->engineering_saved_traffic_method;
-            int restored_dice = actor->engineering_saved_ndices;
-            if (restored == 1 && actor->tool_inventory[4] > 0)
-                actor->tool_inventory[4]--;
-            if (restored == 2 && actor->tool_inventory[5] > 0)
-                actor->tool_inventory[5]--;
-            actor->traffic_method = restored;
-            actor->ndices = restored_dice;
-            if (!rich4_game_event_emit_typed_domain(
-                    &staged, rich4_game_event_traffic_changed_from_fields, player,
-                    rich4_game_domain_ref(GAME_DOMAIN_PLAYER, player),
-                    rich4_game_domain_ref(GAME_DOMAIN_TOOL, 11), restored,
-                    0x1f, 0) ||
-                !rich4_game_event_emit_typed_domain(
-                    &staged, rich4_game_event_inventory_changed_from_fields, player,
-                    rich4_game_domain_ref(GAME_DOMAIN_TOOL, 11),
-                    rich4_game_domain_ref(GAME_DOMAIN_PLAYER, player), 0,
-                    rich4_tool_inventory_count(&next, player), 0))
-                return GAME_TOOL_TRIGGER_INVALID;
-        }
-    }
 
     slot = actor->attached_timed_bomb_slot;
     if (slot >= 0 && slot < GAME_TOOL_PLACED_OBJECT_COUNT &&
@@ -706,13 +703,13 @@ GameToolTriggerResult rich4_tool_trigger_at_node_deferred_hospital(
 }
 
 GameToolTriggerResult rich4_tool_advance_step(GameState *state, int player,
-    int node, int settlement, GameEventQueue *events)
+    int node, GameEventQueue *events)
 {
-    return tool_advance_step(state, player, node, settlement, events, 0);
+    return tool_advance_step(state, player, node, events, 0);
 }
 
 GameToolTriggerResult rich4_tool_advance_step_deferred_hospital(
-    GameState *state, int player, int node, int settlement, GameEventQueue *events)
+    GameState *state, int player, int node, GameEventQueue *events)
 {
-    return tool_advance_step(state, player, node, settlement, events, 1);
+    return tool_advance_step(state, player, node, events, 1);
 }

@@ -14,6 +14,7 @@ typedef struct Rich4ToolAnimationCompletion {
 
 /* App owns the animation queue and deferred speech; platform supplies only
  * frame counts/delays, target coordinates, and consumes the emitted audio events. */
+void rich4_tool_animation_finish_missile_scene(GameSession *session);
 int rich4_tool_animation_enqueue(
     GameSession *session, const GameEvent *event, int frame_count, int frame_delay_ms,
     int world_x, int world_y, int has_world_position, uint32_t now);

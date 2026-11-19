@@ -338,6 +338,17 @@ Rich4PresentationMode rich4_presentation_mode_resolve(
     return RICH4_PRESENTATION_NONE;
 }
 
+int rich4_presentation_dice_status_visible(const GamePresentationState *presentation)
+{
+    /* 0x417D70 hides the action panel for the entire card/tool handler. */
+    return presentation != NULL && presentation->dice.status_visible &&
+        presentation->card_panel.phase == CARD_PANEL_CLOSED &&
+        presentation->card_use.phase == GAME_CARD_USE_NONE &&
+        presentation->tool_panel.phase == TOOL_PANEL_CLOSED &&
+        !presentation->tool_panel.dice_status_hidden &&
+        presentation->ai_tool.phase == GAME_AI_TOOL_NONE;
+}
+
 Rich4PresentationActivity rich4_presentation_activity_from_state(
     const GamePresentationState *presentation, const GameState *state)
 {

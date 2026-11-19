@@ -84,6 +84,8 @@ typedef struct GameToolSnapshot {
 
 extern const GameToolInfo rich4_tool_catalog[GAME_TOOL_COUNT];
 
+enum { GAME_TOOL_WORKER_UNCHANGED = 2 };
+
 const GameToolInfo *rich4_tool_info(int tool);
 int rich4_tool_inventory_count(const GameState *state, int player);
 int rich4_tool_set_route_targets(GameState *state, int route_node_count,
@@ -104,14 +106,17 @@ GameToolUseResult rich4_tool_apply_command_deferred_confinement(GameState *state
 GameToolTriggerResult rich4_tool_trigger_at_node(GameState *state, int player,
                                                   int node, int stopped,
                                                   GameEventQueue *events);
+int rich4_tool_target_xy(const GameState *state, GameDomainRef ref,
+                         int *out_x, int *out_y);
+int rich4_tool_tick_engineering(GamePlayerState *player);
 GameToolTriggerResult rich4_tool_advance_step(GameState *state, int player,
-                                               int node, int settlement,
+                                               int node,
                                                GameEventQueue *events);
 /* SDL's blocking explosion continuation enters hospital after its reactions. */
 GameToolTriggerResult rich4_tool_trigger_at_node_deferred_hospital(
     GameState *state, int player, int node, int stopped, GameEventQueue *events);
 GameToolTriggerResult rich4_tool_advance_step_deferred_hospital(
-    GameState *state, int player, int node, int settlement, GameEventQueue *events);
+    GameState *state, int player, int node, GameEventQueue *events);
 GameToolTriggerResult rich4_tool_robot_advance(GameState *state,
                                                 GameEventQueue *events);
 int rich4_tool_snapshot_export(const GameState *state, GameToolSnapshot *out);

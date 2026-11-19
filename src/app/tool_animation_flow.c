@@ -6,6 +6,7 @@
 #include "core/game_event_payload.h"
 #include "core/rng.h"
 #include "core/confinement.h"
+#include "core/tool.h"
 #include "core/insurance.h"
 #include "data/character_speech.h"
 #include "data/confinement_presentation.h"
@@ -23,6 +24,15 @@ static struct ToolAnimationRequest *rich4_tool_animation_last(
             session->presentation.tool_animation_count - 1) %
         GAME_EVENT_QUEUE_CAPACITY;
     return &session->presentation.tool_animation[slot];
+}
+
+void rich4_tool_animation_finish_missile_scene(GameSession *session)
+{
+    if (session && session->missile_scene_active && !session->presentation.tool_animation_count &&
+        !session->presentation.speech.active && !session->presentation.insurance.count) {
+        session->presentation.has_view_override = 0;
+        session->missile_scene_active = 0;
+    }
 }
 
 static int is_disappearance_resource(int resource)
@@ -53,6 +63,11 @@ int rich4_tool_animation_enqueue(
     request->resource = rich4_game_event_tool_resource(event);
     request->effect = rich4_game_event_tool_effect(event);
     request->target = rich4_game_event_tool_target(event);
+    /* A capped property still gets the entire worker FLC. Its background
+     * needs no level rollback during the first 43 frames. */
+    if (request->resource == 553 && (rich4_game_event_tool_presentation_requested_fields(event).flags &
+                                    GAME_TOOL_WORKER_UNCHANGED))
+        request->target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
     request->world_x = world_x;
     request->world_y = world_y;
     request->has_world_position = has_world_position;
@@ -565,6 +580,7 @@ int rich4_tool_animation_update(
         (session->presentation.tool_animation_head + 1) %
         GAME_EVENT_QUEUE_CAPACITY;
     session->presentation.tool_animation_count--;
+    if (!completion || !completion->events.count) rich4_tool_animation_finish_missile_scene(session);
     if (session->presentation.tool_animation_count == 0 &&
         !session->presentation.speech.active)
         resume_company_amount(session, now);

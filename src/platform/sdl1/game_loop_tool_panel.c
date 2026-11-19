@@ -10,6 +10,8 @@
 #include "platform/sdl1/app_asset_types.h"
 #include "core/game_command.h"
 #include "core/game_constants.h"
+#include "core/card.h"
+#include "platform/sdl1/render/game_map_objects.h"
 #include "platform/sdl1/game_flow_api.h"
 #include "platform/sdl1/game_loop_audio_events.h"
 #include "platform/sdl1/game_loop_panels.h"
@@ -50,26 +52,30 @@ static int game_tool_panel_submit(
 static GameDomainRef game_tool_panel_target_at(
     const GamePreviewAssets *assets, const NewGameSettings *settings,
     const GameSession *session, const ToolPanelState *panel,
-    Rich4ToolPanelTargetSpec spec, int x, int y)
+    int x, int y)
 {
-    GameDomainRef target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-    int node;
-    if (spec.mode == RICH4_TOOL_PANEL_TARGET_PROPERTY) {
-        target = game_tool_panel_property_target(
-            assets, settings, session, x, y);
-        if (panel != NULL && panel->phase == TOOL_PANEL_TRANSFER_DESTINATION &&
-            target.kind != panel->primary_target.kind)
-            target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-    } else if (spec.mode == RICH4_TOOL_PANEL_TARGET_ANY) {
-        target = game_tool_panel_any_target(
-            assets, settings, session, x, y);
-    } else if (spec.mode == RICH4_TOOL_PANEL_TARGET_ROUTE) {
-        node = game_tool_panel_route_target(
-            assets, settings, session, x, y, spec.require_placeable);
-        if (node >= 0)
-            target = rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, node);
-    }
-    return target;
+    GameDomainRef none = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    GameSceneView view;
+    uint32_t mask = rich4_tool_panel_map_mask(panel);
+    uint32_t kinds = (mask & 0x40) ? 0x37 : mask;
+    int raw, slot;
+    if (!mask || !build_game_session_render_view(assets, settings, session, &view))
+        return none;
+    raw = game_map_object_at(assets, settings, &view.game, view.dynamic_objects,
+                             x, y, NULL);
+    if (raw > 0 && raw < 2000 && (kinds & 1))
+        return rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, raw);
+    GameDomainRef hit = rich4_card_map_hit(&session->state, panel->player, kinds,
+                                           panel->primary_target, raw);
+    if (hit.kind != GAME_DOMAIN_NONE || !(raw & 0x8000) || !(kinds & 0x20))
+        return hit;
+    slot = ((raw >> 8) & 0x3f) - 1;
+    if (slot < 0 || slot >= GAME_MAP_DYNAMIC_OBJECT_COUNT) return none;
+    if (slot >= 16)
+        return rich4_game_domain_ref(GAME_DOMAIN_MAP_OBJECT, slot - 16);
+    if (mask & 0x40)
+        return rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, view.dynamic_objects[slot].node);
+    return rich4_game_domain_ref(GAME_DOMAIN_LOOSE_MAP_OBJECT, slot);
 }
 
 void game_tool_panel_finish_speech(
@@ -167,50 +173,17 @@ size_t game_tool_panel_cursor_chunk_index(
         (panel->phase != TOOL_PANEL_MAP_TARGET &&
          panel->phase != TOOL_PANEL_TRANSFER_DESTINATION))
         return default_chunk;
-    if (panel->edge_scroll.direction >= 1 &&
+    uint32_t mask = rich4_tool_panel_map_mask(panel);
+    if ((mask & 0x80) && panel->edge_scroll.direction >= 1 &&
         panel->edge_scroll.direction <= 4)
         return edge_cursor[panel->edge_scroll.direction];
+    target = game_tool_panel_target_at(assets, settings, session, panel, cursor_x, cursor_y);
+    if (target.kind == GAME_DOMAIN_NONE) return 5;
     if (panel->phase == TOOL_PANEL_TRANSFER_DESTINATION) {
-        if (panel->primary_target.kind == GAME_DOMAIN_LAND ||
-            panel->primary_target.kind == GAME_DOMAIN_FACILITY) {
-            target = game_tool_panel_property_target(
-                assets, settings, session, cursor_x, cursor_y);
-            if (target.kind != panel->primary_target.kind)
-                target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-        } else {
-            int node = game_tool_panel_route_target(
-                assets, settings, session, cursor_x, cursor_y, 0);
-            if (node >= 0)
-                target = rich4_game_domain_ref(
-                    GAME_DOMAIN_ROUTE_NODE, node);
-        }
-        return rich4_tool_panel_transfer_destination_valid(
-            session, panel, target) ? 41 : 5;
-    }
-    if (panel->selected_tool >= 1 && panel->selected_tool <= 3) {
-        int node = game_tool_panel_route_target(
-            assets, settings, session, cursor_x, cursor_y, 1);
-        /* 0x445E4D takes BYTE2 of the selector mask as the valid-target
-         * cursor.  Roadblock/mine/timed-bomb pass 0/1/2 respectively;
-         * invalid targets use cursor 5. */
-        return node >= 0 && rich4_tool_panel_target_valid(
-            session, panel,
-            rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, node), 0)
-            ? (size_t)(panel->selected_tool - 1) : 5;
-    }
-    target = panel->selected_tool == 8
-        ? game_tool_panel_property_target(
-              assets, settings, session, cursor_x, cursor_y)
-        : game_tool_panel_any_target(
-              assets, settings, session, cursor_x, cursor_y);
-    if (panel->selected_tool == 10)
-        return target.kind == GAME_DOMAIN_LAND ||
-               target.kind == GAME_DOMAIN_FACILITY ||
-               target.kind == GAME_DOMAIN_PLAYER ||
-               target.kind == GAME_DOMAIN_SPECIAL_PLAYER ||
-               target.kind == GAME_DOMAIN_MAP_OBJECT ? 41 : 5;
-    return rich4_tool_panel_target_valid(session, panel, target, 0)
-        ? 41 : 5;
+        if (!rich4_tool_panel_transfer_destination_valid(session, panel, target)) return 5;
+    } else if (panel->selected_tool != 10 &&
+               !rich4_tool_panel_target_valid(session, panel, target, 0)) return 5;
+    return (mask >> 16) & 0xff;
 }
 
 int game_tool_panel_press_inventory(GameSession *session,
@@ -277,7 +250,7 @@ void game_tool_panel_confirm(
     } else {
         if (spec.mode == RICH4_TOOL_PANEL_TARGET_NONE) return;
         target = game_tool_panel_target_at(
-            assets, settings, session, panel, spec, x, y);
+            assets, settings, session, panel, x, y);
     }
     audio_events = rich4_app_session_audio_borrow(session);
     confirmed = rich4_tool_panel_confirm_target(

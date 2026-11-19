@@ -19,6 +19,7 @@ enum { GAME_SPEECH_KEEP_VIEW = 0x8000 };
 /* 0x41D476 compares world coordinates with the current actor, including
  * special actors, before setting or clearing the observation marker. */
 void game_focus_view_at(GameSession *session, int world_x, int world_y);
+void game_focus_view_on_player(GameSession *session, int player);
 
 int game_start_speech_entry_with_status(
     GameSession *session, int player,

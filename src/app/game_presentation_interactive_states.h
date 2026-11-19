@@ -274,6 +274,9 @@ typedef struct ToolPlacementAnimation {
     int active;
     int slot;
     int tool;
+    int debit_player_plus_one;
+    int frame; /* one-based flight frame, -1 during the final hold */
+    int frame_count;
     int from_x;
     int from_y;
     int to_x;

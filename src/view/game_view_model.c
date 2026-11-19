@@ -553,8 +553,13 @@ int rich4_game_view_model_build(const GameState *state,
         model.dice.animation_frame = input->dice_anim_frame;
         model.dice.result_visible = input->dice_result_visible != 0;
         model.dice.visual_direction = model.actors[current].visual_direction;
+        /* A remote roll requested under a stop keeps the restored panel
+         * while the original EA2 remains idle (0x40DD6F / 0x40DEFE). */
+        int stopped_remote_roll = (player->days_stopping & 0xff) &&
+            player->remote_dice_value != 0;
         model.dice.status_visible = input->dice_status_visible &&
-            !input->turn_flow_active && input->landing_pending_player == 0 &&
+            (!input->turn_flow_active || stopped_remote_roll) &&
+            input->landing_pending_player == 0 &&
             !input->actors[current].first_turn_landing_pending &&
             (input->actors[current].dirty_flags & GAME_PLAYER_DIRTY_TURN) == 0;
         model.dice.status_x = input->dice_status_x;

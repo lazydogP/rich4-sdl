@@ -249,6 +249,7 @@ static int game_session_apply_command_internal(
             }
         }
     }
+    rich4_tool_animation_finish_missile_scene(session);
     sync_card_animation(session, assets, command, accepted, now);
     return accepted;
 }

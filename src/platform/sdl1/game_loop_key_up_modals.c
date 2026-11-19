@@ -4,6 +4,7 @@
 #include <SDL/SDL.h>
 
 #include "platform/sdl1/game_loop_key_up_modals.h"
+#include "app/auction_flow.h"
 #include "app/intro_flow.h"
 #include "app/special_presentation_flow.h"
 #include "app/special_place_notice_flow.h"
@@ -29,6 +30,8 @@ static void god_release_input(GameSession *session)
 
 void game_handle_key_up_modals(GameKeyUpModalsContext *context)
 {
+    if (context->app_state == RICH4_SCENE_GAME &&
+        rich4_auction_flow_release_wait(context->session)) return;
     if (context->app_state == RICH4_SCENE_GAME &&
         rich4_card_use_skip_notice(context->session, rich4_sdl1_ticks())) return;
     if (context->app_state == RICH4_SCENE_GAME &&
@@ -73,6 +76,8 @@ void game_handle_mouse_button_up_modals(
     if (session == NULL ||
         (button != SDL_BUTTON_LEFT && button != SDL_BUTTON_RIGHT))
         return;
+    if (app_state == RICH4_SCENE_GAME &&
+        rich4_auction_flow_release_wait(session)) return;
     if (app_state == RICH4_SCENE_GAME &&
         rich4_card_use_skip_notice(session, rich4_sdl1_ticks())) return;
     if (app_state == RICH4_SCENE_GAME &&

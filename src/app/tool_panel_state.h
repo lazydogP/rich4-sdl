@@ -29,6 +29,8 @@ typedef struct ToolPanelState {
     ToolPanelPhase phase_after_speech;
     GameDomainRef primary_target;
     Rich4MapEdgeScrollState edge_scroll;
+    int worker_prepaid;
+    int vehicle_debit_pending;
     int dice_status_hidden;
     int dice_status_was_visible;
 } ToolPanelState;

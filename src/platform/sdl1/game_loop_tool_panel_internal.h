@@ -9,16 +9,6 @@
 #include "core/game_domain.h"
 #include "platform/sdl1/app_asset_types.h"
 
-int game_tool_panel_route_target(const GamePreviewAssets *assets,
-                                 const NewGameSettings *settings,
-                                 const GameSession *session, int x, int y,
-                                 int require_placeable);
-GameDomainRef game_tool_panel_property_target(
-    const GamePreviewAssets *assets, const NewGameSettings *settings,
-    const GameSession *session, int x, int y);
-GameDomainRef game_tool_panel_any_target(
-    const GamePreviewAssets *assets, const NewGameSettings *settings,
-    const GameSession *session, int x, int y);
 int draw_remote_dice_chunk(SDL_Surface *screen,
                            const GamePreviewAssets *assets,
                            size_t chunk_index, int x, int y);

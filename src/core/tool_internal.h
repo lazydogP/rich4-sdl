@@ -7,8 +7,6 @@ void rich4_tool_release_area_object(GameState *state, int slot);
 int rich4_tool_robot_choose_next(GameState *state, int node, int previous);
 int rich4_tool_active_player(const GameState *state, int player);
 int rich4_tool_valid_node(const GameState *state, int node);
-int rich4_tool_target_xy(const GameState *state, GameDomainRef ref,
-                         int *out_x, int *out_y);
 int rich4_tool_in_square(int x, int y, int center_x, int center_y, int half);
 int rich4_tool_object_on_node(const GameState *state, int node);
 int rich4_tool_route_node_occupied(const GameState *state, int node);

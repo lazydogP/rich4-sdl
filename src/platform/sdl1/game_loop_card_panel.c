@@ -145,9 +145,8 @@ size_t game_card_panel_cursor_chunk_index(
         panel == NULL) return default_chunk;
     if (panel->phase == CARD_PANEL_STOCK_TARGET) return 12;
     if (panel->phase != CARD_PANEL_MAP_TARGET) return default_chunk;
-    if (panel->edge_scroll.direction >= 1 &&
-        panel->edge_scroll.direction <= 4)
-        return edge_cursor[panel->edge_scroll.direction];
+    int direction = rich4_card_panel_edge_scroll_direction(session, panel);
+    if (direction) return edge_cursor[direction];
     source = rich4_card_panel_current_property_ref(session);
     mask = rich4_card_map_mask(panel->selected_card, source.kind);
     target = card_panel_map_target(assets, settings, session, panel->player,
@@ -218,7 +217,7 @@ static void card_panel_confirm(
         panel->phase == CARD_PANEL_DEMOLISH_ANIMATION)
         return;
     if (panel->phase == CARD_PANEL_MAP_TARGET) {
-        if (panel->edge_scroll.direction) return;
+        if (rich4_card_panel_edge_scroll_direction(session, panel)) return;
         GameDomainRef source = rich4_card_panel_current_property_ref(session);
         target = card_panel_map_target(assets, settings, session, panel->player,
             rich4_card_map_mask(panel->selected_card, source.kind), source, x, y);
@@ -251,10 +250,11 @@ void game_card_panel_confirm(GameSession *session, const GamePreviewAssets *asse
     card_panel_confirm(session, assets, settings, panel, x, y, now, audio, 0);
 }
 
-void game_card_panel_cancel_input(CardPanelState *panel, Rich4Audio *audio)
+void game_card_panel_cancel_input(
+    const GameSession *session, CardPanelState *panel, Rich4Audio *audio)
 {
     CardPanelPhase phase = panel->phase;
-    if (phase == CARD_PANEL_MAP_TARGET && panel->edge_scroll.direction) return;
+    if (rich4_card_panel_edge_scroll_direction(session, panel)) return;
     if (!rich4_card_panel_cancel(panel) || phase == CARD_PANEL_INVENTORY) return;
     if (phase == CARD_PANEL_MAP_TARGET || phase == CARD_PANEL_FACILITY_CHOICE || phase == CARD_PANEL_STOCK_TARGET)
         rich4_audio_play_cancel(audio);
@@ -275,7 +275,7 @@ int game_card_panel_button(GameSession *session, const GamePreviewAssets *assets
     }
     Uint32 now = rich4_sdl1_ticks();
     if (rich4_card_use_skip_notice(session, now)) return 1;
-    if (button == SDL_BUTTON_RIGHT) game_card_panel_cancel_input(panel, audio);
+    if (button == SDL_BUTTON_RIGHT) game_card_panel_cancel_input(session, panel, audio);
     else card_panel_confirm(session, assets, settings, panel, cursor->x, cursor->y, now, audio, 1);
     return 1;
 }

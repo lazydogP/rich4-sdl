@@ -108,8 +108,6 @@ int rich4_tool_followup_update_placement(
     GameToolPlacementAnimation *animation;
     GameMapDynamicObjectState *object;
     int dynamic_slot;
-    int steps;
-    uint32_t flight_until;
     if (session == NULL || !session->presentation.tool_placement_animation.active)
         return 0;
     animation = &session->presentation.tool_placement_animation;
@@ -119,7 +117,7 @@ int rich4_tool_followup_update_placement(
         return 0;
     }
     object = &session->presentation.dynamic_objects[dynamic_slot];
-    if (animation->until == 0) {
+    if (animation->frame_count == 0) {
         int from_screen_x;
         int from_screen_y;
         int to_screen_x;
@@ -137,40 +135,54 @@ int rich4_tool_followup_update_placement(
         dx = to_screen_x - from_screen_x;
         dy = to_screen_y - from_screen_y;
         distance = rich4_int_sqrt_floor((long)dx * dx + (long)dy * dy);
-        /* 0x40E740..0x40E754: round(distance * 0.125 + 1). */
-        steps = distance > 0 ? (distance + 4) / 8 + 1 : 0;
-        flight_until = animation->started + (uint32_t)(steps * 24);
-        /* a6=100 is a post-flight hold and is skipped when both projected
-         * endpoints are identical. */
-        animation->until = flight_until + (steps > 0 ? 100u : 0u);
+        /* 0x40E740..0x40E754: truncate(distance * 0.125 + 1). */
+        animation->frame_count = distance > 0 ? distance / 8 + 1 : 0;
+        if (animation->frame_count && animation->until) {
+            /* Resume a format 4..12 flight on its serialized timeline. */
+            uint32_t flight_end = animation->until - 100u;
+            if ((int32_t)(now - flight_end) >= 0) animation->frame = -1;
+            else {
+                animation->frame = 1 + (int)((now - animation->started) / 24u);
+                if (animation->frame > animation->frame_count)
+                    animation->frame = animation->frame_count;
+                animation->started = now;
+            }
+        } else if (animation->frame_count) {
+            animation->frame = 1;
+            animation->started = now;
+            animation->until = now + 24u * animation->frame_count + 100u;
+        }
     }
-    flight_until = animation->until > animation->started
-        ? animation->until - 100u : animation->started;
-    steps = (int)((flight_until - animation->started) / 24u);
-    if ((int32_t)(now - flight_until) < 0) {
-        uint32_t elapsed = now - animation->started;
-        int step = (int)(elapsed / 24) + 1;
-        if (step > steps) step = steps;
-        object->flight_active = 1;
-        object->world_x = (float)(animation->from_x +
-            (animation->to_x - animation->from_x) * step /
-                steps);
-        object->world_y = (float)(animation->from_y +
-            (animation->to_y - animation->from_y) * step /
-                steps);
-        return 1;
+    if (animation->frame > 0) {
+        if (now - animation->started >= 24u) {
+            animation->started = now;
+            if (animation->frame == animation->frame_count) {
+                animation->frame = -1;
+                animation->until = now + 100u;
+            } else {
+                animation->frame++;
+                animation->until = now + 24u * (animation->frame_count - animation->frame + 1) + 100u;
+            }
+        }
+        if (animation->frame > 0) {
+            float t = (float)animation->frame / animation->frame_count;
+            object->world_x = animation->from_x + (animation->to_x - animation->from_x) * t;
+            object->world_y = animation->from_y + (animation->to_y - animation->from_y) * t;
+            return 1;
+        }
     }
     object->world_x = (float)animation->to_x;
     object->world_y = (float)animation->to_y;
-    if ((int32_t)(now - animation->until) < 0) {
-        object->flight_active = 1;
-        return 1;
-    }
+    if (animation->frame == -1 && (int32_t)(now - animation->until) < 0) return 1;
     object->flight_active = 0;
     if (audio_events != NULL)
         rich4_audio_event_emit(
             audio_events, RICH4_AUDIO_EVENT_TOOL_PLACEMENT, 1,
             animation->tool);
+    if (animation->debit_player_plus_one > 0 &&
+        animation->debit_player_plus_one <= session->state.player_count)
+        session->state.players[animation->debit_player_plus_one - 1]
+            .tool_inventory[animation->tool]--;
     memset(animation, 0, sizeof(*animation));
     return 0;
 }

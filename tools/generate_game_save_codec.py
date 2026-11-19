@@ -30,6 +30,15 @@ typedef unsigned long long uintptr_t;
 STUB_STDDEF = "typedef unsigned long long size_t;\n"
 ARRAY_CONSTANTS = {}
 
+# Format 13 appends these live and rewind continuations after the format 12
+# payload. Preserve their disk order independently of the in-memory structs.
+TOOL_CONTINUATIONS = {
+    "GameDicePresentationState": ("dice", ("remote_snapshot_ready",)),
+    "ToolPanelState": ("tool_panel", ("worker_prepaid", "vehicle_debit_pending")),
+    "GameToolPlacementAnimation": ("tool_placement_animation",
+        ("debit_player_plus_one", "frame", "frame_count")),
+}
+
 
 def type_node(node):
     while isinstance(node, (c_ast.TypeDecl, c_ast.ArrayDecl)):
@@ -175,6 +184,10 @@ class CodecGenerator:
             fields = [max(fields, key=lambda field: self._weight(field.type))]
         body = []
         for field in fields:
+            if alias in TOOL_CONTINUATIONS and field.name in TOOL_CONTINUATIONS[alias][1]:
+                continue
+            if alias == "GameSession" and field.name in ("missile_scene", "missile_scene_active"):
+                continue
             if alias == "GamePropertyPresentationState" and field.name.startswith("insurance_"):
                 # save_session_valid rejects the blocking premium continuation.
                 continue
@@ -262,6 +275,23 @@ class CodecGenerator:
                 emitted = ["if (codec->version >= 10) {"] + [
                     "    " + line for line in emitted] + ["}"]
             body.extend(emitted)
+        if alias == "GameSession":
+            _, scene_type = self._resolve_alias(self.typedefs["GameMissileScene"])
+            self._add_compound(scene_type, "GameMissileScene")
+            body.extend([
+                "if (codec->version >= 13) {",
+                "    GamePresentationState *views[] = {&value->presentation, &value->time_machine_presentation};",
+                "    for (size_t i = 0; i < 2; ++i) {",
+            ])
+            for member, names in TOOL_CONTINUATIONS.values():
+                for field_name in names:
+                    body.append(f"        codec_scalar(codec, &views[i]->{member}.{field_name}, SAVE_CODEC_I32);")
+            body.extend([
+                "    }",
+                "    codec_scalar(codec, &value->missile_scene_active, SAVE_CODEC_I32);",
+                "    if (value->missile_scene_active) codec_GameMissileScene(codec, &value->missile_scene);",
+                "}",
+            ])
         self.functions[name] = (
             f"static void {name}(SaveCodec *codec, {ctype} *value)\n{{\n"
             + self._indent(body)

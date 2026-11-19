@@ -113,7 +113,8 @@ void game_card_panel_confirm(
     const NewGameSettings *settings, CardPanelState *panel,
     int x, int y, Uint32 now, Rich4Audio *audio);
 
-void game_card_panel_cancel_input(CardPanelState *panel, Rich4Audio *audio);
+void game_card_panel_cancel_input(
+    const GameSession *session, CardPanelState *panel, Rich4Audio *audio);
 int game_card_panel_button(GameSession *session, const GamePreviewAssets *assets,
     const NewGameSettings *settings, VirtualCursor *cursor, int button, int release, Rich4Audio *audio);
 
@@ -160,19 +161,6 @@ size_t game_tool_panel_cursor_chunk_index(
     const GamePreviewAssets *assets, const NewGameSettings *settings,
     const GameSession *session, const ToolPanelState *panel,
     int cursor_x, int cursor_y, size_t default_chunk);
-
-int game_tool_panel_route_target(const GamePreviewAssets *assets,
-                                 const NewGameSettings *settings,
-                                 const GameSession *session,
-                                 int x, int y, int require_placeable);
-
-GameDomainRef game_tool_panel_property_target(
-    const GamePreviewAssets *assets, const NewGameSettings *settings,
-    const GameSession *session, int x, int y);
-
-GameDomainRef game_tool_panel_any_target(
-    const GamePreviewAssets *assets, const NewGameSettings *settings,
-    const GameSession *session, int x, int y);
 
 int game_tool_panel_press_inventory(GameSession *session,
                                     ToolPanelState *panel,

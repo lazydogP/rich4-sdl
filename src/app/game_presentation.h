@@ -156,6 +156,7 @@ typedef struct GameDicePresentationState {
     uint32_t result_tick;
     int sound_pending;
     int cache_reset_pending;
+    int remote_snapshot_ready;
 } GameDicePresentationState;
 
 typedef struct GameSpeechPresentationState {
@@ -656,6 +657,7 @@ Rich4PresentationMode rich4_presentation_mode_resolve(
     const Rich4PresentationActivity *activity);
 Rich4PresentationActivity rich4_presentation_activity_from_state(
     const GamePresentationState *presentation, const GameState *state);
+int rich4_presentation_dice_status_visible(const GamePresentationState *presentation);
 int rich4_presentation_insurance_notice_visible(
     const GamePresentationState *presentation);
 Rich4PresentationUpdateStep rich4_presentation_update_step(

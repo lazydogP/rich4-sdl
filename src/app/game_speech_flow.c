@@ -59,6 +59,16 @@ void game_focus_view_at(GameSession *session, int world_x, int world_y)
     }
 }
 
+void game_focus_view_on_player(GameSession *session, int player)
+{
+    int x, y;
+    if (session == NULL || player < 0 || player >= session->state.player_count)
+        return;
+    speech_player_position(session, player, &session->state.players[player],
+                           &x, &y);
+    game_focus_view_at(session, x, y);
+}
+
 int game_start_speech_entry_with_status(
     GameSession *session, int player,
     const Rich4CharacterSpeech *speech, int speech_type, int after_phase,

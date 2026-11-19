@@ -64,7 +64,10 @@ int rich4_app_input_ui_active(
     if (app_state == RICH4_SCENE_GAME && session != NULL &&
         (session->presentation.engineering_attack.active ||
          session->presentation.engineering_attack.pending_return)) return 0;
+    /* 0x44334F enters 0x43BDE5 synchronously: the auction window owns the
+     * pointer while the outer card handler is suspended. */
     if (app_state == RICH4_SCENE_GAME && session != NULL &&
+        !session->presentation.auction.active &&
         (session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
          session->presentation.card_use.phase != GAME_CARD_USE_NONE)) return 0;
     /* 0x418C55 enables the pointer only for 0x40C912's human-input result;

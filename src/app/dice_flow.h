@@ -19,6 +19,7 @@ int rich4_dice_update(GameSession *session, const MapData *map,
 void rich4_dice_show_action_panel(GameSession *session, uint32_t now,
                                   int action_hint, int input_refresh);
 void rich4_dice_clear_action_panel_flags(GameSession *session);
+void rich4_dice_finish_inventory_action(GameSession *session);
 void rich4_dice_release_status_drag(GameSession *session);
 int rich4_dice_consume_cache_reset(GameSession *session);
 int rich4_dice_status_mouse_down(

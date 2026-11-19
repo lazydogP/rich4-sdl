@@ -7,6 +7,7 @@
 #include "core/game_dispatch.h"
 #include "core/game_event.h"
 #include "core/game_event_payload.h"
+#include "core/player_status.h"
 #include "core/rng.h"
 #include "core/route_event.h"
 #include "core/route_movement.h"
@@ -84,7 +85,9 @@ void rich4_dice_begin_roll(GameSession *session, uint32_t now)
     if (session->presentation.god_acquisition.active) return;
     current = rich4_dice_player_index(session);
     player = &session->state.players[current];
-    (void)rich4_app_time_machine_capture(session, current);
+    if (!session->presentation.dice.remote_snapshot_ready)
+        (void)rich4_app_time_machine_capture(session, current);
+    session->presentation.dice.remote_snapshot_ready = 0;
     /* 0x40DD53..0x40DD7C saves the time-machine snapshot, then a nonzero
      * +56 bypasses the dice action and enters EA2=0, EA5=2.  The ordinary
      * stop countdown still dispatches the square under the player. */
@@ -291,6 +294,25 @@ void rich4_dice_clear_action_panel_flags(GameSession *session)
     session->presentation.dice.input_refresh_active = 0;
 }
 
+void rich4_dice_finish_inventory_action(GameSession *session)
+{
+    if (session == NULL || !session->presentation.dice.status_visible) return;
+    int current = session->state.current_player;
+    if (session->state.game_over || session->flow.turn_flow_active ||
+        current < 0 || current >= session->state.player_count ||
+        (session->presentation.actors[current].dirty_flags & GAME_PLAYER_DIRTY_TURN)) {
+        rich4_dice_clear_action_panel_flags(session);
+        return;
+    }
+    /* 0x40DEFE rechecks control and status before 0x417E15 draws the panel. */
+    PlayerStatusDecision decision;
+    if (rich4_player_status_evaluate(&session->state, current, 0, &decision) &&
+        decision.result != 1) {
+        rich4_dice_clear_action_panel_flags(session);
+        session->presentation.actors[current].dirty_flags |= GAME_PLAYER_DIRTY_TURN;
+    }
+}
+
 void rich4_dice_release_status_drag(GameSession *session)
 {
     if (session != NULL) session->presentation.dice.status_dragging = 0;
@@ -328,7 +350,7 @@ int rich4_dice_status_mouse_down(
     int rel_y;
     int mask;
     if (session == NULL || !session->state.active ||
-        !session->presentation.dice.status_visible ||
+        !rich4_presentation_dice_status_visible(&session->presentation) ||
         session->flow.turn_flow_active ||
         session->presentation.dice.popup_active ||
         session->state.player_count <= 0)
@@ -401,11 +423,12 @@ int rich4_dice_shortcut_key_down(GameSession *session, Rich4AppKey key,
 {
     GameCommand command;
     int dice_count;
-    if (!game_active || key != RICH4_APP_KEY_D) return 0;
+    if (!game_active || key != RICH4_APP_KEY_D || session == NULL ||
+        !rich4_presentation_dice_status_visible(&session->presentation))
+        return 0;
     dice_count = rich4_dice_next_count(session);
     command = rich4_game_command_select_dice_count(
-        GAME_COMMAND_SOURCE_HUMAN,
-        session != NULL ? session->state.current_player : 0, dice_count);
+        GAME_COMMAND_SOURCE_HUMAN, session->state.current_player, dice_count);
     if (dice_count > 0 && rich4_dice_apply_command(session, &command, now))
         return 2;
     return 1;
@@ -413,7 +436,8 @@ int rich4_dice_shortcut_key_down(GameSession *session, Rich4AppKey key,
 
 void rich4_dice_update_status_blink(GameSession *session, uint32_t now)
 {
-    if (session == NULL || !session->presentation.dice.status_visible ||
+    if (session == NULL ||
+        !rich4_presentation_dice_status_visible(&session->presentation) ||
         session->flow.turn_flow_active) return;
     if (session->presentation.dice.status_tick == 0)
         session->presentation.dice.status_tick = now;

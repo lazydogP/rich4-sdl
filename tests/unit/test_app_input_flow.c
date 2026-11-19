@@ -86,6 +86,10 @@ static void test_gates(void)
     session.presentation.auction.stage = RICH4_AUCTION_PRESENT_BIDDING;
     session.presentation.auction.bidding.current_player = 0;
     session.presentation.auction.bidding.current_price = 1000;
+    /* 0x44334F enters sub_43BDE5 synchronously from the auction-card
+     * handler.  The nested auction owns input until it returns even though
+     * the outer card-use state remains active. */
+    session.presentation.card_use.phase = GAME_CARD_USE_EFFECTS;
     assert(rich4_app_input_display_visible(
         RICH4_SCENE_GAME, NULL, &session, 0));
     assert(rich4_app_input_apply_pointer(
@@ -99,6 +103,7 @@ static void test_gates(void)
     assert(!rich4_app_input_display_visible(
         RICH4_SCENE_GAME, NULL, &session, 0));
     session.presentation.auction.active = 0;
+    session.presentation.card_use.phase = GAME_CARD_USE_NONE;
     session.presentation.intro.active = 0;
     /* Confinement status runs without an active movement flow. */
     session.flow.turn_flow_active = 0;

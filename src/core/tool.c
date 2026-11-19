@@ -20,10 +20,10 @@ const GameToolInfo rich4_tool_catalog[GAME_TOOL_COUNT] = {
     {6,"汽车",10,150,1,0,GAME_TOOL_TARGET_NONE,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(6),"qiche","not already car","persistent traffic method 2"},
     {7,"飞弹",10,100,1,2,GAME_TOOL_TARGET_AREA,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(7),"feidan","typed map target with coordinates","radius-100 area effect"},
     {8,"遥控骰子",10,30,1,0,GAME_TOOL_TARGET_NONE,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(8),"yaokongtouzi","dice value 1..6","one-shot forced roll"},
-    {9,"机器工人",0,30,2,1,GAME_TOOL_TARGET_PROPERTY,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(9),"jiqigongren","upgradeable property","build or upgrade once"},
+    {9,"机器工人",0,30,2,1,GAME_TOOL_TARGET_PROPERTY,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(9),"jiqigongren","land or facility","play construction and upgrade when below the type limit"},
     {10,"时光机",0,40,2,2,GAME_TOOL_TARGET_TIME,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(10),"shiguangji","session snapshot available","restore then consume"},
     {11,"传送机",0,95,2,1,GAME_TOOL_TARGET_TRANSFER,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(11),"chuansongji","compatible source and destination","atomic transfer"},
-    {12,"工程车",0,150,2,2,GAME_TOOL_TARGET_NONE,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(12),"gongchengche","traffic low bits not 3","persistent traffic method 0x1f"},
+    {12,"工程车",0,150,2,2,GAME_TOOL_TARGET_NONE,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(12),"gongchengche","traffic low bits not 3","engineering vehicle for seven owner status ticks"},
     {13,"核子飞弹",0,250,2,2,GAME_TOOL_TARGET_AREA,GAME_TOOL_IMPLEMENTED,TOOL_SLOT(13),"hezifeidan","typed map target with coordinates","viewport area destruction"}
 };
 
@@ -226,6 +226,10 @@ int rich4_tool_transfer_targets_valid(const GameState *state,
                state->special_player_f10[source.id] == 0 &&
                destination.kind == GAME_DOMAIN_ROUTE_NODE &&
                rich4_tool_valid_node(state, destination.id);
+    if (source.kind == GAME_DOMAIN_LOOSE_MAP_OBJECT)
+        return rich4_game_domain_ref_is_valid(source) && destination.kind == GAME_DOMAIN_ROUTE_NODE &&
+               rich4_tool_valid_node(state, destination.id) &&
+               rich4_tool_object_on_node(state, destination.id) < 0;
     if (source.kind == GAME_DOMAIN_MAP_OBJECT)
         return source.id >= 0 &&
                source.id < GAME_TOOL_PLACED_OBJECT_COUNT &&
@@ -287,10 +291,9 @@ GameToolUseResult rich4_tool_inspect(const GameState *state,
         int id = command->target.id;
         if (command->target.kind == GAME_DOMAIN_LAND) {
             if (id < 0 || id >= state->land_count || command->value != 0 ||
-                state->land_level[id] < 0 || state->land_level[id] >= 5)
+                state->land_level[id] < 0 || state->land_level[id] > 5)
                 return GAME_TOOL_USE_INVALID;
         } else if (command->target.kind == GAME_DOMAIN_FACILITY) {
-            static const unsigned char max_level[5] = {1,5,5,1,5};
             int type;
             if (id < 0 || id >= state->facility_count ||
                 state->facility_level[id] < 0 ||
@@ -299,8 +302,7 @@ GameToolUseResult rich4_tool_inspect(const GameState *state,
             if (state->facility_level[id] == 0) {
                 if (command->value < 0 || command->value > 4)
                     return GAME_TOOL_USE_INVALID;
-            } else if (command->value != 0 || type < 0 || type > 4 ||
-                       state->facility_level[id] >= max_level[type]) {
+            } else if (command->value != 0 || type < 0 || type > 4) {
                 return GAME_TOOL_USE_INVALID;
             }
         } else return GAME_TOOL_USE_INVALID;

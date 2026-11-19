@@ -15,10 +15,12 @@
 #include "platform/sdl1/game_loop_preview_toolbar_input.h"
 #include "platform/sdl1/game_loop_options_input.h"
 #include "app/map_input_flow.h"
+#include "app/tool_panel_flow.h"
 #include "app/ai_settings_flow.h"
 #include "app/magic_house_flow.h"
 #include "app/monthly_finance_flow.h"
 #include "platform/sdl1/game_loop_audio_events.h"
+#include "app/auction_flow.h"
 
 int game_handle_mouse_button_up_input(
     GameMouseButtonUpInputContext *context)
@@ -29,6 +31,25 @@ int game_handle_mouse_button_up_input(
     if (context == NULL || context->session == NULL ||
         context->cursor == NULL)
         return 0;
+    if (context->app_state == RICH4_SCENE_GAME &&
+        (context->button == SDL_BUTTON_LEFT ||
+         context->button == SDL_BUTTON_RIGHT) &&
+        rich4_auction_flow_release_wait(context->session)) {
+        if (context->button == SDL_BUTTON_LEFT && context->mouse_left_down)
+            *context->mouse_left_down = 0;
+        context->cursor->confirm_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
+        context->cursor->cancel_pressed = 0;
+        return 1;
+    }
+    if (context->app_state == RICH4_SCENE_GAME &&
+        context->button == SDL_BUTTON_RIGHT &&
+        context->session->presentation.auction.active) {
+        /* 0x43A2DD delegates right-button messages without changing the
+         * auction or the covered map view. */
+        context->cursor->cancel_pressed = 0;
+        return 1;
+    }
     if (context->app_state == RICH4_SCENE_GAME &&
         context->session->presentation.card_use.defense.phase &&
         game_handle_insurance_charge_input(context->session,context->assets,context->button,
@@ -116,13 +137,16 @@ int game_handle_mouse_button_up_input(
         context->cursor->confirm_pointer_pressed = 0;
         return 1;
     }
+    /* Match the button-down owner: a nested auction outranks its suspended
+     * outer handler through the matching release. */
     if (context->app_state == RICH4_SCENE_GAME &&
-        (rich4_presentation_god_owns_frame(&context->session->presentation) ||
+        (!context->session->presentation.auction.active &&
+         (rich4_presentation_god_owns_frame(&context->session->presentation) ||
          (context->session->presentation.special_reward.active &&
           (context->session->presentation.special_reward.action == 14 ||
            context->session->presentation.special_reward.action == 15)) ||
          context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
-         context->session->presentation.card_use.phase != GAME_CARD_USE_NONE)) {
+         context->session->presentation.card_use.phase != GAME_CARD_USE_NONE))) {
         game_handle_mouse_button_up_modals(context->app_state,
             context->session, context->audio, context->button);
         if (context->button == SDL_BUTTON_LEFT &&
@@ -147,6 +171,41 @@ int game_handle_mouse_button_up_input(
             context->session, context->assets, context->settings, context->cursor,
             context->button, 1, context->audio)) {
         if (context->mouse_left_down && context->button == SDL_BUTTON_LEFT) *context->mouse_left_down = 0;
+        return 1;
+    }
+    if (context->app_state == RICH4_SCENE_GAME && context->tool_panel &&
+        context->tool_panel->phase != TOOL_PANEL_CLOSED &&
+        (context->button == SDL_BUTTON_LEFT || context->button == SDL_BUTTON_RIGHT)) {
+        ToolPanelState *panel = context->tool_panel;
+        Uint32 now = rich4_sdl1_ticks();
+        if (panel->phase == TOOL_PANEL_INVENTORY)
+            game_tool_panel_finish_inventory_release(context->app_state,
+                context->session, context->assets, context->settings, panel,
+                context->cursor, context->audio, context->button);
+        else if (panel->phase == TOOL_PANEL_SPEECH)
+            game_handle_mouse_button_up_modals(context->app_state, context->session,
+                context->audio, context->button);
+        else {
+            rich4_tool_panel_update_edge_scroll(context->session, panel,
+                context->cursor->x, context->cursor->y,
+                context->sdl_config ? context->sdl_config->edge_scroll_inset :
+                    RICH4_SDL_EDGE_SCROLL_INSET_DEFAULT, now);
+            if (!panel->edge_scroll.direction) {
+                if (context->button == SDL_BUTTON_LEFT)
+                    game_tool_panel_confirm(context->session, context->assets,
+                        context->settings, panel, context->cursor->x,
+                        context->cursor->y, now, context->audio);
+                else {
+                    rich4_tool_panel_cancel(context->session, panel,
+                        rich4_app_session_audio_borrow(context->session));
+                    game_session_audio_flush(context->session, context->audio);
+                }
+            }
+        }
+        if (context->mouse_left_down && context->button == SDL_BUTTON_LEFT)
+            *context->mouse_left_down = 0;
+        context->cursor->confirm_pressed = context->cursor->cancel_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
         return 1;
     }
     if (context->button == SDL_BUTTON_LEFT)
@@ -207,18 +266,6 @@ int game_handle_mouse_button_up_input(
     game_handle_mouse_button_up_modals(
         context->app_state, context->session, context->audio,
         context->button);
-    if (game_tool_panel_finish_inventory_release(
-            context->app_state, context->session, context->assets,
-            context->settings, context->tool_panel, context->cursor,
-            context->audio, context->button)) {
-        if (context->button == SDL_BUTTON_LEFT &&
-            context->mouse_left_down != NULL)
-            *context->mouse_left_down = 0;
-        /* The tool panel owns this button-up, just like toolsProc.  The
-         * pending left-button action is dispatched by the outer event loop
-         * only after this callback returns. */
-        return 1;
-    }
     if (context->button == SDL_BUTTON_LEFT &&
         context->app_state == RICH4_SCENE_OPTIONS &&
         game_handle_options_input(

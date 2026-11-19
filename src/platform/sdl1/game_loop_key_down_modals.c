@@ -21,6 +21,14 @@ int game_handle_key_down_modals(GameKeyDownModalsContext *context)
           !context->session->presentation.auction.active) ||
          context->session->presentation.bank_settlement.active)) return 1;
     if (context->app_state == RICH4_SCENE_GAME &&
+        context->session->presentation.auction.active) {
+        /* 0x43A2DD has no keyboard action branch.  Key-up is observed only
+         * by the later 0x4528B9 map waits. */
+        context->cursor->confirm_pressed = 0;
+        context->cursor->cancel_pressed = 0;
+        return 1;
+    }
+    if (context->app_state == RICH4_SCENE_GAME &&
         context->session->presentation.magic_house.active &&
         context->session->presentation.magic_house.condition == RICH4_MAGIC_HOUSE_SURRENDER) {
         /* 0x433088 delegates keyboard messages without choosing/cancelling. */

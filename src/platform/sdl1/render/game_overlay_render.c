@@ -115,7 +115,8 @@ void draw_game_tool_animation(SDL_Surface *screen,
         ? 220 - header.height / 2 : (SCREEN_H - header.height) / 2;
     /* 0x44735C and 0x40B0FD pass literal (0,40) for Data[553]/[523].
      * Their authored canvas aligns with the building anchor at (220,260). */
-    if (request->resource == 553 || request->resource == 523 ||
+    if (request->resource == 528 || request->resource == 530 ||
+        request->resource == 553 || request->resource == 523 ||
         request->resource == 554 ||
         request->resource == 532 || request->resource == 552 ||
         request->resource == GAME_DISAPPEARING_TRAVEL_RESOURCE ||

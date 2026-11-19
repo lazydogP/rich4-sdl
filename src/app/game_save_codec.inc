@@ -86,6 +86,8 @@ static void codec_GameEvent(SaveCodec *codec, GameEvent *value);
 static void codec_Rich4GameEventPayload(SaveCodec *codec, Rich4GameEventPayload *value);
 static void codec_tag_Rich4GameEventPayloadFields(SaveCodec *codec, struct Rich4GameEventPayloadFields *value);
 static void codec_Rich4AppLifecycleRequest(SaveCodec *codec, Rich4AppLifecycleRequest *value);
+static void codec_GameMissileScene(SaveCodec *codec, GameMissileScene *value);
+static void codec_GameMissileBuilding(SaveCodec *codec, GameMissileBuilding *value);
 
 static void codec_GameSession(SaveCodec *codec, GameSession *value)
 {
@@ -107,6 +109,19 @@ static void codec_GameSession(SaveCodec *codec, GameSession *value)
     codec_GameEventQueue(codec, &(value->bankruptcy_auction_events));
     codec_GameEventQueue(codec, &(value->bankruptcy_terminal_events));
     codec_Rich4AppLifecycleRequest(codec, &(value->lifecycle));
+    if (codec->version >= 13) {
+        GamePresentationState *views[] = {&value->presentation, &value->time_machine_presentation};
+        for (size_t i = 0; i < 2; ++i) {
+            codec_scalar(codec, &views[i]->dice.remote_snapshot_ready, SAVE_CODEC_I32);
+            codec_scalar(codec, &views[i]->tool_panel.worker_prepaid, SAVE_CODEC_I32);
+            codec_scalar(codec, &views[i]->tool_panel.vehicle_debit_pending, SAVE_CODEC_I32);
+            codec_scalar(codec, &views[i]->tool_placement_animation.debit_player_plus_one, SAVE_CODEC_I32);
+            codec_scalar(codec, &views[i]->tool_placement_animation.frame, SAVE_CODEC_I32);
+            codec_scalar(codec, &views[i]->tool_placement_animation.frame_count, SAVE_CODEC_I32);
+        }
+        codec_scalar(codec, &value->missile_scene_active, SAVE_CODEC_I32);
+        if (value->missile_scene_active) codec_GameMissileScene(codec, &value->missile_scene);
+    }
 }
 
 static void codec_GameState(SaveCodec *codec, GameState *value)
@@ -1752,4 +1767,31 @@ static void codec_Rich4AppLifecycleRequest(SaveCodec *codec, Rich4AppLifecycleRe
     codec_scalar(codec, &enum_value_54, SAVE_CODEC_I32);
     if (codec->reading) (value->code) = (Rich4AppLifecycleCode)enum_value_54;
     codec_scalar(codec, &(value->player), SAVE_CODEC_I32);
+}
+
+static void codec_GameMissileScene(SaveCodec *codec, GameMissileScene *value)
+{
+    codec_scalar(codec, &(value->world_x), SAVE_CODEC_I32);
+    codec_scalar(codec, &(value->world_y), SAVE_CODEC_I32);
+    for (size_t index_55 = 0; index_55 < 384; ++index_55) {
+        codec_GameMissileBuilding(codec, &(value->lands[index_55]));
+    }
+    for (size_t index_56 = 0; index_56 < 384; ++index_56) {
+        codec_GameMissileBuilding(codec, &(value->facilities[index_56]));
+    }
+    codec_array(codec, value->special_node, 5, sizeof(value->special_node[0]), SAVE_CODEC_I32);
+    codec_array(codec, value->special_play_state, 5, sizeof(value->special_play_state[0]), SAVE_CODEC_I32);
+    for (size_t index_57 = 0; index_57 < 4; ++index_57) {
+        codec_GamePlayerState(codec, &(value->players[index_57]));
+    }
+    for (size_t index_58 = 0; index_58 < 46; ++index_58) {
+        codec_GameMapDynamicObjectState(codec, &(value->objects[index_58]));
+    }
+}
+
+static void codec_GameMissileBuilding(SaveCodec *codec, GameMissileBuilding *value)
+{
+    codec_scalar(codec, &(value->owner), SAVE_CODEC_I8);
+    codec_scalar(codec, &(value->type), SAVE_CODEC_U8);
+    codec_scalar(codec, &(value->level), SAVE_CODEC_U8);
 }

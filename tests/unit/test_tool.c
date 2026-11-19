@@ -78,7 +78,7 @@ static void placement_and_rejection(void)
     command = use_tool(1, rich4_game_domain_ref(GAME_DOMAIN_ROUTE_NODE, 4));
     assert(rich4_tool_apply_command(&state, &command, &events) == GAME_TOOL_USE_APPLIED);
     assert(state.players[0].tool_inventory[1] == 1);
-    assert(state.tool_amount[1] == 1);
+    assert(state.tool_amount[1] == 0);
     assert(state.tool_placed_objects[0].kind == 0x10 &&
            state.tool_placed_objects[0].node == 4 &&
            state.tool_placed_objects[0].owner == 0);
@@ -566,6 +566,20 @@ static void robot_worker(void)
            GAME_TOOL_USE_APPLIED);
     assert(state.facility_type[0] == 4 && state.facility_level[0] == 1 &&
            state.players[0].tool_inventory[8] == 0);
+    state.players[0].tool_inventory[8] = 1;
+    rich4_game_event_queue_reset(&events);
+    command = use_tool(8, rich4_game_domain_ref(GAME_DOMAIN_LAND, 0));
+    assert(rich4_tool_apply_command(&state, &command, &events) == GAME_TOOL_USE_APPLIED);
+    assert(state.land_level[0] == 5 && state.players[0].tool_inventory[8] == 0);
+    int effects = 0;
+    GameEvent worker_event;
+    while (rich4_game_event_queue_pop(&events, &worker_event)) {
+        if (worker_event.type != GAME_EVENT_TOOL_PRESENTATION_REQUESTED) continue;
+        assert(rich4_game_event_tool_resource(&worker_event) == 553);
+        assert(rich4_game_event_tool_presentation_requested_fields(&worker_event).flags == GAME_TOOL_WORKER_UNCHANGED);
+        ++effects;
+    }
+    assert(effects == 1);
 }
 
 static void triggers(void)
@@ -657,13 +671,13 @@ static void triggers(void)
     state.players[1].node = 4;
     state.tool_placed_objects[20].countdown = 2;
     rich4_game_event_queue_reset(&events);
-    assert(rich4_tool_advance_step(&state, 1, 4, 0, &events) ==
+    assert(rich4_tool_advance_step(&state, 1, 4, &events) ==
            GAME_TOOL_TRIGGER_PASS);
     assert(state.tool_placed_objects[20].countdown == 1);
     state.players[0].node = 5;
     state.players[1].node = 5;
     rich4_game_event_queue_reset(&events);
-    assert(rich4_tool_advance_step(&state, 1, 5, 0, &events) ==
+    assert(rich4_tool_advance_step(&state, 1, 5, &events) ==
            GAME_TOOL_TRIGGER_STOP_DEFERRED_EFFECT);
     assert(state.tool_placed_objects[20].kind == 0 &&
            state.players[0].attached_timed_bomb_slot == -1 &&
@@ -695,8 +709,10 @@ static void triggers(void)
     state.players[1].tool_inventory[5] = 1;
     for (slot = 0; slot < 7; slot++) {
         rich4_game_event_queue_reset(&events);
-        assert(rich4_tool_advance_step(&state, 1, 5, 1, &events) ==
-               GAME_TOOL_TRIGGER_PASS);
+        int before = state.players[1].traffic_method;
+        assert(rich4_tool_advance_step(&state, 1, 5, &events) == GAME_TOOL_TRIGGER_PASS);
+        assert(state.players[1].traffic_method == before);
+        assert(rich4_tool_tick_engineering(&state.players[1]) == (slot == 6));
     }
     assert(state.players[1].traffic_method == 2 &&
            state.players[1].ndices == 3 &&
@@ -807,13 +823,13 @@ static void attached_bomb_first_occupant(void)
     state.tool_placed_objects[20].attached_player = 3;
     state.tool_placed_objects[20].countdown = 3;
     rich4_game_event_queue_reset(&events);
-    assert(rich4_tool_advance_step(&state, 2, 4, 0, &events) == GAME_TOOL_TRIGGER_PASS);
+    assert(rich4_tool_advance_step(&state, 2, 4, &events) == GAME_TOOL_TRIGGER_PASS);
     assert(state.tool_placed_objects[20].countdown == 2);
     assert(state.players[2].attached_timed_bomb_slot == 20);
     assert(state.players[1].attached_timed_bomb_slot == -1);
     state.players[0].play_state = 1;
     rich4_game_event_queue_reset(&events);
-    assert(rich4_tool_advance_step(&state, 2, 4, 0, &events) == GAME_TOOL_TRIGGER_PASS);
+    assert(rich4_tool_advance_step(&state, 2, 4, &events) == GAME_TOOL_TRIGGER_PASS);
     assert(state.tool_placed_objects[20].countdown == 1);
     assert(state.players[0].attached_timed_bomb_slot == 20);
     assert(state.players[2].attached_timed_bomb_slot == -1);

@@ -75,8 +75,11 @@ int game_handle_mouse_button_down_input(
         context->cursor->confirm_pointer_pressed = 0;
         return 1;
     }
+    /* A nested sub_43BDE5 auction takes input ownership from its suspended
+     * outer handler until the modal returns. */
     if (context->app_state != NULL && *context->app_state == RICH4_SCENE_GAME &&
         context->session != NULL &&
+        !context->session->presentation.auction.active &&
         (context->session->presentation.ai_tool.phase != GAME_AI_TOOL_NONE ||
          context->session->presentation.card_use.phase != GAME_CARD_USE_NONE)) {
         context->cursor->confirm_pressed = 0;
@@ -100,6 +103,19 @@ int game_handle_mouse_button_down_input(
         context->session && game_card_panel_button(context->session, context->assets,
             context->settings, context->cursor, context->button, 0, context->audio)) {
         if (context->mouse_left_down && context->button == SDL_BUTTON_LEFT) *context->mouse_left_down = 1;
+        return 1;
+    }
+    if (context->app_state && *context->app_state == RICH4_SCENE_GAME &&
+        context->tool_panel && context->tool_panel->phase != TOOL_PANEL_CLOSED &&
+        (context->button == SDL_BUTTON_LEFT || context->button == SDL_BUTTON_RIGHT)) {
+        if (context->button == SDL_BUTTON_LEFT) {
+            if (context->mouse_left_down) *context->mouse_left_down = 1;
+            if (context->tool_panel->phase == TOOL_PANEL_INVENTORY)
+                game_tool_panel_press_inventory(context->session, context->tool_panel,
+                    context->cursor->x, context->cursor->y, context->audio);
+        }
+        context->cursor->confirm_pressed = context->cursor->cancel_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
         return 1;
     }
     if (context->button == SDL_BUTTON_LEFT && context->session != NULL)

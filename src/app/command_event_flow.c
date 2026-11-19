@@ -20,6 +20,53 @@
 #include "core/game_event_payload.h"
 #include "core/property.h"
 #include "core/turn_flow.h"
+#include "view/game_view_model.h"
+
+/* 0x4476AF picks the open exit closest to the actor's old heading,
+ * breaking ties by route table order. +14 holds an alternate (incoming) node. */
+static void sync_transferred_actor(GameSession *session, const GameCommand *command)
+{
+    GameState *state = &session->state;
+    GameDomainRef who = command->target;
+    int node = command->target2.id;
+    int special = who.kind == GAME_DOMAIN_SPECIAL_PLAYER;
+    if ((!special && who.kind != GAME_DOMAIN_PLAYER) || who.id < 0 ||
+        who.id >= (special ? GAME_SPECIAL_PLAYER_COUNT : state->player_count) ||
+        node <= 0 || node >= state->tool_route_node_count) return;
+    int old = special ? state->special_player_direction[who.id] :
+                        session->presentation.actors[who.id].direction;
+    int heading = old, best = 9, next = 0, first = 0, second = 0;
+    for (int i = 0; i < 4; ++i) {
+        int other = state->tool_route_next[node][i];
+        if (other <= 0 || other >= state->tool_route_node_count ||
+            (state->tool_route_flags[node] & (UINT32_C(0x40000000) >> i))) continue;
+        if (!first) first = other;
+        else if (!second && other != first) second = other;
+        int dir = rich4_game_actor_direction_from_delta(
+            state->tool_route_x[other] - state->tool_route_x[node],
+            state->tool_route_y[other] - state->tool_route_y[node]);
+        int delta = (dir - old) & 7;
+        if (delta > 4) delta = 8 - delta;
+        if (delta < best) {
+            best = delta;
+            next = other;
+            heading = dir;
+        }
+    }
+    int previous = next == first && second ? second : first;
+    if (special) {
+        state->special_player_previous_node[who.id] = previous;
+        state->special_player_direction[who.id] = heading;
+    } else {
+        GameActorPresentationState *actor = &session->presentation.actors[who.id];
+        state->players[who.id].previous_node = previous;
+        state->players[who.id].next_node = next;
+        actor->direction = heading;
+        actor->visual_x = state->tool_route_x[node];
+        actor->visual_y = state->tool_route_y[node];
+        actor->move_active = actor->walk_frame = 0;
+    }
+}
 
 static void apply_property_owner_change(
     GameSession *session, const GameCommand *command,
@@ -152,6 +199,8 @@ Rich4CommandEventResult rich4_app_apply_command_event(
         rich4_property_begin_god_trade_rejection(session, event, now);
         return RICH4_COMMAND_EVENT_CONSUMED;
     case GAME_EVENT_MAP_OBJECT_CHANGED:
+        if (command && command->type == GAME_COMMAND_USE_TOOL && command->subject.id == 10)
+            sync_transferred_actor(session, command);
         (void)rich4_tool_followup_begin_placement(
             session, command, event, now);
         return RICH4_COMMAND_EVENT_CONSUMED;

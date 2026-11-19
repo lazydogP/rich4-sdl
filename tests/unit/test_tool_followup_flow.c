@@ -50,14 +50,40 @@ int main(void)
     assert(rich4_tool_followup_update_placement(
         &session, &viewport, 1000, &audio_events));
     assert(session.presentation.tool_placement_animation.until > 1100);
+    uint32_t now = 1000;
+    session.presentation.tool_placement_animation.debit_player_plus_one = 1;
+    session.state.players[0].tool_inventory[1] = 1;
+    int frames = session.presentation.tool_placement_animation.frame_count;
+    for (int i = 0; i < frames; ++i) {
+        now += 24;
+        assert(rich4_tool_followup_update_placement(&session, &viewport, now, &audio_events));
+    }
+    assert(rich4_tool_followup_update_placement(&session, &viewport, now + 99, &audio_events));
+    assert(session.state.players[0].tool_inventory[1] == 1);
     assert(!rich4_tool_followup_update_placement(
-        &session, &viewport,
-        session.presentation.tool_placement_animation.until,
+        &session, &viewport, now + 100,
         &audio_events));
+    assert(!session.state.players[0].tool_inventory[1]);
     assert(session.presentation.dynamic_objects[16].flight_active == 0);
     assert(rich4_audio_event_pop(&audio_events, &audio_event));
     assert(audio_event.type == RICH4_AUDIO_EVENT_TOOL_PLACEMENT);
     assert(audio_event.value == 1);
+
+    /* A five-pixel projection uses one 24ms frame. Cross the SDL tick wrap. */
+    uint32_t start = UINT32_MAX - 15;
+    assert(rich4_tool_followup_begin_placement(&session, &command, &event, start));
+    GameToolPlacementAnimation *flight = &session.presentation.tool_placement_animation;
+    flight->from_x = flight->from_y = flight->to_y = 0;
+    flight->to_x = 4;
+    assert(rich4_tool_followup_update_placement(&session, &viewport, start, NULL));
+    assert(flight->frame_count == 1 && flight->until == start + 124u);
+    assert(rich4_tool_followup_update_placement(&session, &viewport, start + 24u, NULL));
+    assert(rich4_tool_followup_update_placement(&session, &viewport, start + 123u, NULL));
+    assert(!rich4_tool_followup_update_placement(&session, &viewport, start + 124u, NULL));
+    assert(rich4_tool_followup_begin_placement(&session, &command, &event, 300));
+    flight->to_x = flight->from_x;
+    flight->to_y = flight->from_y;
+    assert(!rich4_tool_followup_update_placement(&session, &viewport, 300, NULL));
 
     session.state.tool_robot.active = 1;
     session.state.tool_robot.node = 1;

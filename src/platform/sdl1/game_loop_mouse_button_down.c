@@ -31,7 +31,6 @@ int game_handle_mouse_button_down_modal(
     StockPanelState *stock_panel = context->stock_panel;
     HelpPanelState *help_panel = context->help_panel;
     Rich4AiSettingsState *ai_settings_panel = context->ai_settings_panel;
-    ToolPanelState *tool_panel = context->tool_panel;
     Rich4Audio *audio = context->audio;
 
     if (app_state == RICH4_SCENE_GAME &&
@@ -186,15 +185,7 @@ int game_handle_mouse_button_down_modal(
         cursor->confirm_pressed = 0;
         cursor->confirm_pointer_pressed = 0;
         return 1;
-    } else if (app_state == RICH4_SCENE_GAME &&
-               tool_panel->phase == TOOL_PANEL_INVENTORY) {
-        /* Original toolsProc separates the pressed visual and sound
-         * (WM_LBUTTONDOWN) from tool dispatch (WM_LBUTTONUP). */
-        game_tool_panel_press_inventory(
-            session, tool_panel, cursor->x, cursor->y, audio);
-        cursor->confirm_pressed = 0;
-        cursor->confirm_pointer_pressed = 0;
-        return 1;
+
     }
     return 0;
 }
@@ -245,9 +236,8 @@ void game_handle_mouse_button_down_right_cancel(
         cursor->cancel_pressed = 0;
     } else if (app_state == RICH4_SCENE_GAME && session != NULL &&
                (session->presentation.card_panel.phase != CARD_PANEL_CLOSED ||
-                session->presentation.tool_panel.phase != TOOL_PANEL_CLOSED ||
                 (ai_settings_panel != NULL && ai_settings_panel->active))) {
-        /* Card/tool/AI panels are virtual-cancel modals.  Keep the ordinary
+        /* Card/AI panels are virtual-cancel modals.  Keep the ordinary
          * game scene from treating a right click as a scene-level action, but
          * let these panels receive the cancel on the following frame. */
         cursor->cancel_pressed = 1;

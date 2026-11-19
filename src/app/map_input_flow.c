@@ -337,6 +337,11 @@ int rich4_app_apply_top_panel_action(
 {
     if (session == NULL || action == NULL || !session->state.active)
         return 0;
+    if ((action->type == RICH4_APP_TOOLBAR_OPEN_CARD_PANEL ||
+         action->type == RICH4_APP_TOOLBAR_OPEN_TOOL_PANEL) &&
+        (!rich4_presentation_dice_status_visible(&session->presentation) ||
+         session->flow.turn_flow_active))
+        return 0;
     /* 0x417D65 clears the top-toolbar hover before entering a new panel.  Do
      * this before the panel state changes so the frame that first presents the
      * panel cannot reuse the clicked button's hover chunk. */

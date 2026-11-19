@@ -12,6 +12,7 @@
 #include "platform/sdl1/miyoo_input.h"
 #endif
 #include "app/ai_settings_flow.h"
+#include "app/auction_flow.h"
 #include "app/stock_interaction_flow.h"
 #include "app/sale_interaction_flow.h"
 #include "core/turn_rotation.h"
@@ -165,6 +166,9 @@ void game_poll_runtime_events(GameEventPollContext *context)
                     event.key.keysym.sym, event.key.keysym.mod)) {
                 /* 0x4528B9 and player_say accept any key release. */
                 if (*app_state == RICH4_SCENE_GAME &&
+                    rich4_auction_flow_release_wait(key_up->session))
+                    continue;
+                if (*app_state == RICH4_SCENE_GAME &&
                     (key_up->session->presentation.card_panel.phase == CARD_PANEL_EFFECT ||
                      key_up->session->presentation.card_use.phase != GAME_CARD_USE_NONE))
                     game_handle_key_up_modals(key_up);
@@ -179,7 +183,7 @@ void game_poll_runtime_events(GameEventPollContext *context)
                     if (command.key == key_down->confirm_key)
                         game_card_panel_confirm(key_up->session, key_down->assets, key_down->settings,
                             panel, key_down->cursor->x, key_down->cursor->y, rich4_sdl1_ticks(), key_down->audio);
-                    else game_card_panel_cancel_input(panel, key_down->audio);
+                    else game_card_panel_cancel_input(key_up->session, panel, key_down->audio);
                     continue;
                 }
             }

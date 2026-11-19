@@ -514,6 +514,10 @@ $(word 2,$(subst |, ,$(1))): $(word 1,$(subst |, ,$(1))) | dirs
 	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(MIXER_CFLAGS) $(TTF_CFLAGS) $(CFLAGS) $(WARNFLAGS) -MMD -MP -MF $$(@:.o=.d) -c -o $$@ $(word 1,$(subst |, ,$(1)))
 endef
 $(foreach pair,$(SDL1_SOURCE_OBJECT_PAIRS),$(eval $(call RICH4_SDL1_COMPILE_RULE,$(pair))))
+# App adapters often see GameSession through another header. Track those
+# transitive dependencies, including for existing builds without .d files.
+$(APP_OBJS): private CPPFLAGS += -MMD -MP
+$(APP_OBJS): Makefile
 -include $(wildcard $(BUILD_DIR)/*.d)
 $(BUILD_DIR)/music.o: src/data/music.c src/data/music.h | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARNFLAGS) -c -o $@ src/data/music.c

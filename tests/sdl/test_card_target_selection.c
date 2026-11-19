@@ -71,32 +71,56 @@ static void demolition_targets_follow_top_object_id(void)
         &state, 0, mask, none, 0x8001).kind == GAME_DOMAIN_NONE);
 }
 
-static void demolition_cursor_uses_selector_resources(void)
+/* Property anchors in the original projection, with the camera at (1024, 1024).
+ * Each lot covers the indicated pixel on an outer edge of the map. */
+static const struct {
+    int cursor_x, cursor_y;
+    int world_x, world_y;
+} map_edges[] = {
+    {0, 240, 865, 934}, {439, 240, 1201, 1072},
+    {220, 40, 1122, 788}, {220, 479, 928, 1259}
+};
+
+static void card_masks_disable_edge_scroll(void)
 {
     static GamePreviewAssets assets;
     static GameSession session;
     NewGameSettings settings = {0};
     CardPanelState *panel = &session.presentation.card_panel;
-    static const size_t edge_cursor[5] = {41, 34, 40, 38, 36};
-    int direction;
+    const int properties[] = {2001, 4001};
 
-    memset(&session, 0, sizeof(session));
-    session.state.player_count = 1;
-    panel->phase = CARD_PANEL_MAP_TARGET;
-    panel->selected_card = 11;
-    panel->player = 0;
-    for (direction = 1; direction <= 4; direction++) {
-        panel->edge_scroll.direction = direction;
-        assert(game_card_panel_cursor_chunk_index(
-            &assets, &settings, &session, panel, 220, 240, 41) ==
-            edge_cursor[direction]);
+    session.state.active = session.state.player_count = 1;
+    session.state.land_count = session.state.facility_count = 1;
+    session.state.tool_route_node_count = 2;
+    session.state.players[0].node = 1;
+    session.presentation.view_world_x = session.presentation.view_world_y = 1024;
+    for (size_t p = 0; p < sizeof(properties) / sizeof(properties[0]); ++p) {
+        session.state.route_object_raw[1] = properties[p];
+        GameDomainRef source = rich4_card_panel_current_property_ref(&session);
+        for (int card = 0; card < GAME_CARD_COUNT; ++card) {
+            uint32_t mask = rich4_card_map_mask(card, source.kind);
+            assert((mask & 0x80u) == 0);
+            if (mask == 0) continue;
+            panel->phase = CARD_PANEL_MAP_TARGET;
+            panel->selected_card = card;
+            for (size_t i = 0; i < sizeof(map_edges) / sizeof(map_edges[0]); ++i) {
+                int x = map_edges[i].cursor_x, y = map_edges[i].cursor_y;
+                /* A saved direction must not affect input before the first hover tick. */
+                panel->edge_scroll.direction = (int)i + 1;
+                assert(game_card_panel_cursor_chunk_index(
+                    &assets, &settings, &session, panel, x, y, 41) == 5);
+                rich4_card_panel_update_edge_scroll(&session, panel, x, y, 16, 100);
+                rich4_card_panel_update_edge_scroll(&session, panel, x, y, 16, 150);
+                assert(panel->edge_scroll.direction == 0);
+                assert(session.presentation.view_world_x == 1024);
+                assert(session.presentation.view_world_y == 1024);
+                assert(!session.presentation.has_view_override);
+            }
+            panel->edge_scroll.direction = 1;
+            game_card_panel_cancel_input(&session, panel, NULL);
+            assert(panel->phase == CARD_PANEL_INVENTORY);
+        }
     }
-    panel->edge_scroll.direction = 0;
-    assert(game_card_panel_cursor_chunk_index(
-        &assets, &settings, &session, panel, 220, 240, 41) == 5);
-    panel->selected_card = 10;
-    assert(game_card_panel_cursor_chunk_index(
-        &assets, &settings, &session, panel, 220, 240, 41) == 5);
 }
 
 static void all_card_selectors(void)
@@ -139,6 +163,37 @@ static void all_card_selectors(void)
                 assert(!rich4_card_map_mask(card, GAME_DOMAIN_NONE));
             }
         }
+    }
+}
+
+static void confirm_property_at_each_edge(GamePreviewAssets *assets)
+{
+    static GameSession session;
+    NewGameSettings settings = {0};
+    CardPanelState *panel = &session.presentation.card_panel;
+    MapLandRecord *land = &assets->map.maps[0].lands[1];
+    for (size_t i = 0; i < sizeof(map_edges) / sizeof(map_edges[0]); ++i) {
+        VirtualCursor cursor = {0};
+        memset(&session, 0, sizeof(session));
+        session.state.active = session.state.player_count = session.state.land_count = 1;
+        session.state.land_owner[0] = -1;
+        session.state.players[0].card_inventory[0] = 27;
+        rich4_card_panel_open(panel, &session);
+        panel->phase = CARD_PANEL_MAP_TARGET;
+        panel->selected_card = 26;
+        game_focus_view_at(&session, 1024, 1024);
+        land->x = map_edges[i].world_x;
+        land->y = map_edges[i].world_y;
+        cursor.x = map_edges[i].cursor_x;
+        cursor.y = map_edges[i].cursor_y;
+        panel->edge_scroll.direction = (int)i + 1;
+        assert(game_card_panel_cursor_chunk_index(
+            assets, &settings, &session, panel, cursor.x, cursor.y, 41) == 12);
+        assert(game_card_panel_button(
+            &session, assets, &settings, &cursor, SDL_BUTTON_LEFT, 1, NULL));
+        assert(panel->phase == CARD_PANEL_WAIT_HANDLER);
+        assert(session.presentation.card_use.command.target.kind == GAME_DOMAIN_LAND);
+        assert(session.presentation.card_use.command.target.id == 0);
     }
 }
 
@@ -215,6 +270,7 @@ static void property_pixels_drive_hover_and_release(void)
     assert(panel->phase == CARD_PANEL_WAIT_HANDLER);
     assert(session.presentation.card_use.command.target.kind == GAME_DOMAIN_LAND);
     assert(session.presentation.card_use.command.target.id == 0 && session.state.card_amount[26] == 1);
+    confirm_property_at_each_edge(&assets);
     free(pixels);
     rich4_mkf_close(mkf);
 }
@@ -224,7 +280,7 @@ int main(void)
     all_card_selectors();
     property_pixels_drive_hover_and_release();
     demolition_targets_follow_top_object_id();
-    demolition_cursor_uses_selector_resources();
+    card_masks_disable_edge_scroll();
     puts("card masks, topmost pixel selection and selector cursors: ok");
     return 0;
 }

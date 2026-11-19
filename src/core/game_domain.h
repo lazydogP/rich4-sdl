@@ -39,7 +39,8 @@ typedef enum GameDomainKind {
     /* Map auxiliary company record (raw object IDs 6001..7999). */
     GAME_DOMAIN_COMPANY,
     /* One of the original seven listings for a player; id is player-major. */
-    GAME_DOMAIN_MARKET_LISTING
+    GAME_DOMAIN_MARKET_LISTING,
+    GAME_DOMAIN_LOOSE_MAP_OBJECT /* fixed dynamic slots 0..15 */
 } GameDomainKind;
 
 typedef enum GameStatusId {

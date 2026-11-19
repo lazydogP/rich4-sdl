@@ -1,4 +1,5 @@
 #include "app/turn_status_flow.h"
+#include "core/tool.h"
 
 #include <string.h>
 
@@ -101,6 +102,9 @@ void rich4_app_update_player_status_countdowns(GameSession *session,
     player = &session->state.players[player_index];
     rich4_game_event_queue_reset(&events);
     rich4_status_tick_player_events(player, player_index, &tick_result, &events);
+    /* 0x41CCA3 runs once at this player's status tick. */
+    if (rich4_tool_tick_engineering(player))
+        session->presentation.actors[player_index].dirty_flags |= GAME_PLAYER_DIRTY_TURN;
     while (rich4_game_event_queue_pop(&events, &event)) {
         if (event.type == GAME_EVENT_STATUS_TICK_REQUESTED)
             tick_god_relation_balance(session, event.player);

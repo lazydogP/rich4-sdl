@@ -19,7 +19,6 @@ typedef enum Rich4ToolPanelTargetMode {
 
 typedef struct Rich4ToolPanelTargetSpec {
     Rich4ToolPanelTargetMode mode;
-    int require_placeable;
 } Rich4ToolPanelTargetSpec;
 
 typedef struct Rich4ToolPanelConfirmResult {
@@ -55,7 +54,7 @@ int rich4_tool_panel_remote_dice_face_at(int x, int y);
 int rich4_tool_panel_worker_choice_at(int x, int y);
 void rich4_tool_panel_set_hover(ToolPanelState *panel, int hover);
 int rich4_tool_panel_confirm_target(
-    const GameSession *session, ToolPanelState *panel,
+    GameSession *session, ToolPanelState *panel,
     GameDomainRef target, int value,
     Rich4ToolPanelConfirmResult *out_result,
     Rich4AudioEventQueue *audio_events);
@@ -69,6 +68,8 @@ int rich4_tool_panel_finish_speech(
 int rich4_tool_panel_cancel(
     GameSession *session, ToolPanelState *panel,
     Rich4AudioEventQueue *audio_events);
+uint32_t rich4_tool_panel_map_mask(const ToolPanelState *panel);
+int rich4_tool_panel_allows_edge_scroll(const ToolPanelState *panel);
 void rich4_tool_panel_update_edge_scroll(
     GameSession *session, ToolPanelState *panel,
     int cursor_x, int cursor_y, int inset, uint32_t now);
