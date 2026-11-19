@@ -821,6 +821,25 @@ static void magic_original_targets_and_actions(void)
            rich4_game_event_auction_seller(&q.events[0]) == 1 &&
            rich4_game_event_auction_trigger(&q.events[0]) ==
                GAME_AUCTION_TRIGGER_MAGIC_HOUSE);
+    {
+        int status;
+        for (status = 0; status < 4; status++) {
+            base_state(&s, 75 + status);
+            s.tool_route_node_count = 3;
+            s.players[1].node = 1;
+            s.route_object_raw[1] = 0x7d1;
+            s.land_count = 1;
+            s.land_owner[0] = 1;
+            s.land_price[0] = 1000;
+            if (status == 0) s.players[1].delayed_status_block = 1;
+            if (status == 1) s.players[1].days_disappearing = 1;
+            if (status == 2) s.players[1].days_in_prison = 1;
+            if (status == 3) s.players[1].days_in_hospital = 1;
+            assert(apply_magic(&s, 11, &q) == GAME_SPECIAL_EVENT_APPLIED);
+            assert(q.count == 1 &&
+                   q.events[0].type == GAME_EVENT_SPECIAL_EVENT_COMMITTED);
+        }
+    }
 }
 
 static void snapshot_restore(void)

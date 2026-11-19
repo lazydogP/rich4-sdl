@@ -403,6 +403,9 @@ static GameSpecialEventResult rich4_magic_house_apply_action_impl(
                 GameDomainRef property;
                 GameEvent request;
                 if (next.players[player].delayed_status_block==0 &&
+                    next.players[player].days_disappearing==0 &&
+                    next.players[player].days_in_prison==0 &&
+                    next.players[player].days_in_hospital==0 &&
                     magic_current_property(&next,player,&property)) {
                     request=rich4_game_event_auction_request(
                         actor,property,player,1,
