@@ -39,7 +39,9 @@ void init_game_session(GameSession *session,
         reset_game_dice_cache(render_cache);
     reset_game_property_flash_cache(render_cache);
     }
-    rich4_app_reset_session(session);
+    /* A code-2 ending enters setup without passing WinMain LABEL_5, so the
+     * four map-completion bytes must survive construction of the next game. */
+    rich4_app_reset_session_for_next_map(session);
     memset(&config, 0, sizeof(config));
     config.player_extra = settings != NULL ? settings->player_extra : 0;
     config.initial_fund = initial_money_from_settings(settings);

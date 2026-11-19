@@ -119,11 +119,37 @@ int main(void)
         }
     }
 
+    assert(rich4_app_mark_map_access(&session, 0));
+    assert(rich4_app_mark_map_access(&session, 2));
+    assert(rich4_app_map_access_mask(&session) == 0x05u);
+    assert(!rich4_app_all_maps_accessed(&session));
+    assert(rich4_app_ending_next_map_at(&session, 201, 320) == 1);
+    assert(rich4_app_ending_next_map_at(&session, 439, 439) == 3);
+    assert(rich4_app_ending_next_map_at(&session, 201, 281) == -1);
+    assert(rich4_app_ending_next_map_at(&session, 200, 320) == -1);
+    assert(rich4_app_ending_next_map_at(&session, 440, 320) == -1);
+    assert(rich4_app_ending_next_map_at(&session, 320, 280) == -1);
+    assert(rich4_app_ending_next_map_at(&session, 320, 440) == -1);
+    assert(rich4_app_commit_ending_next_map(&session, 320, 320) == 1);
+    assert(session.state.map == 1);
+    assert(!rich4_app_mark_map_access(&session, -1));
+    assert(!rich4_app_mark_map_access(&session, GAME_MAPS_PER_STAGE));
+    session.state.active = 1;
+    session.time_machine_valid = 1;
+    rich4_app_reset_session_for_next_map(&session);
+    assert(session.state.active == 0);
+    assert(session.time_machine_valid == 0);
+    assert(rich4_app_map_access_mask(&session) == 0x05u);
+    assert(rich4_app_mark_map_access(&session, 1));
+    assert(rich4_app_mark_map_access(&session, 3));
+    assert(rich4_app_all_maps_accessed(&session));
+
     session.state.active = 1;
     session.time_machine_valid = 1;
     rich4_app_reset_session(&session);
     assert(session.state.active == 0);
     assert(session.time_machine_valid == 0);
+    assert(rich4_app_map_access_mask(&session) == 0);
     puts("app game session runtime init: ok");
     return 0;
 }

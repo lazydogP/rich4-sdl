@@ -235,6 +235,15 @@ class CodecGenerator:
             if alias == "GameState" and field.name == "land_lease_date":
                 emitted = ["if (codec->version >= 11) {"] + [
                     "    " + line for line in emitted] + ["}"]
+            if alias == "GameState" and field.name == "special_player_direction":
+                emitted = ["if (codec->version >= 12) {"] + [
+                    "    " + line for line in emitted] + ["}"]
+            if alias == "GameSession" and field.name == "time_machine_other":
+                emitted = ["if (codec->version >= 12) {"] + [
+                    "    " + line for line in emitted] + ["}"]
+            if alias == "GameSession" and field.name == "map_access_flags":
+                emitted = ["if (codec->version >= 12) {"] + [
+                    "    " + line for line in emitted] + ["}"]
             if alias == "GamePointMinigamePresentationState" and field.name == "catcher":
                 emitted = ["if (codec->version >= 9) {"] + [
                     "    " + line for line in emitted] + ["}"]

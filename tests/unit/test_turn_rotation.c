@@ -111,10 +111,15 @@ static void test_monthly_bank_settlement(void)
     state.calendar_start_month = 1;
     state.calendar_start_day = 31;
     state.turn_rotation_index = 0;
+    state.market_listings[0][0].type = GAME_MARKET_LISTING_TOOL;
+    state.market_listings[0][0].age_months = 255;
+    state.market_listings[0][1].age_months = 7;
     for (i = 0; i < GAME_MAX_PLAYERS; i++) state.special_player_f10[i] = 1;
     rich4_game_event_queue_reset(&events);
     assert(rich4_turn_advance_once_events(&state, &result, &events));
     assert(state.elapsed_days == 1 && state.players[0].bank == 1100);
+    assert(state.market_listings[0][0].age_months == 0);
+    assert(state.market_listings[0][1].age_months == 7);
     while (rich4_game_event_queue_pop(&events, &event)) {
         if (event.type != GAME_EVENT_BANK_SETTLEMENT_APPLIED) continue;
         assert(event.player == 0 && rich4_game_event_subject(&event) == 25 &&

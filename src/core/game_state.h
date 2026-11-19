@@ -16,14 +16,18 @@ typedef enum GameMarketListingType {
 
 /* Original per-player 12-byte record written by 0x4246C5.  item_id keeps
  * the original stock/card/tool index or the raw property id (2000+land,
- * 4000+facility); the enclosing array supplies the seller and slot. */
+ * 4000+facility); the enclosing array supplies the seller and slot.
+ * 0x428475 increments age_months at each month rollover.  For assets,
+ * 0x4246C5 snapshots record +0x18/+0x1a and 0x42483E invalidates a listing
+ * when either value no longer matches. */
 typedef struct GameMarketListing {
     uint8_t type;
-    uint8_t flags;
+    uint8_t age_months;
     uint16_t item_id;
     int32_t ask_price;
     int16_t quantity;
-    uint16_t reserved;
+    uint8_t asset_type_snapshot;
+    uint8_t asset_level_snapshot;
 } GameMarketListing;
 
 typedef struct GameState {
@@ -108,6 +112,8 @@ typedef struct GameState {
     int special_player_node[GAME_SPECIAL_PLAYER_COUNT];
     /* Original special-player record +6: the route node just left. */
     int special_player_previous_node[GAME_SPECIAL_PLAYER_COUNT];
+    /* Original special-player record +9 (0x498E31 + slot * 0x10). */
+    int special_player_direction[GAME_SPECIAL_PLAYER_COUNT];
     /* Original +11: low 7 bits are release origin (1 prison / 2 hospital),
      * bit 0x80 arms automatic re-entry at the matching route action. */
     int special_player_actor_type[GAME_SPECIAL_PLAYER_COUNT];

@@ -118,6 +118,8 @@ static void initialize_session(GameSession *session)
     session->state.full_round_count = 5;
     session->state.stock_market_total_x10 = 1000;
     session->state.ai_rng_state = 1;
+    session->map_access_flags[0] = 1;
+    session->map_access_flags[2] = 1;
     for (i = 0; i < GAME_STOCK_COUNT; i++) {
         session->state.stocks[i].f16 = 100.0f;
         session->state.stocks[i].f20 = 100.0f;
@@ -204,10 +206,21 @@ static void test_format_10_lease_compatibility(const char *directory)
     unsigned char *bytes;
     FILE *file;
     long length;
-    size_t at, size, field_size = GAME_MAX_MAP_PROPERTIES * 4u;
+    size_t at, size;
+    size_t additional_start = 0;
+    size_t legacy_elapsed_start = 0;
+    size_t suffix_start = 0;
+    size_t direction_field_size = GAME_SPECIAL_PLAYER_COUNT * 4u;
+    size_t lease_field_size = GAME_MAX_MAP_PROPERTIES * 4u;
     uint32_t crc = 0xffffffffu;
+    int directions_removed = 0;
     int removed = 0;
     initialize_session(&source);
+    source.time_machine_state.current_player = 0;
+    source.time_machine_state.elapsed_days = 0x13572466;
+    source.time_machine_other[0].state.active = 0x13572468;
+    source.bankruptcy_auction_events.events[0].type =
+        (GameEventType)0x24681357;
     source.state.land_period_index = source.time_machine_state.land_period_index = 5;
     source.state.land_runtime_value[0] = 123456;
     source.state.facility_last_change[0] = 0x07d00701u;
@@ -216,6 +229,14 @@ static void test_format_10_lease_compatibility(const char *directory)
         source.time_machine_state.land_lease_date[i] = 0x07d00501u;
         source.presentation.special_event.pre_state.land_lease_date[i] = 0x07d00601u;
         source.time_machine_presentation.special_event.pre_state.land_lease_date[i] = 0x07d00501u;
+    }
+    for (int i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++) {
+        source.state.special_player_direction[i] = 0x01234567;
+        source.time_machine_state.special_player_direction[i] = 0x07654321;
+        source.presentation.special_event.pre_state.special_player_direction[i] =
+            0x01234567;
+        source.time_machine_presentation.special_event.pre_state
+            .special_player_direction[i] = 0x07654321;
     }
     assert(snprintf(path, sizeof(path), "%s/lease-format-10.R4S", directory) > 0);
     assert(rich4_game_save_write(path, 2, &source));
@@ -226,19 +247,56 @@ static void test_format_10_lease_compatibility(const char *directory)
     size = (size_t)length;
     bytes = malloc(size);
     assert(bytes != NULL && fread(bytes, 1, size, file) == size);
-    assert(fclose(file) == 0 && lease_fixture_u32(bytes + 4) == 11);
+    assert(fclose(file) == 0 && lease_fixture_u32(bytes + 4) == 12);
+    for (at = 20; at + 4 <= size; at++) {
+        uint32_t marker = lease_fixture_u32(bytes + at);
+        if (marker == 0x13572466u) legacy_elapsed_start = at;
+        if (marker == 0x13572468u) additional_start = at;
+        if (marker == 0x24681357u) {
+            suffix_start = at;
+            break;
+        }
+    }
+    assert(legacy_elapsed_start > 40 &&
+           additional_start > legacy_elapsed_start &&
+           suffix_start > additional_start);
+    memmove(bytes + additional_start, bytes + suffix_start,
+            size - suffix_start);
+    size -= suffix_start - additional_start;
+    /* Formats through 11 stored one global rewind snapshot and identified its
+     * owner through GameState.current_player.  Format 12 assigns that legacy
+     * slot to player zero, so patch the already-encoded old-layout fixture to
+     * exercise migration of a player-one snapshot. current_player is five
+     * serialized i32 fields before elapsed_days in GameState. */
+    lease_fixture_put_u32(bytes + legacy_elapsed_start - 5u * 4u, 1);
+    /* Format 12 also adds the per-special-actor direction array to the same
+     * four GameState snapshots. Remove those to reach the format-11 layout. */
+    for (at = 20; at + direction_field_size <= size; at++) {
+        uint32_t marker = lease_fixture_u32(bytes + at);
+        size_t i;
+        if (marker != 0x01234567u && marker != 0x07654321u) continue;
+        for (i = 4; i < direction_field_size; i += 4)
+            if (lease_fixture_u32(bytes + at + i) != marker) break;
+        if (i != direction_field_size) continue;
+        memmove(bytes + at, bytes + at + direction_field_size,
+                size - at - direction_field_size);
+        size -= direction_field_size;
+        directions_removed++;
+    }
+    assert(directions_removed == 4);
     /* Format 11 adds these arrays to live/rewind state and their event snapshots.
      * Distinct repeated dates locate them without coupling the test to the
      * offsets of unrelated save fields. Remove them to produce format 10. */
-    for (at = 20; at + field_size <= size; at++) {
+    for (at = 20; at + lease_field_size <= size; at++) {
         uint32_t marker = lease_fixture_u32(bytes + at);
         size_t i;
         if (marker != 0x07d00601u && marker != 0x07d00501u) continue;
-        for (i = 4; i < field_size; i += 4)
+        for (i = 4; i < lease_field_size; i += 4)
             if (lease_fixture_u32(bytes + at + i) != marker) break;
-        if (i != field_size) continue;
-        memmove(bytes + at, bytes + at + field_size, size - at - field_size);
-        size -= field_size;
+        if (i != lease_field_size) continue;
+        memmove(bytes + at, bytes + at + lease_field_size,
+                size - at - lease_field_size);
+        size -= lease_field_size;
         removed++;
     }
     assert(removed == 4);
@@ -255,11 +313,15 @@ static void test_format_10_lease_compatibility(const char *directory)
     assert(fclose(file) == 0);
     free(bytes);
     assert(rich4_game_save_read(path, 2, &loaded));
-    assert(loaded.state.land_period_index == 5 && loaded.time_machine_state.land_period_index == 5);
+    assert(loaded.state.land_period_index == 5 &&
+           !loaded.time_machine_valid &&
+           loaded.time_machine_other[0].valid &&
+           loaded.time_machine_other[0].state.land_period_index == 5);
     assert(loaded.state.land_runtime_value[0] == 123456);
     assert(loaded.state.facility_last_change[0] == 0x07d00701u);
     for (int i = 0; i < GAME_MAX_MAP_PROPERTIES; i++)
-        assert(loaded.state.land_lease_date[i] == 0 && loaded.time_machine_state.land_lease_date[i] == 0);
+        assert(loaded.state.land_lease_date[i] == 0 &&
+               loaded.time_machine_other[0].state.land_lease_date[i] == 0);
     assert(remove(path) == 0);
 }
 
@@ -344,6 +406,22 @@ static void round_trip_case(const char *directory, const char *name,
                   sizeof(loaded->time_machine_state)) == 0);
     assert(memcmp(&loaded->time_machine_flow, &source->time_machine_flow,
                   sizeof(loaded->time_machine_flow)) == 0);
+    assert(memcmp(loaded->map_access_flags, source->map_access_flags,
+                  sizeof(loaded->map_access_flags)) == 0);
+    assert(loaded->time_machine_other[0].valid ==
+           source->time_machine_other[0].valid);
+    assert(memcmp(&loaded->time_machine_other[0].state,
+                  &source->time_machine_other[0].state,
+                  sizeof(loaded->time_machine_other[0].state)) == 0);
+    assert(memcmp(&loaded->time_machine_other[0].flow,
+                  &source->time_machine_other[0].flow,
+                  sizeof(loaded->time_machine_other[0].flow)) == 0);
+    assert(memcmp(loaded->time_machine_other[0].actors,
+                  source->time_machine_other[0].actors,
+                  sizeof(loaded->time_machine_other[0].actors)) == 0);
+    assert(memcmp(loaded->time_machine_other[0].dynamic_objects,
+                  source->time_machine_other[0].dynamic_objects,
+                  sizeof(loaded->time_machine_other[0].dynamic_objects)) == 0);
     assert(loaded->audio_events.count == 0);
     assert(loaded->presentation.speech.current ==
            &loaded->presentation.speech.restored_current);
@@ -754,6 +832,23 @@ int main(void)
     test_format_10_lease_compatibility(directory);
     test_attached_bomb_roundtrip(directory, &map);
     initialize_session(source);
+    source->time_machine_other[0].state = source->state;
+    source->time_machine_other[0].state.current_player = 1;
+    source->time_machine_other[0].state.elapsed_days = 3;
+    source->time_machine_other[0].flow = source->flow;
+    memcpy(source->time_machine_other[0].actors,
+           source->presentation.actors,
+           sizeof(source->time_machine_other[0].actors));
+    memcpy(source->time_machine_other[0].dynamic_objects,
+           source->presentation.dynamic_objects,
+           sizeof(source->time_machine_other[0].dynamic_objects));
+    source->time_machine_other[0].valid = 1;
+    round_trip_case(directory, "per-player-rewind", source, 2, &map);
+    assert(loaded->time_machine_other[0].valid);
+    assert(loaded->time_machine_other[0].state.current_player == 1);
+    assert(loaded->time_machine_other[0].state.elapsed_days == 3);
+    memset(&source->time_machine_other[0], 0,
+           sizeof(source->time_machine_other[0]));
     test_auto_save_waits_for_original_turn_boundary();
     test_failed_write_preserves_slot(directory, source);
 
@@ -849,6 +944,15 @@ int main(void)
     source->presentation.bank_settlement.eye_state = 64;
     source->presentation.bank_settlement.mouth_chunk = 23 | (22 << 8);
     round_trip_case(directory, "monthly-banker-state", source, 2, &map);
+    /* Formats 4..11 called the last two listing bytes reserved and normally
+     * wrote zero.  The current loader reconstructs the original type/level
+     * snapshot semantics from the listed property. */
+    source->state.land_type[0] = 3;
+    source->state.land_level[0] = 2;
+    source->state.market_listings[0][0].type = GAME_MARKET_LISTING_ASSET;
+    source->state.market_listings[0][0].item_id = 0x7d1;
+    source->state.market_listings[0][0].asset_type_snapshot = 0;
+    source->state.market_listings[0][0].asset_level_snapshot = 0;
     assert(snprintf(damaged_source,sizeof(damaged_source),"%s/format-5.R4S",directory)>0);
     write_v5_fixture(damaged_source,source,2);
     assert(rich4_game_save_read(damaged_source,2,loaded));
@@ -856,6 +960,9 @@ int main(void)
     assert(loaded->time_machine_state.players[0].monthly_income==901);
     assert(loaded->presentation.bank_settlement.eye_state==0);
     assert(loaded->presentation.bank_settlement.mouth_chunk==0);
+    assert(loaded->state.market_listings[0][0].asset_type_snapshot==3);
+    assert(loaded->state.market_listings[0][0].asset_level_snapshot==2);
+    assert(rich4_app_map_access_mask(loaded)==0);
     remove(damaged_source);
 
     /* Real map 0 has 104 route nodes. The flow field stores that map count,

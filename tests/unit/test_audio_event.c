@@ -81,11 +81,13 @@ int main(void)
         session.presentation.special_actor.active = 1;
         session.presentation.special_actor.slot = 0;
         session.presentation.special_actor.direction = 1;
+        session.state.special_player_direction[0] = 1;
         assert(rich4_app_present_turn_around(
             &session,
             (GameDomainRef){GAME_DOMAIN_SPECIAL_PLAYER, 0},
             &queue));
         assert(session.presentation.special_actor.direction == 5);
+        assert(session.state.special_player_direction[0] == 5);
         assert(rich4_audio_event_pop(&queue, &event) &&
                event.type == RICH4_AUDIO_EVENT_TURN_AROUND &&
                event.value == 56);

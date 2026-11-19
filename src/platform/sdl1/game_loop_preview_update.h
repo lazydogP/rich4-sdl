@@ -29,7 +29,7 @@
 typedef struct GamePreviewFrameContext {
     SDL_Surface *screen;
     const GamePreviewAssets *assets;
-    const NewGameSettings *settings;
+    NewGameSettings *settings;
     GameSession *session;
     GameRenderCache *render_cache;
     Rich4Config *config;
@@ -52,9 +52,6 @@ typedef struct GamePreviewFrameContext {
     Rich4OptionsPanelState *options_panel;
     Rich4SceneMachine *scene_machine;
     Rich4SceneId *app_state;
-    /* Process-lifetime JUMP completion bits mirror 0x4075C1's
-     * lpBuffer__27[0..3]; they survive a code-2 session reset. */
-    int *ending_map_mask;
     int *running;
     Uint32 *ending_wait_started;
     int *ending_wait_active;

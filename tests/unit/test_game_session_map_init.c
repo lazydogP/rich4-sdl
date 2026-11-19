@@ -41,6 +41,9 @@ int main(void)
     facilities[1].price_per_level = 20;
 
     auxiliary[1].stock_index = 1;
+    auxiliary[1].owner_raw = 2;
+    auxiliary[1].ranking_raw[0] = 2;
+    auxiliary[1].ranking_raw[1] = 1;
     auxiliary[1].x = 64;
     auxiliary[1].y = -32;
     auxiliary[1].company_value = 77;
@@ -82,12 +85,16 @@ int main(void)
     assert(session.state.tool_company_geometry_available == 1);
     assert(session.state.tool_company_x[0] == 64);
     assert(session.state.tool_company_y[0] == -32);
-    assert(session.state.company_owner[0] == -1);
+    assert(session.state.company_owner[0] == 1);
     assert(session.state.company_stock_index[0] == 1);
     assert(strcmp(session.presentation.map_company_names[0],
                   "RAW-COMPANY") == 0);
     assert(session.state.stock_company_auxiliary[1] == 0);
     assert(session.state.stock_company_value[1] == 77);
+    assert(session.state.stock_company_owner[1] == 1);
+    assert(session.state.stock_company_ranking[1][0] == 1);
+    assert(session.state.stock_company_ranking[1][1] == 0);
+    assert(session.state.stock_company_ranking[1][2] == -1);
     /* 0x407DC6..0x407DFE derives auxiliary +0x30 from the stock table;
      * the raw map value is runtime storage and must not seed a new game. */
     assert(session.state.stock_company_available[1] == 6500);

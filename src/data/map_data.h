@@ -31,7 +31,8 @@ typedef struct MapRouteNode {
 typedef struct MapLandRecord {
     int16_t x;
     int16_t y;
-    uint8_t parity_overlay;
+    /* Original +0x17: low nibble price/status, high nibble duration. */
+    uint8_t price_status;
     uint8_t type;
     uint8_t owner_raw;
     uint8_t level;
@@ -49,7 +50,8 @@ typedef struct MapLandRecord {
 typedef struct MapFacilityRecord {
     int16_t x;
     int16_t y;
-    uint8_t parity_overlay;
+    /* Original +0x1c: low nibble price/status, high nibble duration. */
+    uint8_t price_status;
     uint8_t type;
     uint8_t owner_raw;
     uint8_t level;

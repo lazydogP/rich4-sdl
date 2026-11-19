@@ -450,7 +450,8 @@ typedef enum GameCardUsePhase {
     GAME_CARD_USE_REVENGE,
     GAME_CARD_USE_BEFORE_COMMAND_FLASH,
     GAME_CARD_USE_SWAP_HOUSES,
-    GAME_CARD_USE_FINISH_HOLD
+    GAME_CARD_USE_FINISH_HOLD,
+    GAME_CARD_USE_STOCK_HOLD
 } GameCardUsePhase;
 
 typedef struct GameCardDefenseState {
@@ -469,6 +470,9 @@ typedef struct GameCardUsePresentationState {
     int skip_requested;
     int sound_pending;
     int accepted;
+    int reserved_card_slot;
+    GameStockInfo previous_quote;
+    float previous_history_price;
     int resume_panel_phase;
     int skip_caster;
     int revenge_pending;
@@ -517,7 +521,7 @@ typedef struct GamePresentationState {
     GameCardUsePresentationState card_use;
     GamePropertyPresentationState property;
     GameActorPresentationState actors[GAME_MAX_PLAYERS];
-    /* 0x498EA4: six-frame Map[25] overlay, independent of the body frame.
+    /* 0x498EA4: six-frame Data[414] overlay, independent of the body frame.
      * Transient render state: 0x407F83 clears it when a map/save is loaded. */
     int sleepwalking_frame[GAME_MAX_PLAYERS + GAME_SPECIAL_PLAYER_COUNT];
     GameEngineeringAttackState engineering_attack;

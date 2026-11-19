@@ -109,6 +109,17 @@ static void check_sealed_facility_scene(void)
         assert(scene.property_collection_block_reason == GAME_PROPERTY_COLLECTION_BLOCK_SEALED);
         assert(scene.property_fee_label == labels[type]);
     }
+    session.state.stage = 1;
+    session.presentation.ending.active = 1;
+    session.presentation.ending.jump_transition_active = 1;
+    session.presentation.ending.jump_transition_code =
+        RICH4_APP_LIFECYCLE_RESTART_GAME;
+    assert(rich4_app_mark_map_access(&session, 1));
+    assert(rich4_app_mark_map_access(&session, 3));
+    assert(build_game_session_render_view(NULL, NULL, &session, &scene));
+    assert(scene.ending_map_selection_active);
+    assert(scene.ending_stage == 1);
+    assert(scene.ending_map_access_mask == 0x0au);
 }
 
 static void setup(int facility)
@@ -156,7 +167,7 @@ static void check_card_markers(SDL_Surface *screen)
                 Rich4SprSmpChunk mask;
                 int anchor_x, anchor_y;
                 setup(facility);
-                lands[1].parity_overlay = facilities[1].parity_overlay = 0x51;
+                lands[1].price_status = facilities[1].price_status = 0x51;
                 input.map_direction = rotation;
                 state.players[0].card_inventory[0] = card + 1;
                 command = rich4_game_domain_command(GAME_COMMAND_USE_CARD,
@@ -202,7 +213,7 @@ static void check_flash_footprint_and_occlusion(SDL_Surface *screen)
     int facility, rotation, actor, x, y;
     for (facility = 0; facility < 2; facility++) {
         setup(facility);
-        lands[1].parity_overlay = facilities[1].parity_overlay = 0;
+        lands[1].price_status = facilities[1].price_status = 0;
         input.property_flash_active = 1;
         input.property_flash_adjust = 8;
         input.property_flash_target = rich4_game_domain_ref(
@@ -353,7 +364,7 @@ static void check_mask_equivalence_and_speed(SDL_Surface *screen, Rich4Mkf *mkf)
     assets.map.maps[0].land_count = land_count + 1;
     for (i = 0; i < land_count; i++) {
         lands[i+1] = lands[1];
-        lands[i+1].parity_overlay = 0;
+        lands[i+1].price_status = 0;
         lands[i+1].x = 256 + (i % 8) * 32;
         lands[i+1].y = 576 + (i / 8) * 32;
         lands[i+1].variant = i & 1;

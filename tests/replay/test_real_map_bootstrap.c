@@ -807,7 +807,7 @@ static void run_real_map_property_stop(const MapData *map, int object_type,
                                        int *out_index, int *out_owner,
                                        int *out_level)
 {
-    GameSession session;
+    static GameSession session;
     Rich4AppTurnMovementResult movement;
     RouteMoveResult move_result;
     RouteEventExecutionResult execution_result =
@@ -962,7 +962,7 @@ static void finish_real_map_property_stop(
 static void run_real_map_owned_land_charge(
     const MapData *map, RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     GameLandAction action;
     GameEventQueue presentation_events;
     Rich4AudioEventQueue audio_events;
@@ -1035,7 +1035,7 @@ static void run_real_map_owned_land_charge(
 static void run_real_map_owned_facility_roulette(
     const MapData *map, RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     GameEventQueue presentation_events;
     Rich4AudioEventQueue audio_events;
     RouteEventExecutionResult execution_result =
@@ -1554,7 +1554,7 @@ static void record_real_map_natural_ai_turn(
 static void run_real_map_natural_ai(
     const MapData *map, RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     Rich4AppTurnMovementResult movement;
     GameEventQueue presentation_events;
     Rich4AudioEventQueue audio_events;
@@ -1714,7 +1714,7 @@ static void run_real_map_route_action_smoke(
     summary->route_action_smoke_count = 0;
     summary->route_action_smoke_mask = 0;
     for (action = 1; action <= 16; action++) {
-        GameSession session;
+        static GameSession session;
         GameEventQueue presentation_events;
         Rich4AudioEventQueue audio_events;
         RouteEventExecutionResult execution_result =
@@ -1801,7 +1801,7 @@ static int real_map_next_matches(const MapData *map, int node, int previous,
 static void run_real_map_asset_walk(const MapData *map,
                                     RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     Rich4AppTurnMovementResult movement;
     Rich4AudioEventQueue audio_events;
     GameEventQueue presentation_events;
@@ -1993,7 +1993,7 @@ static void run_real_map_asset_walk(const MapData *map,
 static void run_real_map_asset_target_walk(
     const MapData *map, RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     Rich4AppTurnMovementResult movement;
     Rich4AudioEventQueue audio_events;
     GameEventQueue presentation_events;
@@ -2195,7 +2195,7 @@ static void run_real_map_asset_target_walk(
 static void run_real_map_long_walk(const MapData *map,
                                    RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     Rich4AppTurnMovementResult movement;
     Rich4AudioEventQueue audio_events;
     GameEventQueue presentation_events;
@@ -2346,7 +2346,7 @@ static void run_real_map_long_walk(const MapData *map,
 
 static void run_bootstrap(const MapData *map, RealMapReplaySummary *summary)
 {
-    GameSession session;
+    static GameSession session;
     Rich4AppTurnMovementResult result;
     RouteMoveResult move_result;
     int start_node;

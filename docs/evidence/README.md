@@ -32,6 +32,8 @@
 
 | 地址 | 记录 | 当前置信度 |
 |---|---|---|
+| `0x402AC5`、`0x402FD1`、`0x403396`、`0x44808A`、`0x448544` | [原版主存档与时光机数据布局](original-save-data-layout.md) | `confirmed`（固定参考 IDB 的物理布局、挂牌字段和地图运行期写入范围已复核；真实原版存档 fixture 自动解析回归待建） |
+| `0x402AC5`、`0x402FD1`、`0x44808A`、`0x448544` | [SDL 自定义存档覆盖矩阵](sdl-save-coverage.md) | `confirmed`（原版业务状态含四地图访问/终局拼图进度均已覆盖；不宣称与原版 raw 文件逐字节相同） |
 | `0x441BAA`、`0x441F73`、`0x40E669`、`0x443917`、`0x443B0F` | [卡片共同提示、被动反制与收尾](441f73-card-use-presentation.md) | `confirmed`（提示、反制、台词、目标效果、背景切换及等待顺序）；完整录屏逐帧对照 `partial` |
 | `0x43BDE5`、`0x43A2DD`、`0x44EC30`、`0x44EE18`、`0x449735` | [拍卖台词、动画、金额与新闻返回链](43a2dd-auction-presentation-lifecycle.md)；[拍卖规则与资源](43bde5-auction-system.md) | `partial`（IDA 控制流、完整 Big5 字符串及资源字段已复核；完整逐帧/嵌套回合对照待建） |
 | `0x448B81`、`0x448BE2`、`0x44B6DF`、36 项 callback、`0x40A45C` | [新闻抽取与目标选择](news-selection.md) | `confirmed`（抽取/候选、经营者防御、税款与破产、即时股价、地价字宽和动态对象；ID 15 保留避错兼容例外，逐帧边界见正文） |

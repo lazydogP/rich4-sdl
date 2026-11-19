@@ -127,7 +127,7 @@ MapDataError rich4_map_data_parse(const unsigned char *data,
         MapLandRecord *r = &parsed.lands[i];
         memcpy(r->raw, p, sizeof(r->raw));
         r->x = (int16_t)read_u16(p); r->y = (int16_t)read_u16(p + 2);
-        r->parity_overlay = p[0x17];
+        r->price_status = p[0x17];
         r->type = p[0x18]; r->owner_raw = p[0x19]; r->level = p[0x1a]; r->variant = p[0x1b];
         r->price = read_u16(p + 0x1c); r->price_per_level = read_u16(p + 0x1e);
         r->toll_by_level[0] = read_u16(p + 0x20);
@@ -144,7 +144,7 @@ MapDataError rich4_map_data_parse(const unsigned char *data,
         MapFacilityRecord *r = &parsed.facilities[i];
         memcpy(r->raw, p, sizeof(r->raw));
         r->x = (int16_t)read_u16(p); r->y = (int16_t)read_u16(p + 2);
-        r->parity_overlay = p[0x1c];
+        r->price_status = p[0x1c];
         r->type = p[0x18]; r->owner_raw = p[0x19]; r->level = p[0x1a]; r->variant = p[0x1b];
         r->research_selection = p[0x1d];
         r->research_turns = p[0x1e];
@@ -253,7 +253,7 @@ int rich4_map_facility_record_write(const MapFacilityRecord *record,
     out_record[0x19] = record->owner_raw;
     out_record[0x1a] = record->level;
     out_record[0x1b] = record->variant;
-    out_record[0x1c] = record->parity_overlay;
+    out_record[0x1c] = record->price_status;
     out_record[0x1d] = record->research_selection;
     out_record[0x1e] = record->research_turns;
     write_u16(out_record + 0x22, record->price);

@@ -76,8 +76,11 @@ int rich4_app_apply_command(GameSession *session,
         command->subject.id == 9) {
         int current;
         int restored_player;
-        uint32_t live_rng_state;
         PlayerStatusDecision decision;
+        const GameState *snapshot_state;
+        const GameFlowState *snapshot_flow;
+        const GameActorPresentationState *snapshot_actors;
+        const GameMapDynamicObjectState *snapshot_dynamic_objects;
 
         current = session->state.player_count > 0
             ? session->state.current_player % session->state.player_count : 0;
@@ -88,22 +91,21 @@ int rich4_app_apply_command(GameSession *session,
             decision.status_slot >= 50)
             return 0;
         if (rich4_tool_inspect(&session->state, command) !=
-                GAME_TOOL_USE_APPLIED || !session->time_machine_valid)
+                GAME_TOOL_USE_APPLIED ||
+            !rich4_app_time_machine_get(session, current, &snapshot_state,
+                                        &snapshot_flow,
+                                        &snapshot_actors,
+                                        &snapshot_dynamic_objects))
             return 0;
-        restored_player = session->time_machine_state.player_count > 0
-            ? session->time_machine_state.current_player %
-                  session->time_machine_state.player_count : 0;
+        restored_player = snapshot_state->player_count > 0
+            ? snapshot_state->current_player % snapshot_state->player_count : 0;
         if (restored_player < 0)
-            restored_player += session->time_machine_state.player_count;
-        if (session->time_machine_state.players[restored_player]
+            restored_player += snapshot_state->player_count;
+        if (snapshot_state->players[restored_player]
                 .tool_inventory[9] == 0)
             return 0;
         /* 0x448544 restores map/player data, never the rand TLS word. */
-        live_rng_state = session->state.ai_rng_state;
-        session->state = session->time_machine_state;
-        session->state.ai_rng_state = live_rng_state;
-        session->flow = session->time_machine_flow;
-        session->presentation = session->time_machine_presentation;
+        if (!rich4_app_time_machine_restore(session, current)) return 0;
         session->state.players[restored_player].tool_inventory[9]--;
         /* A transfer snapshot may have been captured inside an AI tool
          * handler. Restoring it must not replay that pending command. */
@@ -148,11 +150,8 @@ int rich4_app_apply_command(GameSession *session,
         command->target.id == session->state.current_player &&
         rich4_tool_inspect(&session->state, command) ==
             GAME_TOOL_USE_APPLIED) {
-        session->time_machine_state = session->state;
-        session->time_machine_flow = session->flow;
-        session->time_machine_presentation = session->presentation;
-        session->time_machine_valid = rich4_presentation_rebind_speech(
-            &session->time_machine_presentation);
+        (void)rich4_app_time_machine_capture(session,
+                                             session->state.current_player);
     }
 
     return rich4_app_dispatch_game_command(session, app_command, events);

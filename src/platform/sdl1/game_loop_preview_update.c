@@ -25,7 +25,7 @@
 #include "platform/sdl1/runtime_trace.h"
 
 enum { GAME_ENDING_IDLE_RETURN_MS = 10000 };
-enum { GAME_ENDING_JUMP_PREVIEW_MS = 250 };
+enum { GAME_ENDING_MAP_COMMIT_MS = 500 };
 
 static int game_first_active_player(const GameSession *session)
 {
@@ -61,10 +61,8 @@ static void game_begin_ending_jump_transition(
         ending->reason = 0;
         ending->assets = 0;
     }
-    map = context->settings != NULL
-        ? context->settings->map : context->session->state.map;
-    if (context->ending_map_mask != NULL && map >= 0 && map < 4)
-        *context->ending_map_mask |= 1 << map;
+    map = context->session->state.map;
+    (void)rich4_app_mark_map_access(context->session, map);
 
     ending->continuation_active = 0;
     ending->ending_video_pending = 1;
@@ -73,17 +71,20 @@ static void game_begin_ending_jump_transition(
     ending->jump_transition_code = request->code;
     ending->jump_transition_started = rich4_sdl1_ticks();
 
-    /* 0x4075C1 replaces the normal map music with MIDI07 while it waits for
-     * the JUMP transition.  The fixed-track helper is given play-once
-     * semantics here so the SDL wait has the same finite boundary. */
+    /* An incomplete set enters 0x4060E9 under MIDI07 and stays there until
+     * the original click path exits the modal.  Four completed maps skip
+     * that modal and enter the AVI branch immediately. */
     if (context->main_map_music_active != NULL)
         *context->main_map_music_active = 0;
-    if (context->config != NULL && context->config->music != 0)
+    if (rich4_app_all_maps_accessed(context->session)) {
+        rich4_audio_stop_music(context->audio);
+    } else if (context->config != NULL && context->config->music != 0) {
         (void)start_fixed_music_once(
             context->audio, context->music_dir, 6,
             "ending transition");
-    else
+    } else {
         rich4_audio_stop_music(context->audio);
+    }
 }
 
 static int game_update_ending_jump_transition(
@@ -92,6 +93,7 @@ static int game_update_ending_jump_transition(
     GameEndingPresentationState *ending;
     Uint32 now;
     int map_mask;
+    int selected_map;
     int code;
 
     if (context == NULL || context->session == NULL)
@@ -100,43 +102,70 @@ static int game_update_ending_jump_transition(
     if (!ending->jump_transition_active)
         return 0;
     now = rich4_sdl1_ticks();
-    if (now - ending->jump_transition_started <
-            GAME_ENDING_JUMP_PREVIEW_MS)
-        return 0;
-    if (context->audio != NULL &&
-        rich4_audio_music_playing(context->audio))
-        return 0;
-
-    map_mask = context->ending_map_mask != NULL
-        ? *context->ending_map_mask : 0;
+    map_mask = (int)rich4_app_map_access_mask(context->session);
     code = ending->jump_transition_code;
-    ending->jump_transition_active = 0;
-    ending->jump_transition_code = RICH4_APP_LIFECYCLE_NONE;
-    ending->ending_video_pending = 0;
 
     if ((map_mask & 0x0f) == 0x0f) {
+        ending->jump_transition_active = 0;
+        ending->jump_transition_code = RICH4_APP_LIFECYCLE_NONE;
+        ending->ending_video_pending = 0;
         /* The original sets the terminal latch regardless of whether the
          * host video backend can open the AVI. */
         (void)play_ending_avi_sequence(
             context->assets == NULL ? NULL : context->assets->data_dir,
-            context->settings == NULL ? 0 : context->settings->stage,
+            context->session->state.stage,
             ending->winner_character, map_mask);
         if (context->running != NULL)
             *context->running = 0;
         return 1;
     }
 
-    rich4_app_reset_session(context->session);
     if (code == RICH4_APP_LIFECYCLE_RESTART_GAME) {
+        /* 0x4065E4 accepts only an unfinished row.  0x406935 commits the
+         * selected map, then its ten 50 ms timer ticks finish the modal. */
+        if (ending->ending_video_pending) {
+            if (context->cursor == NULL || !context->cursor->confirm_pressed)
+                return 0;
+            selected_map = rich4_app_commit_ending_next_map(
+                context->session, context->cursor->x, context->cursor->y);
+            context->cursor->confirm_pressed = 0;
+            context->cursor->confirm_pointer_pressed = 0;
+            if (selected_map < 0)
+                return 0;
+            if (context->settings != NULL)
+                context->settings->map = selected_map;
+            ending->ending_video_pending = 0;
+            ending->jump_transition_started = now;
+            return 0;
+        }
+        if (now - ending->jump_transition_started <
+                GAME_ENDING_MAP_COMMIT_MS)
+            return 0;
+    } else {
+        /* With more than one human, 0x4067F9/0x40695D leaves this modal on
+         * the player's next click; it does not expose the next-map rows. */
+        if (context->cursor == NULL ||
+            (!context->cursor->confirm_pressed &&
+             !context->cursor->cancel_pressed))
+            return 0;
+        context->cursor->confirm_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
+        context->cursor->cancel_pressed = 0;
+    }
+
+    rich4_audio_stop_music(context->audio);
+    ending->jump_transition_active = 0;
+    ending->jump_transition_code = RICH4_APP_LIFECYCLE_NONE;
+    ending->ending_video_pending = 0;
+    if (code == RICH4_APP_LIFECYCLE_RESTART_GAME) {
+        rich4_app_reset_session_for_next_map(context->session);
         rich4_scene_machine_request_transition(
             context->scene_machine, context->app_state,
             RICH4_SCENE_NEW_GAME);
     } else {
-        if (code == RICH4_APP_LIFECYCLE_OUTER_MENU_AFTER_JUMP &&
-            context->ending_map_mask != NULL)
-            /* WinMain's code-3 branch returns through LABEL_5, where the
-             * original clears lpBuffer__27 before showing the outer menu. */
-            *context->ending_map_mask = 0;
+        /* WinMain's code-3 branch returns through LABEL_5, where the
+         * original clears lpBuffer__27 before showing the outer menu. */
+        rich4_app_reset_session(context->session);
         if (context->config != NULL && context->config->music != 0)
             (void)start_menu_music(context->audio, context->music_dir);
         else
@@ -193,7 +222,7 @@ static int game_consume_lifecycle_request(GamePreviewFrameContext *context)
     case RICH4_APP_LIFECYCLE_OUTER_MENU_AFTER_JUMP:
         game_begin_ending_jump_transition(context, &request);
         /* Keep drawing this frame so the JUMP.MKF/Panel[93] transition is
-         * visible before the finite MIDI/video boundary completes. */
+         * visible while the original ending modal owns input. */
         return 0;
     case RICH4_APP_LIFECYCLE_OUTER_MENU:
         rich4_app_reset_session(context->session);

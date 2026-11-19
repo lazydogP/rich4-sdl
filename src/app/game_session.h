@@ -32,6 +32,14 @@ typedef struct Rich4AppLifecycleRequest {
     int player;
 } Rich4AppLifecycleRequest;
 
+typedef struct GameTimeMachineSnapshot {
+    GameState state;
+    GameFlowState flow;
+    GameActorPresentationState actors[GAME_MAX_PLAYERS];
+    GameMapDynamicObjectState dynamic_objects[GAME_MAP_DYNAMIC_OBJECT_COUNT];
+    int valid;
+} GameTimeMachineSnapshot;
+
 typedef struct GameSession {
     GameState state;
     GameAiSelectionMemory ai_selection;
@@ -42,6 +50,15 @@ typedef struct GameSession {
     GameFlowState time_machine_flow;
     GamePresentationState time_machine_presentation;
     int time_machine_valid;
+    /* The original 0x44808A/0x448544 pair indexes one snapshot per player.
+     * Keep player zero in the legacy fields above so formats 4..11 can still
+     * be decoded, and store players 1..3 in the additional slots. */
+    GameTimeMachineSnapshot time_machine_other[GAME_MAX_PLAYERS - 1];
+    /* Original 0x4990F0..0x4990F3.  0x4075C1 marks the selected map after
+     * a code-2/code-3 ending; WinMain preserves these four bytes across the
+     * code-2 next-game setup and clears them on return to the outer menu.
+     * They belong to the main save only, not to a time-machine snapshot. */
+    uint8_t map_access_flags[GAME_MAPS_PER_STAGE];
     /* One transient app/platform audio handoff queue per live session. */
     Rich4AudioEventQueue audio_events;
     /* Follow-up domain events produced while a property presentation commits.
@@ -66,8 +83,30 @@ typedef struct GameSession {
 /* Lifecycle reset for the app-owned aggregate. SDL resources are owned by
  * their platform bootstrap and are intentionally outside this operation. */
 void rich4_app_reset_session(GameSession *session);
+/* Code 2 returns directly to the next map/character setup.  Reset the match
+ * while retaining the original process-lifetime four-map progress. */
+void rich4_app_reset_session_for_next_map(GameSession *session);
+int rich4_app_mark_map_access(GameSession *session, int map);
+unsigned int rich4_app_map_access_mask(const GameSession *session);
+int rich4_app_all_maps_accessed(const GameSession *session);
+/* 0x4065E4/0x4065FC: the single-human ending screen accepts only an
+ * unfinished map row inside x=201..439, y=281..439. */
+int rich4_app_ending_next_map_at(const GameSession *session, int x, int y);
+/* 0x406935 commits the accepted row before the ten-tick transition. */
+int rich4_app_commit_ending_next_map(GameSession *session, int x, int y);
 void rich4_app_sync_rng_clock(GameSession *session,
     uint32_t original_tick, uint32_t frame_tick);
+
+/* 0x44808A captures only a live human player's slot.  The getter returns
+ * false for an absent snapshot and exposes no mutable ownership. */
+int rich4_app_time_machine_capture(GameSession *session, int player);
+int rich4_app_time_machine_get(const GameSession *session, int player,
+                               const GameState **out_state,
+                               const GameFlowState **out_flow,
+                               const GameActorPresentationState **out_actors,
+                               const GameMapDynamicObjectState **out_dynamic_objects);
+int rich4_app_time_machine_restore(GameSession *session, int player);
+int rich4_app_time_machine_rebind_all(GameSession *session);
 
 /* The original ending confirmation enters a load selector. Select a local
  * human as the command actor while it is open, then restore on cancel. */

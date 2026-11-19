@@ -316,6 +316,36 @@ void draw_game_ending_presentation(SDL_Surface *screen,
             screen, assets, character_resource, 0,
             SCREEN_W / 2, 300, 1);
 
+    if (scene->ending_map_selection_active && assets != NULL &&
+        assets->menu.has_setup_ui) {
+        Rich4SprSmpChunk list;
+        Rich4SprSmpChunk completed;
+        int list_chunk = scene->ending_stage != 0 ? 20 : 15;
+        int map;
+        if (rich4_spr_smp_get_chunk(
+                assets->menu.setup_data, assets->menu.setup_size,
+                &assets->menu.setup_spr, (size_t)list_chunk, &list) ==
+                RICH4_SPR_SMP_OK &&
+            rich4_spr_smp_get_chunk(
+                assets->menu.setup_data, assets->menu.setup_size,
+                &assets->menu.setup_spr, 10, &completed) ==
+                RICH4_SPR_SMP_OK) {
+            int left = 320 - list.x;
+            int top = 360 - list.y;
+            drew_resource |= draw_chunk_topleft(
+                screen, assets->menu.setup_data, &list, left, top, 0);
+            /* 0x40771B composites chunk 10 into the stage list at local
+             * (220, 40*map+28).  Draw the identical transparent overlay
+             * without mutating the shared resource bytes. */
+            for (map = 0; map < GAME_MAPS_PER_STAGE; map++)
+                if (scene->ending_map_access_mask & (1u << map))
+                    drew_resource |= draw_chunk_topleft(
+                        screen, assets->menu.setup_data, &completed,
+                        left + 220 - completed.x,
+                        top + 40 * map + 28 - completed.y, 1);
+        }
+    }
+
     if (!drew_resource) {
         SDL_LockSurface(screen);
         draw_text(screen, 250, 220, "GAME OVER", 2, 0xffff);

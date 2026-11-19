@@ -114,6 +114,13 @@ int build_game_session_render_view_for_state(
     out_view->ending_assets = session->presentation.ending.assets;
     out_view->ending_jump_active =
         session->presentation.ending.jump_transition_active;
+    out_view->ending_map_selection_active =
+        out_view->ending_jump_active &&
+        session->presentation.ending.jump_transition_code ==
+            RICH4_APP_LIFECYCLE_RESTART_GAME;
+    out_view->ending_map_access_mask =
+        rich4_app_map_access_mask(session);
+    out_view->ending_stage = state->stage;
     out_view->ending_countdown = 10;
     if (session->presentation.ending.continuation_active &&
         session->presentation.ending.continuation_started != 0) {

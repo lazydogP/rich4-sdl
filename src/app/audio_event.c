@@ -78,30 +78,40 @@ int rich4_app_present_turn_around(
     GameSession *session, GameDomainRef target,
     Rich4AudioEventQueue *audio_events)
 {
+    int sound_emitted;
     if (session == NULL) return 0;
     if (target.kind == GAME_DOMAIN_PLAYER) {
-        GameActorPresentationState *actor;
         if (target.id < 0 || target.id >= session->state.player_count)
             return 0;
-        actor = &session->presentation.actors[target.id];
-        actor->direction = (actor->direction + 4) & 7;
-        actor->walk_frame = 0;
     } else if (target.kind == GAME_DOMAIN_SPECIAL_PLAYER) {
-        GameSpecialActorPresentationState *actor =
-            &session->presentation.special_actor;
         if (target.id < 0 || target.id >= GAME_SPECIAL_PLAYER_COUNT)
             return 0;
+    } else {
+        return 0;
+    }
+
+    /* 0x40C78C calls 0x4823F2 (Effect.MKF[56]) before it changes the
+     * actor's direction byte.  Preserve that ordering for both callers. */
+    sound_emitted = audio_events != NULL && rich4_audio_event_emit(
+        audio_events, RICH4_AUDIO_EVENT_TURN_AROUND, 1, 56);
+    if (!sound_emitted)
+        session->presentation.turn_around_sound_pending++;
+
+    if (target.kind == GAME_DOMAIN_PLAYER) {
+        GameActorPresentationState *actor =
+            &session->presentation.actors[target.id];
+        actor->direction = (actor->direction + 4) & 7;
+        actor->walk_frame = 0;
+    } else {
+        GameSpecialActorPresentationState *actor =
+            &session->presentation.special_actor;
+        session->state.special_player_direction[target.id] =
+            (session->state.special_player_direction[target.id] + 4) & 7;
         if (actor->active && actor->slot == target.id) {
             actor->direction = (actor->direction + 4) & 7;
             actor->animation_frame = 0;
         }
-    } else {
-        return 0;
     }
-    if (audio_events != NULL && rich4_audio_event_emit(
-            audio_events, RICH4_AUDIO_EVENT_TURN_AROUND, 1, 56))
-        return 1;
-    session->presentation.turn_around_sound_pending++;
     return 1;
 }
 

@@ -283,13 +283,14 @@ int main(void)
     state.special_player_f10[0] = 0;
     state.special_player_node[0] = 2;
     state.special_player_previous_node[0] = 1;
+    state.special_player_direction[0] = 5;
     assert(rich4_game_view_model_build(&state, &flow, &map, &model));
     assert(model.special_actors[0].visible &&
            model.special_actors[0].world_x == 512 &&
            model.special_actors[0].world_y == 768 &&
            model.special_actors[0].resource_part == 0);
     assert(model.special_actors[0].overlay_chunk == -1);
-    assert(model.special_actors[0].visual_direction == 0);
+    assert(model.special_actors[0].visual_direction == 4);
     state.turn_rotation_index = GAME_MAX_PLAYERS;
     state.special_player_play_state[0] = 0;
     state.special_player_actor_type[0] = 0x81;

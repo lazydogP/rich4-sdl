@@ -18,6 +18,7 @@
 #include "core/game_domain.h"
 #include "core/route_event_queue.h"
 #include "core/periodic_finance.h"
+#include "view/game_view_model.h"
 
 static int save_game_state_matches_map(const GameState *state,
                                        const MapData *map)
@@ -51,10 +52,42 @@ static int save_game_state_matches_map(const GameState *state,
 }
 
 enum {
-    GAME_SAVE_FORMAT_VERSION = 11,
+    GAME_SAVE_FORMAT_VERSION = 12,
     GAME_SAVE_HEADER_SIZE = 20,
     GAME_SAVE_MAX_FILE_SIZE = 64 * 1024 * 1024
 };
+
+static void save_migrate_market_asset_snapshots(GameState *state)
+{
+    int seller;
+    int slot;
+    if (state == NULL) return;
+    for (seller = 0; seller < GAME_MAX_PLAYERS; seller++) {
+        for (slot = 0; slot < GAME_MARKET_LISTING_SLOT_COUNT; slot++) {
+            GameMarketListing *listing = &state->market_listings[seller][slot];
+            int asset;
+            if (listing->type != GAME_MARKET_LISTING_ASSET) continue;
+            if (listing->item_id > 0x7d0 && listing->item_id < 0xfa0) {
+                asset = (int)listing->item_id - 0x7d1;
+                if (asset >= 0 && asset < state->land_count) {
+                    listing->asset_type_snapshot =
+                        (uint8_t)state->land_type[asset];
+                    listing->asset_level_snapshot =
+                        (uint8_t)state->land_level[asset];
+                }
+            } else if (listing->item_id >= 0xfa1 &&
+                       listing->item_id < 0x1770) {
+                asset = (int)listing->item_id - 0xfa1;
+                if (asset >= 0 && asset < state->facility_count) {
+                    listing->asset_type_snapshot =
+                        (uint8_t)state->facility_type[asset];
+                    listing->asset_level_snapshot =
+                        (uint8_t)state->facility_level[asset];
+                }
+            }
+        }
+    }
+}
 
 typedef enum SaveCodecKind {
     SAVE_CODEC_I8,
@@ -405,13 +438,22 @@ static int save_placed_objects_match_map(const GameState *state, int route_count
 int rich4_game_save_session_matches_map(const GameSession *session,
                                         const MapData *map)
 {
+    const GameState *snapshot_state;
+    const GameFlowState *snapshot_flow;
+    const GameActorPresentationState *snapshot_actors;
+    const GameMapDynamicObjectState *snapshot_dynamic_objects;
     int route_count;
-    int i;
+    int i, player;
     if (session == NULL ||
-        !save_game_state_matches_map(&session->state, map) ||
-        (session->time_machine_valid &&
-         !save_game_state_matches_map(&session->time_machine_state, map)))
+        !save_game_state_matches_map(&session->state, map))
         return 0;
+    for (player = 0; player < GAME_MAX_PLAYERS; player++)
+        if (rich4_app_time_machine_get(session, player, &snapshot_state,
+                                      &snapshot_flow,
+                                      &snapshot_actors,
+                                      &snapshot_dynamic_objects) &&
+            !save_game_state_matches_map(snapshot_state, map))
+            return 0;
     route_count = (int)map->route_count;
 
     for (i = 0; i < GAME_MAP_DYNAMIC_OBJECT_COUNT; i++) {
@@ -419,110 +461,138 @@ int rich4_game_save_session_matches_map(const GameSession *session,
             &session->presentation.dynamic_objects[i];
         if (object->node >= map->route_count && object->node != 0)
             return 0;
-        if (session->time_machine_valid) {
-            object = &session->time_machine_presentation.dynamic_objects[i];
+        for (player = 0; player < GAME_MAX_PLAYERS; player++) {
+            if (!rich4_app_time_machine_get(session, player, &snapshot_state,
+                                            &snapshot_flow,
+                                            &snapshot_actors,
+                                            &snapshot_dynamic_objects))
+                continue;
+            object = &snapshot_dynamic_objects[i];
             if (object->node >= map->route_count && object->node != 0)
                 return 0;
         }
     }
-    return save_placed_objects_match_map(&session->state, route_count) &&
-        (!session->time_machine_valid ||
-         save_placed_objects_match_map(&session->time_machine_state, route_count));
+    if (!save_placed_objects_match_map(&session->state, route_count))
+        return 0;
+    for (player = 0; player < GAME_MAX_PLAYERS; player++)
+        if (rich4_app_time_machine_get(session, player, &snapshot_state,
+                                      &snapshot_flow,
+                                      &snapshot_actors,
+                                      &snapshot_dynamic_objects) &&
+            !save_placed_objects_match_map(snapshot_state, route_count))
+            return 0;
+    return 1;
+}
+
+static int save_flow_valid(const GameFlowState *flow)
+{
+    return flow != NULL &&
+        flow->turn_state >= GAME_TURN_STATE_IDLE &&
+        flow->turn_state <= GAME_TURN_STATE_ROUTE_EVENTS &&
+        flow->route_count >= 0 &&
+        flow->route_count <= GAME_MAX_MAP_ROUTE_NODES &&
+        flow->route_facts.count >= 0 &&
+        flow->route_facts.count <= ROUTE_EVENT_COLLECTION_CAPACITY &&
+        flow->route_events.queue.count >= 0 &&
+        flow->route_events.queue.count <= ROUTE_EVENT_QUEUE_CAPACITY &&
+        flow->route_events.queue.head >= 0 &&
+        flow->route_events.queue.head < ROUTE_EVENT_QUEUE_CAPACITY &&
+        flow->route_events.queue.tail >= 0 &&
+        flow->route_events.queue.tail < ROUTE_EVENT_QUEUE_CAPACITY;
+}
+
+static int save_actors_valid(const GameState *state,
+                             const GameActorPresentationState *actors)
+{
+    int i;
+    if (state == NULL || actors == NULL) return 0;
+    for (i = 0; i < GAME_MAX_PLAYERS; i++) {
+        int node = actors[i].move_to_node;
+        if (actors[i].move_active &&
+            (node < 0 || node >= state->tool_route_node_count))
+            return 0;
+    }
+    return 1;
+}
+
+static int save_snapshot_valid(const GameState *state,
+                               const GameFlowState *flow,
+                               const GamePresentationState *presentation)
+{
+    if (!save_game_state_valid(state) || !save_flow_valid(flow) ||
+        presentation == NULL ||
+        presentation->mode < RICH4_PRESENTATION_NONE ||
+        presentation->mode > RICH4_PRESENTATION_GOD ||
+        !save_actors_valid(state, presentation->actors))
+        return 0;
+    /* These original blocking modals do not admit a save operation. */
+    if (presentation->card_use.phase != GAME_CARD_USE_NONE ||
+        presentation->card_use.reserved_card_slot)
+        return 0;
+    if (presentation->special_place_notice.queue.count > 0)
+        return 0;
+    if (presentation->periodic_finance.active ||
+        presentation->bank_settlement.active) return 0;
+    if (presentation->hotel_entry.pending || presentation->hotel_entry.active ||
+        (presentation->confinement_exit.active &&
+         presentation->confinement_exit.kind == GAME_CONFINEMENT_HOTEL))
+        return 0;
+    if (presentation->god_detachment.active ||
+        presentation->god_detachment.speech_pending) return 0;
+    if (presentation->property.insurance_active ||
+        (presentation->company_issue.active &&
+         presentation->company_issue.phase == 1)) return 0;
+    if (presentation->property.god_type != 0) return 0;
+    if (presentation->engineering_attack.active ||
+        presentation->engineering_attack.pending_return)
+        return 0;
+    if (presentation->god_acquisition.death_pending ||
+        presentation->god_acquisition.arrival_speech_phase ||
+        presentation->god_acquisition.money_pending ||
+        presentation->god_acquisition.waiting_for_detach ||
+        presentation->god_acquisition.money.active)
+        return 0;
+    return rich4_presentation_speech_saveable(presentation);
 }
 
 static int save_session_valid(const GameSession *session)
 {
-    int i;
-    const GameState *state;
-    const GameFlowState *flow;
-    const GamePresentationState *presentation;
-    if (session == NULL || !save_game_state_valid(&session->state) ||
+    const GameState *snapshot_state;
+    const GameFlowState *snapshot_flow;
+    const GameActorPresentationState *snapshot_actors;
+    const GameMapDynamicObjectState *snapshot_dynamic_objects;
+    int player;
+    int map;
+
+    if (session == NULL || session->pending_turn_events.count > 0 ||
+        !save_snapshot_valid(&session->state, &session->flow,
+                             &session->presentation) ||
         session->time_machine_valid < 0 || session->time_machine_valid > 1)
         return 0;
-    state = &session->state;
-    flow = &session->flow;
-    presentation = &session->presentation;
-    /* These original blocking modals do not admit a save operation. */
-    if (presentation->card_use.phase != GAME_CARD_USE_NONE ||
-        (session->time_machine_valid &&
-         session->time_machine_presentation.card_use.phase != GAME_CARD_USE_NONE))
-        return 0;
-    if (presentation->special_place_notice.queue.count > 0 ||
-        (session->time_machine_valid &&
-         session->time_machine_presentation.special_place_notice.queue.count > 0))
-        return 0;
-    if (session->pending_turn_events.count > 0 ||
-        presentation->periodic_finance.active || presentation->bank_settlement.active ||
-        (session->time_machine_valid &&
-         (session->time_machine_presentation.periodic_finance.active ||
-          session->time_machine_presentation.bank_settlement.active))) return 0;
-    if (presentation->hotel_entry.pending || presentation->hotel_entry.active ||
-        (presentation->confinement_exit.active &&
-         presentation->confinement_exit.kind == GAME_CONFINEMENT_HOTEL) ||
-        (session->time_machine_valid &&
-         (session->time_machine_presentation.hotel_entry.pending ||
-          session->time_machine_presentation.hotel_entry.active ||
-          (session->time_machine_presentation.confinement_exit.active &&
-           session->time_machine_presentation.confinement_exit.kind == GAME_CONFINEMENT_HOTEL)))) return 0;
-    if (presentation->god_detachment.active || presentation->god_detachment.speech_pending ||
-        (session->time_machine_valid && (session->time_machine_presentation.god_detachment.active ||
-            session->time_machine_presentation.god_detachment.speech_pending))) return 0;
-    if (presentation->property.insurance_active ||
-        (presentation->company_issue.active && presentation->company_issue.phase == 1) ||
-        (session->time_machine_valid &&
-         (session->time_machine_presentation.property.insurance_active ||
-          (session->time_machine_presentation.company_issue.active &&
-           session->time_machine_presentation.company_issue.phase == 1)))) return 0;
-    if (presentation->property.god_type != 0 ||
-        (session->time_machine_valid &&
-         session->time_machine_presentation.property.god_type != 0)) return 0;
-    if (presentation->engineering_attack.active ||
-        presentation->engineering_attack.pending_return ||
-        (session->time_machine_valid &&
-         (session->time_machine_presentation.engineering_attack.active ||
-          session->time_machine_presentation.engineering_attack.pending_return)))
-        return 0;
-    if (presentation->god_acquisition.death_pending ||
-        presentation->god_acquisition.arrival_speech_phase ||
-        (session->time_machine_valid &&
-         (session->time_machine_presentation.god_acquisition.death_pending ||
-          session->time_machine_presentation.god_acquisition.arrival_speech_phase)) ||
-        presentation->god_acquisition.money_pending ||
-        presentation->god_acquisition.waiting_for_detach ||
-        presentation->god_acquisition.money.active ||
-        (session->time_machine_valid &&
-         (session->time_machine_presentation.god_acquisition.money_pending ||
-          session->time_machine_presentation.god_acquisition.waiting_for_detach ||
-          session->time_machine_presentation.god_acquisition.money.active)))
-        return 0;
-    if (flow->turn_state < GAME_TURN_STATE_IDLE ||
-        flow->turn_state > GAME_TURN_STATE_ROUTE_EVENTS ||
-        flow->route_count < 0 || flow->route_count > GAME_MAX_MAP_ROUTE_NODES ||
-        flow->route_facts.count < 0 ||
-        flow->route_facts.count > ROUTE_EVENT_COLLECTION_CAPACITY ||
-        flow->route_events.queue.count < 0 ||
-        flow->route_events.queue.count > ROUTE_EVENT_QUEUE_CAPACITY ||
-        flow->route_events.queue.head < 0 ||
-        flow->route_events.queue.head >= ROUTE_EVENT_QUEUE_CAPACITY ||
-        flow->route_events.queue.tail < 0 ||
-        flow->route_events.queue.tail >= ROUTE_EVENT_QUEUE_CAPACITY ||
-        presentation->mode < RICH4_PRESENTATION_NONE ||
-        presentation->mode > RICH4_PRESENTATION_GOD)
-        return 0;
-    for (i = 0; i < GAME_MAX_PLAYERS; i++) {
-        int node = session->presentation.actors[i].move_to_node;
-        if (session->presentation.actors[i].move_active &&
-            (node < 0 || node >= state->tool_route_node_count))
+    for (map = 0; map < GAME_MAPS_PER_STAGE; map++)
+        if (session->map_access_flags[map] > 1)
             return 0;
-    }
-    if (session->time_machine_valid &&
-        !save_game_state_valid(&session->time_machine_state))
-        return 0;
-    if (!rich4_presentation_speech_saveable(presentation) ||
-        (session->time_machine_valid &&
-         !rich4_presentation_speech_saveable(
-             &session->time_machine_presentation)))
-        return 0;
+    for (player = 1; player < GAME_MAX_PLAYERS; player++)
+        if (session->time_machine_other[player - 1].valid < 0 ||
+            session->time_machine_other[player - 1].valid > 1)
+            return 0;
+    for (player = 0; player < GAME_MAX_PLAYERS; player++)
+        if (rich4_app_time_machine_get(session, player, &snapshot_state,
+                                      &snapshot_flow,
+                                      &snapshot_actors,
+                                      &snapshot_dynamic_objects)) {
+            if (snapshot_state->current_player != player) return 0;
+            if (player == 0) {
+                if (!save_snapshot_valid(
+                        snapshot_state, snapshot_flow,
+                        &session->time_machine_presentation))
+                    return 0;
+            } else if (!save_game_state_valid(snapshot_state) ||
+                       !save_flow_valid(snapshot_flow) ||
+                       !save_actors_valid(snapshot_state, snapshot_actors)) {
+                return 0;
+            }
+        }
     return 1;
 }
 
@@ -623,9 +693,7 @@ int rich4_game_save_resume(GameSession *session, const GameSession *loaded,
     session->rng_clock_offset = clock_offset;
     session->state.ai_rng_state = now + clock_offset;
     if (!rich4_presentation_rebind_speech(&session->presentation) ||
-        (session->time_machine_valid &&
-         !rich4_presentation_rebind_speech(
-             &session->time_machine_presentation)))
+        !rich4_app_time_machine_rebind_all(session))
         return 0;
     session->loaded_music_restart_pending = 1;
     return 1;
@@ -677,6 +745,7 @@ int rich4_game_save_read(const char *path, int slot,
     if (fclose(file) != 0) ok = 0;
     if (!ok || memcmp(bytes, magic, sizeof(magic)) != 0 ||
         (save_get_u32(bytes + 4) != GAME_SAVE_FORMAT_VERSION &&
+         save_get_u32(bytes + 4) != 11 &&
          save_get_u32(bytes + 4) != 10 &&
          save_get_u32(bytes + 4) != 9 &&
          save_get_u32(bytes + 4) != 8 &&
@@ -725,6 +794,32 @@ int rich4_game_save_read(const char *path, int slot,
     } else if (save_get_u32(bytes + 4) == 5)
         codec_v5_GameSession(&codec, decoded);
     else codec_GameSession(&codec, decoded);
+    if (codec.version < 12) {
+        GameState *states[2] = {&decoded->state, &decoded->time_machine_state};
+        int state_count = decoded->time_machine_valid ? 2 : 1;
+        int p, i;
+        /* Formats 4..11 stored these final two bytes as an unused reserved
+         * word.  Original 0x4246C5 records property type/level there and
+         * 0x42483E uses them to invalidate a stale asset listing. */
+        for (p = 0; p < state_count; p++)
+            save_migrate_market_asset_snapshots(states[p]);
+        /* Older SDL saves derived an idle special actor's direction from
+         * its last edge.  Seed the new persistent copy with that same value. */
+        for (p = 0; p < state_count; p++)
+            for (i = 0; i < GAME_SPECIAL_PLAYER_COUNT; i++) {
+                int node = states[p]->special_player_node[i];
+                int previous = states[p]->special_player_previous_node[i];
+                if (node > 0 && previous > 0 &&
+                    node < states[p]->tool_route_node_count &&
+                    previous < states[p]->tool_route_node_count)
+                    states[p]->special_player_direction[i] =
+                        rich4_game_actor_direction_from_delta(
+                            states[p]->tool_route_x[node] -
+                                states[p]->tool_route_x[previous],
+                            states[p]->tool_route_y[node] -
+                                states[p]->tool_route_y[previous]);
+            }
+    }
     if (codec.version < 10) {
         GameState *states[2] = {&decoded->state, &decoded->time_machine_state};
         int p, i;
@@ -792,11 +887,32 @@ int rich4_game_save_read(const char *path, int slot,
             }
         }
     }
+    if (codec.version < 12 && decoded->time_machine_valid) {
+        int owner = decoded->time_machine_state.current_player;
+        if (owner > 0 && owner < GAME_MAX_PLAYERS) {
+            GameTimeMachineSnapshot *snapshot =
+                &decoded->time_machine_other[owner - 1];
+            snapshot->state = decoded->time_machine_state;
+            snapshot->flow = decoded->time_machine_flow;
+            memcpy(snapshot->actors,
+                   decoded->time_machine_presentation.actors,
+                   sizeof(snapshot->actors));
+            memcpy(snapshot->dynamic_objects,
+                   decoded->time_machine_presentation.dynamic_objects,
+                   sizeof(snapshot->dynamic_objects));
+            snapshot->valid = 1;
+            memset(&decoded->time_machine_state, 0,
+                   sizeof(decoded->time_machine_state));
+            memset(&decoded->time_machine_flow, 0,
+                   sizeof(decoded->time_machine_flow));
+            memset(&decoded->time_machine_presentation, 0,
+                   sizeof(decoded->time_machine_presentation));
+            decoded->time_machine_valid = 0;
+        }
+    }
     ok = !codec.failed && codec.position == codec.length &&
          rich4_presentation_rebind_speech(&decoded->presentation) &&
-         (!decoded->time_machine_valid ||
-          rich4_presentation_rebind_speech(
-              &decoded->time_machine_presentation)) &&
+         rich4_app_time_machine_rebind_all(decoded) &&
          save_session_valid(decoded);
     if (ok) {
         rich4_audio_event_queue_init(&decoded->audio_events);
@@ -806,9 +922,7 @@ int rich4_game_save_read(const char *path, int slot,
         rich4_game_event_queue_reset(&decoded->bankruptcy_terminal_events);
         *session = *decoded;
         ok = rich4_presentation_rebind_speech(&session->presentation) &&
-            (!session->time_machine_valid ||
-             rich4_presentation_rebind_speech(
-                 &session->time_machine_presentation));
+            rich4_app_time_machine_rebind_all(session);
     }
     free(decoded);
     free(bytes);

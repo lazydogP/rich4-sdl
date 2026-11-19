@@ -6,6 +6,7 @@
 
 #include "core/ledger.h"
 #include "core/auction.h"
+#include "core/game_command.h"
 #include "core/game_event_payload.h"
 #include "core/victory.h"
 
@@ -45,6 +46,7 @@ int main(void)
     GameState s, before;
     GameEventQueue q;
     GameEvent first, second;
+    GameCommand command;
     int fee, i;
     init_state(&s, 2); rich4_game_event_queue_reset(&q); s.players[0].cash = 100;
     assert(rich4_ledger_pay(&s, 0, rich4_ledger_system(), 100, 0, &q) == GAME_PAYMENT_COMMITTED);
@@ -231,6 +233,26 @@ int main(void)
     assert(s.players[0].play_state == 0 &&
            s.lottery_pool == (int32_t)(123u + 3000000000u));
     assert(s.system_cash == (int32_t)((uint32_t)INT_MAX + 3000000000u));
+
+    /* 0x4246C5 stores an asset's +0x18 type and +0x1a level in listing
+     * bytes +10/+11; 0x42483E rejects it after either value changes. */
+    init_state(&s, 2); rich4_game_event_queue_reset(&q);
+    s.land_count = 1;
+    s.land_owner[0] = 0;
+    s.land_type[0] = 1;
+    s.land_level[0] = 3;
+    s.players[1].cash = 1000;
+    command = rich4_game_command_create_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 0,
+        rich4_game_domain_ref(GAME_DOMAIN_LAND, 0), 500, 0);
+    assert(rich4_ledger_apply_market_command(&s, &command, &q));
+    assert(s.market_listings[0][0].asset_type_snapshot == 1);
+    assert(s.market_listings[0][0].asset_level_snapshot == 3);
+    s.land_level[0] = 4;
+    command = rich4_game_command_buy_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 1, 0, 0);
+    assert(!rich4_ledger_apply_market_command(&s, &command, &q));
+    assert(s.players[1].cash == 1000 && s.land_owner[0] == 0);
     puts("ledger/payment/bankruptcy: ok");
     return 0;
 }

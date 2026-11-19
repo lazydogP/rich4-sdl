@@ -137,9 +137,9 @@ void rich4_game_session_load_map_state(GameSession *session,
         int owner = (int)record->owner_raw - 1;
         session->state.land_owner[i] = owner >= 0 &&
             owner < GAME_MAX_PLAYERS ? owner : -1;
-        session->state.land_price_status[i] = record->parity_overlay;
-        session->state.land_closed_status[i] = (record->parity_overlay & 0x0f)
-            ? record->parity_overlay >> 4 : 0;
+        session->state.land_price_status[i] = record->price_status;
+        session->state.land_closed_status[i] = (record->price_status & 0x0f)
+            ? record->price_status >> 4 : 0;
         session->state.land_type[i] = record->type;
         session->state.land_level[i] = record->level;
         session->state.land_price[i] = record->price;
@@ -203,9 +203,9 @@ void rich4_game_session_load_map_state(GameSession *session,
         session->state.facility_owner[i] = owner >= 0 &&
             owner < GAME_MAX_PLAYERS ? owner : -1;
         session->state.facility_type[i] = record->type;
-        session->state.facility_price_status[i] = record->parity_overlay;
-        session->state.facility_closed_status[i] = (record->parity_overlay & 0x0f)
-            ? record->parity_overlay >> 4 : 0;
+        session->state.facility_price_status[i] = record->price_status;
+        session->state.facility_closed_status[i] = (record->price_status & 0x0f)
+            ? record->price_status >> 4 : 0;
         session->state.facility_variant[i] = record->variant;
         session->state.facility_level[i] = record->level;
         session->state.facility_price[i] = record->price;
@@ -267,6 +267,10 @@ void rich4_game_session_load_map_state(GameSession *session,
            sizeof(session->state.stock_company_value));
     memset(session->state.stock_company_available, 0,
            sizeof(session->state.stock_company_available));
+    memset(session->state.stock_company_owner, 0xff,
+           sizeof(session->state.stock_company_owner));
+    memset(session->state.stock_company_ranking, 0xff,
+           sizeof(session->state.stock_company_ranking));
     rich4_map_data_company_links(map, session->state.stock_company_auxiliary,
                                  GAME_STOCK_COUNT);
     for (i = 0; i < GAME_STOCK_COUNT; i++) {
@@ -277,6 +281,18 @@ void rich4_game_session_load_map_state(GameSession *session,
             session->state.stocks[i].f4 = (uint16_t)(link + 1);
             session->state.stock_company_value[i] =
                 map->auxiliary[link + 1].company_value;
+            {
+                const MapAuxiliaryRecord *record = &map->auxiliary[link + 1];
+                int owner = (int)record->owner_raw - 1;
+                int rank;
+                session->state.stock_company_owner[i] =
+                    owner >= 0 && owner < GAME_MAX_PLAYERS ? owner : -1;
+                for (rank = 0; rank < GAME_MAX_PLAYERS; rank++) {
+                    int player = (int)record->ranking_raw[rank] - 1;
+                    session->state.stock_company_ranking[i][rank] =
+                        player >= 0 && player < GAME_MAX_PLAYERS ? player : -1;
+                }
+            }
             /* 0x407DC6..0x407DFE overwrites auxiliary +0x30 after loading
              * the map: the unissued company shares are 10000 minus the
              * stock record's initial f8 amount.  Map.mkf stores zero here,

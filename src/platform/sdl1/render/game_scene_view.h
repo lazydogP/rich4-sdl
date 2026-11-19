@@ -35,6 +35,9 @@ typedef struct GameSceneView {
     int ending_assets;
     int ending_countdown;
     int ending_jump_active;
+    int ending_map_selection_active;
+    unsigned int ending_map_access_mask;
+    int ending_stage;
     int ending_confirmation_active;
     int ending_confirmation_frame;
     int ending_background_index;

@@ -883,7 +883,7 @@ int main(void)
     deferred_confinement_callback(GAME_SPECIAL_EVENT_FORTUNE, 33, GAME_CONFINEMENT_PRISON);
     deferred_confinement_callback(GAME_SPECIAL_EVENT_FORTUNE, 12, GAME_CONFINEMENT_HOSPITAL);
     company_control_notice_timeline();
-    GameSession session;
+    static GameSession session;
     Rich4AudioEventQueue audio_events;
     GameEvent event;
 

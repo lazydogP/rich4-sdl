@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "app/dice_flow.h"
+#include "app/game_command_flow.h"
 #include "app/turn_movement_flow.h"
 #include "app/turn_rotation_flow.h"
 #include "app/turn_start_flow.h"
@@ -73,9 +74,19 @@ static void news_stopping_turn(int news_id, int is_ai, int tortoise)
     assert(session.flow.turn_wait == 2);
     assert(session.flow.steps_remaining == 0 && session.flow.dice_value == 0);
     assert(!session.presentation.dice.popup_active);
-    assert(session.time_machine_valid);
-    assert(session.time_machine_state.players[0].days_stopping ==
-           GAME_STATUS_PENDING_BIT);
+    if (is_ai) {
+        const GameState *snapshot_state;
+        const GameFlowState *snapshot_flow;
+        const GameActorPresentationState *snapshot_actors;
+        const GameMapDynamicObjectState *snapshot_dynamic_objects;
+        assert(!rich4_app_time_machine_get(
+            &session, 0, &snapshot_state, &snapshot_flow,
+            &snapshot_actors, &snapshot_dynamic_objects));
+    } else {
+        assert(session.time_machine_valid);
+        assert(session.time_machine_state.players[0].days_stopping ==
+               GAME_STATUS_PENDING_BIT);
+    }
     assert(session.state.ai_rng_state == rng_before);
     assert(session.state.players[0].remote_dice_value == 4);
     assert(rich4_app_update_turn_movement(&session, &map, 20, 1019, &movement));
@@ -178,10 +189,21 @@ static void tortoise_card_turns(int self, int is_ai, int traffic, int remote)
         assert(session.state.ai_rng_state == rng_after);
         assert(player->remote_dice_value == remote);
         assert(player->ndices == traffic + 1);
-        assert(session.time_machine_valid);
-        assert(session.time_machine_state.ai_rng_state == rng_before);
-        assert(session.time_machine_state.players[target].node == node);
-        assert(session.time_machine_state.players[target].remote_dice_value == remote);
+        {
+            const GameState *snapshot_state;
+            const GameFlowState *snapshot_flow;
+            const GameActorPresentationState *snapshot_actors;
+            const GameMapDynamicObjectState *snapshot_dynamic_objects;
+            int captured = rich4_app_time_machine_get(
+                &session, target, &snapshot_state, &snapshot_flow,
+                &snapshot_actors, &snapshot_dynamic_objects);
+            assert(captured == !is_ai);
+            if (captured) {
+                assert(snapshot_state->ai_rng_state == rng_before);
+                assert(snapshot_state->players[target].node == node);
+                assert(snapshot_state->players[target].remote_dice_value == remote);
+            }
+        }
         for (guard = 0; guard < 20 &&
              session.flow.turn_state == GAME_TURN_STATE_MOVE; guard++) {
             now += 20;
@@ -208,18 +230,72 @@ static void tortoise_card_turns(int self, int is_ai, int traffic, int remote)
     if (remote) assert(session.flow.dice_value == remote);
 }
 
+static void per_player_time_machine_restore(void)
+{
+    static GameSession session;
+    GameEventQueue events;
+    GameCommand command;
+    const GameState *snapshot_state;
+    const GameFlowState *snapshot_flow;
+    const GameActorPresentationState *snapshot_actors;
+    const GameMapDynamicObjectState *snapshot_dynamic_objects;
+
+    memset(&session, 0, sizeof(session));
+    session.state.active = 1;
+    session.state.player_count = 2;
+    session.state.current_player = 1;
+    session.state.players[0].play_state = 1;
+    session.state.players[1].play_state = 1;
+    session.state.players[1].cash = 1200;
+    session.state.players[1].tool_inventory[9] = 1;
+    session.state.ai_rng_state = 17;
+    session.presentation.map_direction = 3;
+    session.presentation.actors[1].direction = 2;
+    session.presentation.dynamic_objects[0].type = 4;
+    session.presentation.dynamic_objects[0].countdown = 3;
+    assert(rich4_app_time_machine_capture(&session, 1));
+    assert(!session.time_machine_valid);
+    assert(rich4_app_time_machine_get(
+        &session, 1, &snapshot_state, &snapshot_flow,
+        &snapshot_actors, &snapshot_dynamic_objects));
+    assert(snapshot_state->players[1].cash == 1200);
+
+    session.state.players[1].cash = 75;
+    session.state.ai_rng_state = 99;
+    session.presentation.map_direction = 7;
+    session.presentation.actors[1].direction = 6;
+    session.presentation.dynamic_objects[0].countdown = 9;
+    command = rich4_game_command_use_tool(
+        GAME_COMMAND_SOURCE_HUMAN, 1,
+        rich4_game_domain_ref(GAME_DOMAIN_TOOL, 9), 0,
+        rich4_game_domain_ref(GAME_DOMAIN_NONE, -1),
+        rich4_game_domain_ref(GAME_DOMAIN_NONE, -1));
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_app_apply_game_command(&session, &command, &events));
+    assert(session.state.current_player == 1);
+    assert(session.state.players[1].cash == 1200);
+    assert(session.state.players[1].tool_inventory[9] == 0);
+    assert(session.state.ai_rng_state == 99);
+    assert(session.presentation.map_direction == 7);
+    assert(session.presentation.actors[1].direction == 2);
+    assert(session.presentation.dynamic_objects[0].type == 4);
+    assert(session.presentation.dynamic_objects[0].countdown == 3);
+}
+
 int main(void)
 {
     GameSession session;
     unsigned char mask[GAME_DICE_STATUS_W * GAME_DICE_STATUS_H];
+
+    per_player_time_machine_restore();
 
     memset(&session, 0, sizeof(session));
     session.state.active = 1;
     session.state.player_count = 1;
     session.state.current_player = 0;
     session.state.players[0].ndices = 1;
-    session.state.players[0].play_state = 2;
-    session.state.players[0].is_ai = 1;
+    session.state.players[0].play_state = 1;
+    session.state.players[0].is_ai = 0;
     session.state.players[0].remote_dice_value = 4;
     session.flow.turn_flow_active = 1;
     session.flow.turn_state = 2;

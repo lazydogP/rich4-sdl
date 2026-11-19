@@ -439,6 +439,21 @@ static int turn_advance_events_impl(GameState *state,
                 }
             }
             if (rich4_stock_elapsed_months(&next) > previous_months) {
+                int seller;
+                int slot;
+                /* 0x41CFC4 -> 0x428475: every non-empty listing belonging
+                 * to an active player ages once at the month boundary. */
+                for (seller = 0; seller < next.player_count; seller++) {
+                    if ((next.players[seller].play_state & 0xff) == 0)
+                        continue;
+                    for (slot = 0; slot < GAME_MARKET_LISTING_SLOT_COUNT;
+                         slot++) {
+                        GameMarketListing *listing =
+                            &next.market_listings[seller][slot];
+                        if (listing->type != GAME_MARKET_LISTING_EMPTY)
+                            listing->age_months++;
+                    }
+                }
                 defer_property_day = 1;
                 if (!rich4_bank_monthly_settle(&next, &settlement)) return 0;
                 for (player = 0; player < GAME_MAX_PLAYERS; player++) {

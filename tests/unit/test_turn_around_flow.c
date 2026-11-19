@@ -54,11 +54,20 @@ int main(void)
     session.presentation.special_actor.slot = 0;
     session.presentation.special_actor.direction = 1;
     session.presentation.special_actor.animation_frame = 4;
+    session.state.special_player_direction[0] = 1;
     apply_card_turn(
         &session, rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, 0));
     assert(session.presentation.special_actor.direction == 5);
+    assert(session.state.special_player_direction[0] == 5);
     assert(session.presentation.special_actor.animation_frame == 0);
     assert(session.presentation.turn_around_sound_pending == 1);
+
+    session.presentation.special_actor.active = 0;
+    session.state.special_player_direction[1] = 2;
+    apply_card_turn(
+        &session, rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, 1));
+    assert(session.state.special_player_direction[1] == 6);
+    assert(session.presentation.turn_around_sound_pending == 2);
 
     puts("turn-around presentation/audio flow: ok");
     return 0;

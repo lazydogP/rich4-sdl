@@ -43,6 +43,7 @@ int main(void)
     rich4_scene_machine_init(&machine, RICH4_SCENE_INTRO);
     app_state = RICH4_SCENE_INTRO;
     settings.transition_active = 1;
+    assert(rich4_app_mark_map_access(&session, 2));
     context = context_for(
         RICH4_SCENE_INTRO, &session, &settings, &options,
         &machine, &app_state);
@@ -50,6 +51,7 @@ int main(void)
            RICH4_APP_SCENE_CANCEL_SWITCH);
     assert(app_state == RICH4_SCENE_NEW_GAME);
     assert(!settings.transition_active);
+    assert(rich4_app_map_access_mask(&session) == 0x04u);
 
     rich4_scene_machine_init(&machine, RICH4_SCENE_NEW_GAME);
     app_state = RICH4_SCENE_NEW_GAME;
@@ -61,6 +63,15 @@ int main(void)
            RICH4_APP_SCENE_CANCEL_STAY);
     assert(settings.dropdown_row < 0);
     assert(app_state == RICH4_SCENE_NEW_GAME);
+    assert(rich4_app_map_access_mask(&session) == 0x04u);
+
+    context = context_for(
+        RICH4_SCENE_NEW_GAME, &session, &settings, &options,
+        &machine, &app_state);
+    assert(rich4_app_scene_cancel(&context) ==
+           RICH4_APP_SCENE_CANCEL_SWITCH);
+    assert(app_state == RICH4_SCENE_MENU);
+    assert(rich4_app_map_access_mask(&session) == 0);
 
     rich4_scene_machine_init(&machine, RICH4_SCENE_OPTIONS);
     machine.scenes[RICH4_SCENE_OPTIONS].return_scene = RICH4_SCENE_MENU;

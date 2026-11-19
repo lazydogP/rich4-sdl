@@ -11,7 +11,7 @@
 #include "view/game_view_model.h"
 
 static void prepare_edge(GameSpecialActorPresentationState *flow,
-                         const MapData *map)
+                         GameState *state, const MapData *map)
 {
     int from_node;
     int to_node;
@@ -41,6 +41,9 @@ static void prepare_edge(GameSpecialActorPresentationState *flow,
     if (flow->move_distance <= 0) flow->move_distance = 1;
     flow->move_progress = 0;
     flow->direction = rich4_game_actor_direction_from_delta(dx, dy);
+    if (state != NULL && flow->slot >= 0 &&
+        flow->slot < GAME_SPECIAL_PLAYER_COUNT)
+        state->special_player_direction[flow->slot] = flow->direction;
     /* Data.MKF[380 + slot*4 + 3] is sleepwalking.  Otherwise a high-bit
      * route uses part 2 and an ordinary land edge uses walking part 1. */
     flow->resource_part = flow->resource_part == 3 ? 3 :
@@ -95,7 +98,7 @@ void rich4_special_actor_begin(
             (map->routes[action->path_nodes[0]].flags & 0x80000000u) != 0 ? 2 : 0;
         return;
     }
-    prepare_edge(flow, map);
+    prepare_edge(flow, &session->state, map);
 }
 
 static uint32_t action_hold_ms(GameSpecialActorActionKind kind)
@@ -201,7 +204,7 @@ Rich4SpecialActorUpdateResult rich4_special_actor_update(
             if (begin_endpoint_dog(session, map))
                 return RICH4_SPECIAL_ACTOR_UPDATE_DOG;
         } else {
-            prepare_edge(flow, map);
+            prepare_edge(flow, &session->state, map);
         }
         if (endpoint || flow->action_batch.count > 0)
             return RICH4_SPECIAL_ACTOR_UPDATE_ACTIVE;

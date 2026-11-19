@@ -455,8 +455,7 @@ int rich4_game_view_model_build(const GameState *state,
     for (i = 0; i < model.special_actor_count; i++) {
         GameSpecialActorView *actor = &model.special_actors[i];
         int node = state->special_player_node[i];
-        int previous = state->special_player_previous_node[i];
-        int direction = 0;
+        int direction = state->special_player_direction[i] & 7;
         int sleepwalking = (state->special_player_status[i][1] & 0xff) != 0;
         actor->slot = i;
         actor->sleeping = (state->special_player_status[i][0] & 0xff) != 0;
@@ -479,10 +478,6 @@ int rich4_game_view_model_build(const GameState *state,
         }
         actor->world_x = map->routes[node].x;
         actor->world_y = map->routes[node].y;
-        if (previous > 0 && (size_t)previous < map->route_count)
-            direction = rich4_game_actor_direction_from_delta(
-                map->routes[node].x - map->routes[previous].x,
-                map->routes[node].y - map->routes[previous].y);
         actor->visual_direction =
             (8 - model.viewport.direction + direction) & 7;
         /* 0x408970/0x408988 select the third fixed-actor resource on a

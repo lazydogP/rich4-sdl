@@ -72,12 +72,12 @@ int main(void)
     assert(map.routes[1].object.raw_object_id == 2001 && map.routes[1].display_chunk == 9);
     assert(map.routes[1].flags == 0x12345678u && map.routes[1].raw[36] == 0x78);
     assert(map.lands[1].type == 2 && map.lands[1].owner_raw == 3 &&
-           map.lands[1].parity_overlay == 1 && map.lands[1].price == 600);
+           map.lands[1].price_status == 1 && map.lands[1].price == 600);
     assert(map.lands[1].toll_by_level[0] == 80 &&
            map.lands[1].toll_by_level[5] == 130 &&
            map.lands[1].runtime_value == 0x89abcdefu &&
            map.lands[1].lease_date == 0x07d00c0fu);
-    assert(map.facilities[1].type == 6 && map.facilities[1].parity_overlay == 3 &&
+    assert(map.facilities[1].type == 6 && map.facilities[1].price_status == 3 &&
            map.facilities[1].price_per_level == 90 &&
            map.facilities[1].research_selection == 4 &&
            map.facilities[1].research_turns == 5 &&

@@ -84,11 +84,7 @@ void rich4_dice_begin_roll(GameSession *session, uint32_t now)
     if (session->presentation.god_acquisition.active) return;
     current = rich4_dice_player_index(session);
     player = &session->state.players[current];
-    session->time_machine_state = session->state;
-    session->time_machine_flow = session->flow;
-    session->time_machine_presentation = session->presentation;
-    session->time_machine_valid = rich4_presentation_rebind_speech(
-        &session->time_machine_presentation);
+    (void)rich4_app_time_machine_capture(session, current);
     /* 0x40DD53..0x40DD7C saves the time-machine snapshot, then a nonzero
      * +56 bypasses the dice action and enters EA2=0, EA5=2.  The ordinary
      * stop countdown still dispatches the square under the player. */

@@ -906,10 +906,14 @@ static int market_item_is_owned(const GameState *state, int player,
                    listing->quantity;
     case GAME_DOMAIN_LAND:
         return item.id < state->land_count &&
-               state->land_owner[item.id] == player;
+               state->land_owner[item.id] == player &&
+               state->land_type[item.id] == listing->asset_type_snapshot &&
+               state->land_level[item.id] == listing->asset_level_snapshot;
     case GAME_DOMAIN_FACILITY:
         return item.id < state->facility_count &&
-               state->facility_owner[item.id] == player;
+               state->facility_owner[item.id] == player &&
+               state->facility_type[item.id] == listing->asset_type_snapshot &&
+               state->facility_level[item.id] == listing->asset_level_snapshot;
     case GAME_DOMAIN_CARD:
         return rich4_card_inventory_has(state, player, item.id);
     case GAME_DOMAIN_TOOL:
@@ -940,6 +944,13 @@ static int market_add_listing(GameState *state, const GameCommand *command,
     listing.item_id = (uint16_t)item_id;
     listing.ask_price = command->value;
     listing.quantity = (int16_t)command->value2;
+    if (item.kind == GAME_DOMAIN_LAND) {
+        listing.asset_type_snapshot = (uint8_t)state->land_type[item.id];
+        listing.asset_level_snapshot = (uint8_t)state->land_level[item.id];
+    } else if (item.kind == GAME_DOMAIN_FACILITY) {
+        listing.asset_type_snapshot = (uint8_t)state->facility_type[item.id];
+        listing.asset_level_snapshot = (uint8_t)state->facility_level[item.id];
+    }
     if (!market_item_is_owned(state, player, &listing, item)) return 0;
     for (i = 0; i < GAME_MARKET_LISTING_SLOT_COUNT; i++) {
         const GameMarketListing *current = &state->market_listings[player][i];

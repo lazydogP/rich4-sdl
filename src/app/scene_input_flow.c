@@ -19,7 +19,7 @@ Rich4AppSceneCancelAction rich4_app_scene_cancel(
         if (context->settings != NULL)
             rich4_new_game_settings_from_session(
                 context->settings, context->session);
-        rich4_app_reset_session(context->session);
+        rich4_app_reset_session_for_next_map(context->session);
         rich4_scene_machine_request_transition(
             context->scene_machine, context->app_state_out,
             RICH4_SCENE_NEW_GAME);
@@ -31,6 +31,9 @@ Rich4AppSceneCancelAction rich4_app_scene_cancel(
             rich4_new_game_close_dropdown(context->settings);
             return RICH4_APP_SCENE_CANCEL_STAY;
         }
+        /* Returning from setup reaches WinMain LABEL_5 and clears the
+         * process-lifetime four-map progress. */
+        rich4_app_reset_session(context->session);
         rich4_scene_machine_request_transition(
             context->scene_machine, context->app_state_out,
             RICH4_SCENE_MENU);
