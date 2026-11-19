@@ -143,6 +143,12 @@ int game_handle_mouse_button_up_input(
         context->cursor->confirm_pointer_pressed = 0;
         return 1;
     }
+    if (context->app_state == RICH4_SCENE_GAME && game_card_panel_button(
+            context->session, context->assets, context->settings, context->cursor,
+            context->button, 1, context->audio)) {
+        if (context->mouse_left_down && context->button == SDL_BUTTON_LEFT) *context->mouse_left_down = 0;
+        return 1;
+    }
     if (context->button == SDL_BUTTON_LEFT)
         rich4_app_input_clear_map_info(context->session);
 

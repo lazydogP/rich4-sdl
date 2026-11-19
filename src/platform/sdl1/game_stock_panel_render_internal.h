@@ -11,6 +11,9 @@
 #include "platform/sdl1/app_asset_types.h"
 #include "core/stock.h"
 
+void game_draw_stock_panel_contents(SDL_Surface *screen, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, const GameState *state,
+    const GameStockInteractionPresentationState *interaction);
 void game_stock_draw_common_header(SDL_Surface *screen,
                                    const GameState *state,
                                    Rich4StockPanelPage page);

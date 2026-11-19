@@ -3,6 +3,7 @@
  * only the calls and owns the cursor/state values. */
 
 #include "platform/sdl1/runtime_cursor.h"
+#include "platform/sdl1/runtime.h"
 #include "platform/sdl1/test_adapter/diff_adapter.h"
 
 #include "platform/sdl1/input_adapter.h"
@@ -129,6 +130,19 @@ void draw_virtual_cursor_presentation(
                 ? &context->session->presentation.card_panel : NULL,
             context->cursor->x, context->cursor->y,
             display_cursor.chunk_index);
+    }
+    /* 0x4021F8(12,15,10): the 20 ms cursor timer advances after ten ticks. */
+    if (context->app_state == RICH4_SCENE_GAME && context->session &&
+        (context->session->presentation.card_panel.phase == CARD_PANEL_MAP_TARGET ||
+         context->session->presentation.card_panel.phase == CARD_PANEL_STOCK_TARGET) &&
+        display_cursor.chunk_index == 12) {
+        Uint32 now = rich4_sdl1_ticks();
+        if (!context->cursor->card_target_cursor_active)
+            context->cursor->card_target_cursor_started = now;
+        context->cursor->card_target_cursor_active = 1;
+        display_cursor.chunk_index += ((now - context->cursor->card_target_cursor_started) / 200u) % 15;
+    } else {
+        context->cursor->card_target_cursor_active = 0;
     }
     if (context->host_pointer_sync_needed != NULL &&
         *context->host_pointer_sync_needed)

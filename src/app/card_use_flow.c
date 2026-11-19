@@ -8,6 +8,7 @@
 #include "app/route_geometry_flow.h"
 #include "app/special_place_notice_flow.h"
 #include "core/card.h"
+#include "core/stock.h"
 #include "core/game_event_payload.h"
 #include "data/character_speech.h"
 
@@ -113,6 +114,42 @@ static int card_has_flight(int card)
     return card != 2 && card != 6 && card != 7;
 }
 
+/* These handlers call 0x441343 before the caster speaks. Keep the hand
+ * and public supply accurate throughout the blocking speech/animation.
+ * At dispatch, reconstruct the input hand for the normal atomic command:
+ * it applies the effect and debit together, or leaves both rolled back. */
+static void restore_card_for_dispatch(GameSession *session)
+{
+    GameCardUsePresentationState *use = &session->presentation.card_use;
+    if (use->reserved_card_slot) {
+        int slot = use->reserved_card_slot - 1;
+        uint8_t *hand = session->state.players[use->command.player].card_inventory;
+        memmove(hand + slot + 1, hand + slot, GAME_PLAYER_CARD_SLOTS - slot - 1);
+        hand[slot] = (uint8_t)(use->command.subject.id + 1);
+        --session->state.card_amount[use->command.subject.id];
+        use->reserved_card_slot = 0;
+    }
+}
+
+static Rich4CardUseStep card_command_ready(GameSession *session)
+{
+    restore_card_for_dispatch(session);
+    session->presentation.card_use.phase = GAME_CARD_USE_COMMAND;
+    return RICH4_CARD_USE_COMMAND;
+}
+
+static int consumes_before_caster_speech(int card)
+{
+    switch (card + 1) {
+    case 1: case 2: case 6: case 9: case 10: case 11: case 12:
+    case 14: case 15: case 16: case 17: case 23:
+    case 26: case 27: case 28: case 29: case 30:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static void card_begin_handler(GameSession *session, uint32_t now)
 {
     GameCardUsePresentationState *use = &session->presentation.card_use;
@@ -133,6 +170,11 @@ static void card_begin_handler(GameSession *session, uint32_t now)
         use->resume_panel_phase = CARD_PANEL_FACILITY_CHOICE;
         session->presentation.card_panel.primary_target = use->command.target.id;
         session->presentation.card_panel.primary_kind = GAME_DOMAIN_FACILITY;
+    }
+    if (use->command.source == GAME_COMMAND_SOURCE_HUMAN &&
+        consumes_before_caster_speech(card)) {
+        use->reserved_card_slot = rich4_card_consume(&session->state, use->command.player, card);
+        if (!use->reserved_card_slot) return;
     }
     use->phase = GAME_CARD_USE_CASTER_SPEECH;
     if (!use->skip_caster && !((card == 13 || card == 29) &&
@@ -155,6 +197,13 @@ int rich4_card_use_begin(GameSession *session, const GameCommand *command,
         session->presentation.card_use.phase != GAME_CARD_USE_NONE)
         return 0;
     use = &session->presentation.card_use;
+    if (use->reserved_card_slot) {
+        /* The angel's mandatory building choice continues the same use. */
+        if (use->command.subject.id != command->subject.id || use->command.player != command->player ||
+            use->command.target.kind != command->target.kind || use->command.target.id != command->target.id)
+            return 0;
+        restore_card_for_dispatch(session);
+    }
     memset(use, 0, sizeof(*use));
     use->command = *command;
     use->skip_caster = command->source == GAME_COMMAND_SOURCE_HUMAN &&
@@ -193,7 +242,8 @@ int rich4_card_use_begin_selection(GameSession *session, int player, int card,
     if (!rich4_card_use_begin(session, &command, map, 0, now)) return 0;
     session->presentation.card_use.resume_panel_phase = panel_phase;
     session->presentation.card_use.phase = GAME_CARD_USE_CASTER_SPEECH;
-    card_say(session, player, 0, card, caster_type(card), now);
+    if (!session->presentation.speech.active)
+        card_say(session, player, 0, card, caster_type(card), now);
     session->presentation.card_panel.phase = CARD_PANEL_WAIT_HANDLER;
     return 1;
 }
@@ -245,15 +295,27 @@ Rich4CardUseStep rich4_card_use_update(GameSession *session,
             use->phase = GAME_CARD_USE_DONE;
             return RICH4_CARD_USE_FINISHED;
         }
+        if (use->command.source == GAME_COMMAND_SOURCE_HUMAN &&
+            use->command.target.kind == GAME_DOMAIN_STOCK &&
+            (use->command.subject.id == 23 || use->command.subject.id == 24)) {
+            int stock = use->command.target.id;
+            int history = rich4_stock_latest_history_index(&session->state);
+            use->previous_quote = session->state.stocks[stock];
+            use->previous_history_price = session->state.stock_history[stock][history];
+            if (!rich4_stock_apply_card_quote(&session->state, stock, use->command.subject.id == 23))
+                return card_command_ready(session);
+            /* 0x42B137 refreshes the quote page before the blocking 1000 ms wait. */
+            use->started = now;
+            use->phase = GAME_CARD_USE_STOCK_HOLD;
+            return RICH4_CARD_USE_WAIT;
+        }
         if (use->command.subject.id == 23 || use->command.subject.id == 24 ||
             (use->skip_caster && (use->command.subject.id == 12 || use->command.subject.id == 8))) {
             if (use->command.subject.id == 8) use->flash_pending = 0;
-            use->phase = GAME_CARD_USE_COMMAND;
-            return RICH4_CARD_USE_COMMAND;
+            return card_command_ready(session);
         }
         if (card_commits_before_flight(use)) {
-            use->phase = GAME_CARD_USE_COMMAND;
-            return RICH4_CARD_USE_COMMAND;
+            return card_command_ready(session);
         }
         use->started = now;
         use->phase = GAME_CARD_USE_FLIGHT;
@@ -398,8 +460,7 @@ Rich4CardUseStep rich4_card_use_update(GameSession *session,
         /* fall through */
     case GAME_CARD_USE_TARGET_SPEECH:
         if (session->presentation.speech.active) return RICH4_CARD_USE_WAIT;
-        use->phase = GAME_CARD_USE_COMMAND;
-        return RICH4_CARD_USE_COMMAND;
+        return card_command_ready(session);
     case GAME_CARD_USE_SWAP_HOUSES:
         if (now - use->swap_tick < 24u) return RICH4_CARD_USE_WAIT;
         use->swap_tick = now;
@@ -411,7 +472,7 @@ Rich4CardUseStep rich4_card_use_update(GameSession *session,
         use->phase = GAME_CARD_USE_COMMAND;
         /* fall through */
     case GAME_CARD_USE_COMMAND:
-        return RICH4_CARD_USE_COMMAND;
+        return card_command_ready(session);
     case GAME_CARD_USE_EFFECTS:
         if (rich4_card_effect_flash_update(session, now)) return RICH4_CARD_USE_WAIT;
         if (use->accepted && use->max_level_pending) return RICH4_CARD_USE_MAX_LEVEL;
@@ -445,7 +506,8 @@ Rich4CardUseStep rich4_card_use_update(GameSession *session,
             int card = use->command.subject.id;
             int type = card == 25 || card == 3 || card == 4 ? 2 : card == 28 ? 0 : 1;
             if (card == 1 || (card >= 2 && card <= 4) || card == 10 || card == 11 ||
-                card == 12 || card == 25 || card == 28)
+                card == 12 || (card == 25 && use->victim_player != use->command.player) ||
+                card == 28)
                 card_say(session, card == 3 || card == 4 ? use->exchange_victim : use->victim_player,
                     2, card, type, now);
         }
@@ -456,6 +518,16 @@ Rich4CardUseStep rich4_card_use_update(GameSession *session,
         if (use->accepted && use->command.subject.id == 21)
             card_say(session, use->command.player, 0, 21, 0, now);
         return RICH4_CARD_USE_WAIT;
+    case GAME_CARD_USE_STOCK_HOLD: {
+        int stock = use->command.target.id;
+        int history = rich4_stock_latest_history_index(&session->state);
+        if (now - use->started < 1000u) return RICH4_CARD_USE_WAIT;
+        /* Replay the pre-quote state through the atomic command at the
+         * original debit point. Failure restores both the hand and quote. */
+        session->state.stocks[stock] = use->previous_quote;
+        session->state.stock_history[stock][history] = use->previous_history_price;
+        return card_command_ready(session);
+    }
     case GAME_CARD_USE_FINISH_HOLD:
         if (now - use->started < 500u) return RICH4_CARD_USE_WAIT;
         use->finish_hold_done = 1;
@@ -489,7 +561,12 @@ void rich4_card_use_command_completed(GameSession *session, int accepted, uint32
         }
         if (accepted && session->presentation.card_use.flash_pending)
             rich4_card_effect_flash(session, now);
-        if (accepted && command->subject.id == 25 && !session->presentation.card_use.blocked) {
+        /* 0x44536F compares the final payer with the caster before the
+         * payment message and victim speech.  A misdirect back to the
+         * caster skips both. */
+        if (accepted && command->subject.id == 25 &&
+            !session->presentation.card_use.blocked &&
+            session->presentation.card_use.victim_player != command->player) {
             GameCardUsePresentationState *use = &session->presentation.card_use;
             GameEvent notice = rich4_game_event_special_place_notice(command->player,
                 GAME_SPECIAL_NOTICE_CARD_TAX, rich4_game_domain_ref(GAME_DOMAIN_PLAYER,

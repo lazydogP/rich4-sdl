@@ -477,7 +477,7 @@ static void draw_stock_closed_message(SDL_Surface *screen)
                    rich4_character_rgb565_color(0x00f0f0f0u), 0, 2, 2);
 }
 
-static void render_stock_panel_contents(SDL_Surface *screen,
+void game_draw_stock_panel_contents(SDL_Surface *screen,
                                         const GamePreviewAssets *assets,
                                         const NewGameSettings *settings,
                                         const GameState *state,
@@ -531,12 +531,12 @@ void game_draw_stock_panel(SDL_Surface *screen,
         panel->render_dirty = 1;
     }
     if (panel->render_cache == NULL) {
-        render_stock_panel_contents(
+        game_draw_stock_panel_contents(
             screen, assets, settings, game_state, state);
         return;
     }
     if (panel->render_dirty) {
-        render_stock_panel_contents(
+        game_draw_stock_panel_contents(
             panel->render_cache, assets, settings, game_state, state);
         panel->render_dirty = 0;
     }

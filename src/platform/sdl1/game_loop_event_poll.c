@@ -145,6 +145,13 @@ void game_poll_runtime_events(GameEventPollContext *context)
                     &command, RICH4_APP_COMMAND_KEY_DOWN,
                     event.key.keysym.sym, event.key.keysym.mod))
                 continue;
+            /* Defer virtual card confirmation to key-up so that its release
+             * cannot dismiss the notice or speech it has just opened. */
+            if (*app_state == RICH4_SCENE_GAME &&
+                key_down->session->presentation.card_panel.phase != CARD_PANEL_CLOSED &&
+                key_down->session->presentation.card_panel.phase != CARD_PANEL_WAIT_HANDLER &&
+                (command.key == key_down->confirm_key || command.key == key_down->cancel_key))
+                continue;
             key_down->app_state = *app_state;
             key_down->key = command.key;
             key_down->key_modifiers = command.modifiers;
@@ -152,11 +159,30 @@ void game_poll_runtime_events(GameEventPollContext *context)
                 continue;
         } else if (event.type == SDL_KEYUP) {
             Rich4AppCommand command;
+            key_up->app_state = *app_state;
             if (!rich4_sdl1_key_command(
                     &command, RICH4_APP_COMMAND_KEY_UP,
-                    event.key.keysym.sym, event.key.keysym.mod))
+                    event.key.keysym.sym, event.key.keysym.mod)) {
+                /* 0x4528B9 and player_say accept any key release. */
+                if (*app_state == RICH4_SCENE_GAME &&
+                    (key_up->session->presentation.card_panel.phase == CARD_PANEL_EFFECT ||
+                     key_up->session->presentation.card_use.phase != GAME_CARD_USE_NONE))
+                    game_handle_key_up_modals(key_up);
                 continue;
-            key_up->app_state = *app_state;
+            }
+            if (*app_state == RICH4_SCENE_GAME &&
+                (command.key == key_down->confirm_key || command.key == key_down->cancel_key)) {
+                CardPanelState *panel = &key_up->session->presentation.card_panel;
+                if (panel->phase == CARD_PANEL_INVENTORY || panel->phase == CARD_PANEL_MAP_TARGET ||
+                    panel->phase == CARD_PANEL_ROBBERY_TARGET || panel->phase == CARD_PANEL_FACILITY_CHOICE ||
+                    panel->phase == CARD_PANEL_STOCK_TARGET) {
+                    if (command.key == key_down->confirm_key)
+                        game_card_panel_confirm(key_up->session, key_down->assets, key_down->settings,
+                            panel, key_down->cursor->x, key_down->cursor->y, rich4_sdl1_ticks(), key_down->audio);
+                    else game_card_panel_cancel_input(panel, key_down->audio);
+                    continue;
+                }
+            }
             if (*app_state == RICH4_SCENE_GAME &&
                 command.key == key_down->cancel_key) {
                 if (key_up->session->presentation.ai_settings.active) {

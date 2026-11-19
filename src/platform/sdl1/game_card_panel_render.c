@@ -3,6 +3,7 @@
 #include <SDL/SDL.h>
 
 #include "app/card_panel_state.h"
+#include "platform/sdl1/game_stock_panel_render_internal.h"
 #include "app/game_session.h"
 #include "core/game_constants.h"
 #include "platform/sdl1/audio/audio_sdl_mixer.h"
@@ -34,7 +35,22 @@ void game_draw_card_panel(SDL_Surface *screen,
 {
     int i;
     if (screen == NULL || assets == NULL || session == NULL || panel == NULL ||
-        panel->phase == CARD_PANEL_CLOSED || panel->phase == CARD_PANEL_WAIT_HANDLER) return;
+        panel->phase == CARD_PANEL_CLOSED) return;
+    if (panel->phase == CARD_PANEL_STOCK_TARGET ||
+        session->presentation.card_use.phase == GAME_CARD_USE_STOCK_HOLD) {
+        NewGameSettings settings = {
+            .stage = session->state.stage,
+            .map = session->state.map
+        };
+        GameStockInteractionPresentationState quotes = {
+            .active = 1,
+            .page = RICH4_STOCK_PANEL_QUOTES,
+            .selected_stock = panel->phase == CARD_PANEL_STOCK_TARGET ? panel->hover : -1
+        };
+        game_draw_stock_panel_contents(screen, assets, &settings, &session->state, &quotes);
+        return;
+    }
+    if (panel->phase == CARD_PANEL_WAIT_HANDLER) return;
     if (panel->phase == CARD_PANEL_EFFECT) {
         draw_card_use_notice(screen, assets, panel->selected_card);
         return;
@@ -81,10 +97,11 @@ void game_draw_card_panel(SDL_Surface *screen,
                                     163 + row * 56,
                                     game_card_big5_name(id - 1), 2);
         }
-        if (panel->selected_slot >= 0)
-            draw_game_panel_chunk(screen, assets, 11, 15,
-                19 + (panel->selected_slot % 5) * 80,
-                135 + (panel->selected_slot / 5) * 56, 1);
+        if (panel->selected_slot >= 0 && panel->selected_slot < GAME_PLAYER_CARD_SLOTS) {
+            int left = 20 + panel->selected_slot % 5 * 80;
+            int top = 136 + panel->selected_slot / 5 * 56;
+            draw_game_pressed_region(screen, left, top, left + 78, top + 54);
+        }
         return;
     }
     if (panel->phase == CARD_PANEL_FACILITY_CHOICE) {
@@ -128,27 +145,15 @@ void game_draw_card_panel(SDL_Surface *screen,
         if (panel->selected_slot >= 0) {
             int tool = (panel->selected_slot & 0x8000) != 0;
             int selected = panel->selected_slot & 0x7fff;
-            SDL_LockSurface(screen);
-            stroke_rect(screen, 19 + (selected % 5) * 80,
-                        (tool ? 275 : 75) + (selected / 5) * 56,
-                        80, 56, 0xffff);
-            SDL_UnlockSurface(screen);
-        }
-        return;
-    }
-    if (panel->phase == CARD_PANEL_STOCK_TARGET) {
-        SDL_LockSurface(screen);
-        fill_rect(screen, 70, 72, 300, 330, 0x7bef);
-        stroke_rect(screen, 70, 72, 300, 330, 0x0000);
-        SDL_UnlockSurface(screen);
-        /* Calls at 0x444FFA / 0x4450BE enter the shared 0x42B58F stock UI.
-         * Neither path adds a red/black-card selection title. */
-        for (i = 0; i < GAME_STOCK_COUNT; i++) {
-            char label[48];
-            snprintf(label, sizeof(label), "%02d   %.2f", i + 1,
-                     (double)session->state.stocks[i].f12);
-            draw_text(screen, 112 + (i / 8) * 130,
-                      124 + (i % 8) * 31, label, 1, 0x0000);
+            if (tool) {
+                int packed = 0;
+                for (int id = 0; id < selected && id < GAME_TOOL_COUNT; ++id)
+                    if (session->state.players[owner].tool_inventory[id]) ++packed;
+                selected = packed;
+            }
+            int left = 20 + selected % 5 * 80;
+            int top = (tool ? 276 : 76) + selected / 5 * 56;
+            draw_game_pressed_region(screen, left, top, left + 78, top + 54);
         }
         return;
     }

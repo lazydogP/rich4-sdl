@@ -5,7 +5,6 @@
 
 int rich4_card_append_events(GameEventQueue *events,
                              const GameEventQueue *staged);
-int rich4_card_consume(GameState *state, int player, int card);
 int rich4_card_resolve_attack_deferred_confinement(GameState *state, int actor,
     int target, GameCardAttackKind kind, int redirect_target, GameEventQueue *events);
 int rich4_card_apply_average_cash(GameState *state, int actor,

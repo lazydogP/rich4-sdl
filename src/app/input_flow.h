@@ -16,6 +16,8 @@ typedef struct VirtualCursor {
     int confirm_pressed;
     int confirm_pointer_pressed;
     int cancel_pressed;
+    int card_target_cursor_active;
+    uint32_t card_target_cursor_started;
 } VirtualCursor;
 
 int rich4_app_input_ui_active(

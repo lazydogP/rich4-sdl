@@ -37,7 +37,7 @@ static void test_gates(void)
 {
     NewGameSettings settings;
     GameSession session;
-    VirtualCursor cursor = { 7, 9, 0, 0, 0 };
+    VirtualCursor cursor = { .x = 7, .y = 9 };
     Rich4AppCommand pointer = rich4_app_pointer_command(
         RICH4_APP_COMMAND_POINTER_MOVE, 123, 234, 0);
     memset(&settings, 0, sizeof(settings));

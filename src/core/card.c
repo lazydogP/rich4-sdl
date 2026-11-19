@@ -215,7 +215,7 @@ static int valid_demolish_map_object_ref(const GameState *state,
     return kind >= 0x10 && kind <= 0x12;
 }
 
-static int valid_demolish_property_ref(const GameState *state, int actor,
+static int valid_destruction_property(const GameState *state, int actor,
                                        GameDomainRef ref)
 {
     int owner;
@@ -228,7 +228,75 @@ static int valid_demolish_property_ref(const GameState *state, int actor,
         owner = state->land_owner[ref.id];
         level = state->land_level[ref.id];
     }
-    return valid_player(state, owner) && owner != actor && level > 0;
+    return owner != actor && level > 0;
+}
+
+/* Immediates passed to the human map selector (0x446AE8). */
+uint32_t rich4_card_map_mask(int card, GameDomainKind source)
+{
+    if ((unsigned)card >= GAME_CARD_COUNT) return 0;
+    switch (card + 1) {
+    case 2: case 13: case 26: case 29: return 0x0E0C0410u;
+    case 4: case 5:
+        if (source == GAME_DOMAIN_LAND) return 0x0E0C0202u;
+        if (source == GAME_DOMAIN_FACILITY) return 0x0E0C0204u;
+        return 0;
+    case 6: case 14: case 30: return 0x0E0C0010u;
+    case 9: case 10: case 27: case 28: return 0x0E0C0006u;
+    case 11: return 0x0E0C0506u;
+    case 12: return 0x0E0C0626u;
+    case 16: case 17: return 0x0E0C0710u;
+    default: return 0;
+    }
+}
+
+GameDomainRef rich4_card_property_from_raw(const GameState *state, int raw)
+{
+    GameDomainRef ref = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    if (state == NULL) return ref;
+    if (raw > 2000 && raw < 4000)
+        ref = rich4_game_domain_ref(GAME_DOMAIN_LAND, raw - 2001);
+    else if (raw > 4000 && raw < 6000)
+        ref = rich4_game_domain_ref(GAME_DOMAIN_FACILITY, raw - 4001);
+    return valid_property_ref(state, ref) ? ref : rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+}
+
+/* 0x445E4D filters the single ID painted under the cursor. Occupancy
+ * exclusions inspect all bits before 0x40D293 takes the lowest set bit. */
+GameDomainRef rich4_card_map_hit(const GameState *state, int actor, uint32_t mask,
+                                 GameDomainRef source, int raw)
+{
+    GameDomainRef none = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    unsigned rule = (mask >> 8) & 0xff;
+    if (!state || actor < 0 || actor >= state->player_count ||
+        actor >= GAME_MAX_PLAYERS || !mask || raw <= 0 || raw > 0xffff) return none;
+
+    if ((raw & 0x8000) == 0) {
+        GameDomainRef ref = rich4_card_property_from_raw(state, raw);
+        if ((ref.kind != GAME_DOMAIN_LAND || !(mask & 2)) &&
+            (ref.kind != GAME_DOMAIN_FACILITY || !(mask & 4))) return none;
+        if (rule == 2 && (ref.kind != source.kind || ref.id == source.id)) return none;
+        if ((rule == 5 || rule == 6) && !valid_destruction_property(state, actor, ref)) return none;
+        return ref;
+    }
+    if ((mask & 0x10) && (raw & 0xff)) {
+        int i = 0;
+        if ((rule == 4 && !(raw & 0xf)) ||
+            ((rule == 4 || rule == 7) && (raw & (1 << actor)))) return none;
+        while (!(raw & (1 << i))) ++i;
+        if (i < GAME_MAX_PLAYERS)
+            return i < state->player_count && (state->players[i].play_state & 0xff)
+                ? rich4_game_domain_ref(GAME_DOMAIN_PLAYER, i) : none;
+        return rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, i - GAME_MAX_PLAYERS);
+    }
+    if ((mask & 0x20) && rule == 6) {
+        /* 0x446528 and the handler both index bits 8..14. Only ground
+         * tools occupy these 30 slots; the attached-bomb marker is outside them. */
+        int slot = ((raw & 0x7f00) >> 8) - 1 - 16;
+        GameDomainRef ref = rich4_game_domain_ref(GAME_DOMAIN_MAP_OBJECT, slot);
+        if (valid_demolish_map_object_ref(state, ref)) return ref;
+    }
+    return none;
 }
 
 GameCardUseResult rich4_card_inspect(const GameState *state,
@@ -265,18 +333,23 @@ GameCardUseResult rich4_card_inspect(const GameState *state,
                 return GAME_CARD_USE_UNAVAILABLE;
         }
     } else if (info->target_kind == GAME_CARD_TARGET_PLAYER) {
-        if (!target_is_active_character(state, command)) return GAME_CARD_USE_INVALID;
+        unsigned rule = (rich4_card_map_mask(card, GAME_DOMAIN_NONE) >> 8) & 0xff;
+        if (!target_is_active_character(state, command) ||
+            (rule == 4 && command->target.kind != GAME_DOMAIN_PLAYER) ||
+            ((rule == 4 || rule == 7) && command->target.kind == GAME_DOMAIN_PLAYER &&
+             command->target.id == command->player)) return GAME_CARD_USE_INVALID;
     } else if (info->target_kind == GAME_CARD_TARGET_PROPERTY_OR_MAP_OBJECT) {
         if (command->target.kind == GAME_DOMAIN_MAP_OBJECT) {
             if (!valid_demolish_map_object_ref(state, command->target))
                 return GAME_CARD_USE_INVALID;
-        } else if (!valid_demolish_property_ref(
+        } else if (!valid_destruction_property(
                        state, command->player, command->target)) {
             return GAME_CARD_USE_INVALID;
         }
     } else if (info->target_kind == GAME_CARD_TARGET_PROPERTY ||
                info->target_kind == GAME_CARD_TARGET_CURRENT_PROPERTY) {
-        if (!valid_property_ref(state, command->target))
+        if (!valid_property_ref(state, command->target) ||
+            (card == 10 && !valid_destruction_property(state, command->player, command->target)))
             return GAME_CARD_USE_INVALID;
     } else if (info->target_kind == GAME_CARD_TARGET_STOCK) {
         if (command->target.kind != GAME_DOMAIN_STOCK ||
@@ -295,17 +368,17 @@ GameCardUseResult rich4_card_inspect(const GameState *state,
 
 int rich4_card_consume(GameState *state, int player, int card)
 {
-    int original_id = card + 1, i;
-    if (state->card_amount[card] >= 255) return 0;
-    for (i = 0; i < GAME_PLAYER_CARD_SLOTS; i++)
-        if (state->players[player].card_inventory[i] == original_id) break;
-    if (i == GAME_PLAYER_CARD_SLOTS) return 0;
-    for (; i + 1 < GAME_PLAYER_CARD_SLOTS; i++)
+    int slot;
+    if (!valid_player(state, player) || !rich4_card_info(card) || state->card_amount[card] >= 255) return 0;
+    for (slot = 0; slot < GAME_PLAYER_CARD_SLOTS; slot++)
+        if (state->players[player].card_inventory[slot] == card + 1) break;
+    if (slot == GAME_PLAYER_CARD_SLOTS) return 0;
+    for (int i = slot; i + 1 < GAME_PLAYER_CARD_SLOTS; i++)
         state->players[player].card_inventory[i] =
             state->players[player].card_inventory[i + 1];
     state->players[player].card_inventory[GAME_PLAYER_CARD_SLOTS - 1] = 0;
     state->card_amount[card]++;
-    return 1;
+    return slot + 1;
 }
 
 int rich4_card_apply_average_cash(GameState *state, int actor, GameEventQueue *events)

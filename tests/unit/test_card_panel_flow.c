@@ -27,8 +27,8 @@ int main(void)
     panel.selected_card = 4;
     assert(rich4_card_panel_map_target_kind(&panel) ==
            GAME_CARD_TARGET_PROPERTY);
-    assert(rich4_card_panel_cancel(&panel));
-    assert(panel.phase == CARD_PANEL_CLOSED && panel.selected_card == -1);
+    assert(!rich4_card_panel_cancel(&panel));
+    assert(panel.phase == CARD_PANEL_EFFECT);
 
     memset(&session, 0, sizeof(session));
     session.state.player_count = 1;
@@ -47,6 +47,17 @@ int main(void)
 
     assert(rich4_game_domain_ref_is_none(
         rich4_card_panel_current_property_ref(&session)));
+
+    session.state.tool_route_node_count = 3;
+    session.state.land_count = session.state.facility_count = 1;
+    session.state.route_object_raw[1] = 2001;
+    session.state.route_object_raw[2] = 4001;
+    session.state.players[0].node = 1;
+    assert(rich4_card_panel_current_property_ref(&session).kind == GAME_DOMAIN_LAND);
+    session.state.players[0].node = 2;
+    assert(rich4_card_panel_current_property_ref(&session).kind == GAME_DOMAIN_FACILITY);
+    session.state.route_object_raw[2] = 0;
+    assert(rich4_game_domain_ref_is_none(rich4_card_panel_current_property_ref(&session)));
 
     assert(rich4_card_panel_slot_at(19, 135) == 0);
     assert(rich4_card_panel_slot_at(99, 191) == 6);
@@ -254,7 +265,7 @@ int main(void)
         assert(action.sound == RICH4_CARD_PANEL_SOUND_NONE);
         assert(panel.phase == CARD_PANEL_STOCK_TARGET);
         action = rich4_card_panel_pointer_action(
-            &panel, &session, 112, 124,
+            &panel, &session, 112, 96,
             rich4_game_domain_ref(GAME_DOMAIN_NONE, -1), 0, 100);
         assert(action.kind == RICH4_CARD_PANEL_ACTION_SUBMIT);
         assert(action.target.kind == GAME_DOMAIN_STOCK &&

@@ -39,6 +39,7 @@ typedef enum Rich4CardPanelSound {
     RICH4_CARD_PANEL_SOUND_INVALID,
     RICH4_CARD_PANEL_SOUND_OK_INVALID,
     RICH4_CARD_PANEL_SOUND_OK_CARD,
+    RICH4_CARD_PANEL_SOUND_CARD,
     RICH4_CARD_PANEL_SOUND_TARGET
 } Rich4CardPanelSound;
 
@@ -66,6 +67,9 @@ typedef enum Rich4CardPanelTimedResult {
  * pointer coordinates; the inventory relationship is read from GameSession. */
 void rich4_card_panel_reset(CardPanelState *panel);
 void rich4_card_panel_open(CardPanelState *panel, GameSession *session);
+int rich4_card_panel_press_slot(CardPanelState *panel, const GameSession *session, int x, int y);
+Rich4CardPanelAction rich4_card_panel_release_slot(CardPanelState *panel, const GameSession *session,
+    int has_projected_god, GameDomainRef god, int god_type, uint32_t now);
 int rich4_card_panel_cancel(CardPanelState *panel);
 GameDomainRef rich4_card_panel_current_property_ref(
     const GameSession *session);

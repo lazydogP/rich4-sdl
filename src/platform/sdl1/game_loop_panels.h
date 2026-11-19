@@ -113,8 +113,9 @@ void game_card_panel_confirm(
     const NewGameSettings *settings, CardPanelState *panel,
     int x, int y, Uint32 now, Rich4Audio *audio);
 
-GameDomainRef game_card_panel_demolish_target_from_object_id(
-    const GameState *state, int actor, int object_id);
+void game_card_panel_cancel_input(CardPanelState *panel, Rich4Audio *audio);
+int game_card_panel_button(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, VirtualCursor *cursor, int button, int release, Rich4Audio *audio);
 
 size_t game_card_panel_cursor_chunk_index(
     const GamePreviewAssets *assets, const NewGameSettings *settings,

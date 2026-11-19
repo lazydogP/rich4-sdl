@@ -11,6 +11,8 @@
  * overlays, moved verbatim out of runtime_main.c. Read-only over GameSceneView
  * + assets; dispatches bank pages to game_bank_render. */
 
+void draw_game_pressed_region(SDL_Surface *screen, int left, int top, int right, int bottom);
+
 void draw_facility_choice_selector(SDL_Surface *screen,
                                    const GamePreviewAssets *assets,
                                    int hover);

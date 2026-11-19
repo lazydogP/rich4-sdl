@@ -250,6 +250,9 @@ void game_update_input_hovers(GameInputHoverContext *context)
                     rich4_audio_play_select(context->audio);
                 rich4_confinement_set_confirm_hover(session, confirm_hover);
             }
+        } else if (context->card_panel->phase == CARD_PANEL_STOCK_TARGET) {
+            int row = rich4_app_stock_interaction_hit(cursor->x, cursor->y) - RICH4_STOCK_HIT_ROW_BASE;
+            rich4_card_panel_set_hover(context->card_panel, row >= 0 && row < GAME_STOCK_COUNT ? row : -1);
         } else if (context->card_panel->phase == CARD_PANEL_FACILITY_CHOICE) {
             int hover = rich4_card_panel_facility_choice_at(
                 cursor->x, cursor->y);

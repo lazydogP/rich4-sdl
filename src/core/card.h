@@ -97,6 +97,8 @@ int rich4_card_resolve_charge(GameState *state, int payer, int payee,
 extern const GameCardInfo rich4_card_catalog[GAME_CARD_COUNT];
 
 const GameCardInfo *rich4_card_info(int card);
+/* Returns the one-based slot removed, or zero on failure. */
+int rich4_card_consume(GameState *state, int player, int card);
 int rich4_card_inventory_count(const GameState *state, int player);
 int rich4_card_inventory_has(const GameState *state, int player, int card);
 int rich4_card_inventory_add_from_pool(GameState *state, int player, int card,
@@ -107,6 +109,10 @@ int rich4_card_inventory_add_random_from_pool(
     GameState *state, int player, int *out_card, GameEventQueue *events);
 /* Moves one existing card without touching the public card stock. */
 int rich4_card_inventory_transfer(GameState *state, int from, int to, int card);
+uint32_t rich4_card_map_mask(int card, GameDomainKind source);
+GameDomainRef rich4_card_property_from_raw(const GameState *state, int raw);
+GameDomainRef rich4_card_map_hit(const GameState *state, int actor, uint32_t mask,
+                                 GameDomainRef source, int raw);
 GameCardUseResult rich4_card_inspect(const GameState *state,
                                      const GameCommand *command);
 GameCardUseResult rich4_card_apply_command(GameState *state,

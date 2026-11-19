@@ -39,79 +39,10 @@ static void card_panel_play_sound(Rich4Audio *audio,
     if (sound == RICH4_CARD_PANEL_SOUND_INVALID ||
         sound == RICH4_CARD_PANEL_SOUND_OK_INVALID)
         rich4_audio_play_invalid(audio);
-    if (sound == RICH4_CARD_PANEL_SOUND_OK_CARD)
+    if (sound == RICH4_CARD_PANEL_SOUND_OK_CARD || sound == RICH4_CARD_PANEL_SOUND_CARD)
         rich4_audio_play_card(audio);
     if (sound == RICH4_CARD_PANEL_SOUND_TARGET)
         rich4_audio_play_target_confirm(audio);
-}
-
-static int card_panel_dynamic_slot_from_object_id(int object_id)
-{
-    int high;
-
-    if ((object_id & 0x8000) == 0 || (object_id & 0xff) != 0)
-        return -1;
-    high = (object_id >> 8) & 0x7f;
-    if ((object_id & 0x4000) != 0) high &= ~0x40;
-    /* Slots 0..15 are gods/death.  Card 12's mask only includes the
-     * placement ranges 16..45; 0x8100 is the separate tool-robot id. */
-    if (high < 17 || high > GAME_MAP_DYNAMIC_OBJECT_COUNT) return -1;
-    return high - 1;
-}
-
-static int card_panel_demolish_property_valid(
-    const GameState *state, int actor, GameDomainRef target)
-{
-    int owner;
-    int level;
-
-    if (state == NULL || actor < 0 || actor >= state->player_count)
-        return 0;
-    if (target.kind == GAME_DOMAIN_LAND && target.id >= 0 &&
-        target.id < state->land_count) {
-        owner = state->land_owner[target.id];
-        level = state->land_level[target.id];
-    } else if (target.kind == GAME_DOMAIN_FACILITY && target.id >= 0 &&
-               target.id < state->facility_count) {
-        owner = state->facility_owner[target.id];
-        level = state->facility_level[target.id];
-    } else {
-        return 0;
-    }
-    return owner >= 0 && owner < state->player_count && owner != actor &&
-           level > 0;
-}
-
-GameDomainRef game_card_panel_demolish_target_from_object_id(
-    const GameState *state, int actor, int object_id)
-{
-    GameDomainRef target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-    int dynamic_slot;
-    int placement_slot;
-
-    if (state == NULL || actor < 0 || actor >= state->player_count)
-        return target;
-    if (object_id > 0x7d0 && object_id < 0xfa0) {
-        target = rich4_game_domain_ref(
-            GAME_DOMAIN_LAND, object_id - 0x7d1);
-        return card_panel_demolish_property_valid(state, actor, target)
-            ? target : rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-    }
-    if (object_id > 0xfa0 && object_id < 0x1770) {
-        target = rich4_game_domain_ref(
-            GAME_DOMAIN_FACILITY, object_id - 0xfa1);
-        return card_panel_demolish_property_valid(state, actor, target)
-            ? target : rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-    }
-    dynamic_slot = card_panel_dynamic_slot_from_object_id(object_id);
-    placement_slot = dynamic_slot - 16;
-    if (dynamic_slot < 16 ||
-        placement_slot < 0 ||
-        placement_slot >= GAME_TOOL_PLACED_OBJECT_COUNT ||
-        state->tool_placed_objects[placement_slot].kind < 0x10 ||
-        state->tool_placed_objects[placement_slot].kind > 0x12)
-        return target;
-    return rich4_game_domain_ref(GAME_DOMAIN_MAP_OBJECT, placement_slot);
 }
 
 static void card_panel_apply_action(
@@ -190,91 +121,15 @@ void game_update_card_panel_timed_effect(
 
 static GameDomainRef card_panel_map_target(
     const GamePreviewAssets *assets, const NewGameSettings *settings,
-    const GameSession *session, const CardPanelState *panel,
-    int x, int y, int *out_value)
+    const GameSession *session, int player, uint32_t mask, GameDomainRef source,
+    int x, int y)
 {
     GameSceneView view;
-    const MapData *map;
-    int target_kind = rich4_card_panel_map_target_kind(panel);
-    int card = panel == NULL ? -1 : panel->selected_card;
-    int background;
-    int best_distance = 0x7fffffff;
-    int i;
-    GameDomainRef best = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-
-    if (out_value != NULL) *out_value = 0;
-    if (assets == NULL || settings == NULL || session == NULL ||
-        target_kind == GAME_CARD_TARGET_NONE ||
-        !build_game_session_render_view(assets, settings, session, &view))
-        return best;
-    background = settings->stage * GAME_MAPS_PER_STAGE + settings->map;
-    if (background < 0 || background >= GAME_BACKGROUND_COUNT) return best;
-    map = &assets->map.maps[background];
-    if (target_kind == GAME_CARD_TARGET_PLAYER) {
-        for (i = 0; i < view.game.actor_count; i++) {
-            int sx, sy, dx, dy, distance;
-            const GameActorView *actor = &view.game.actors[i];
-            if (!actor->visible ||
-                (session->state.players[i].play_state & 0xff) == 0 ||
-                (card == 12 && i == session->state.current_player))
-                continue;
-            rich4_game_viewport_project(
-                &view.game.viewport, actor->world_x, actor->world_y,
-                &sx, &sy);
-            dx = sx - x;
-            dy = sy - y;
-            distance = dx * dx + dy * dy;
-            if (distance <= 24 * 24 && distance < best_distance) {
-                best_distance = distance;
-                best = rich4_game_domain_ref(GAME_DOMAIN_PLAYER, i);
-            }
-        }
-        return best;
-    }
-    /* 请神符 is resolved by the app card flow through the original nearest
-     * active-god scan; it never enters a cursor-selected map-target phase. */
-    if (target_kind == GAME_CARD_TARGET_GOD) return best;
-    if (target_kind == GAME_CARD_TARGET_PROPERTY_OR_MAP_OBJECT) {
-        GameVisibleMapObject visible;
-        int object_id = game_map_object_at(
-            assets, settings, &view.game,
-            session->presentation.dynamic_objects, x, y, &visible);
-        /* 0x40A9D7 returns the final ID painted by 0x409B18's 440x440
-         * hit table.  Selector case 6 at 0x445E4D validates that one ID;
-         * it does not fall through to a nearby property anchor when the
-         * topmost object is invalid. */
-        return game_card_panel_demolish_target_from_object_id(
-            &session->state, panel->player, object_id);
-    }
-    for (i = 0; i < session->state.land_count &&
-                (size_t)(i + 1) < map->land_count; i++) {
-        int sx, sy, dx, dy, distance;
-        rich4_game_viewport_project(
-            &view.game.viewport, map->lands[i + 1].x,
-            map->lands[i + 1].y, &sx, &sy);
-        dx = sx - x;
-        dy = sy - y;
-        distance = dx * dx + dy * dy;
-        if (distance <= 24 * 24 && distance < best_distance) {
-            best_distance = distance;
-            best = rich4_game_domain_ref(GAME_DOMAIN_LAND, i);
-        }
-    }
-    for (i = 0; i < session->state.facility_count &&
-                (size_t)(i + 1) < map->facility_count; i++) {
-        int sx, sy, dx, dy, distance;
-        rich4_game_viewport_project(
-            &view.game.viewport, map->facilities[i + 1].x,
-            map->facilities[i + 1].y, &sx, &sy);
-        dx = sx - x;
-        dy = sy - y;
-        distance = dx * dx + dy * dy;
-        if (distance <= 24 * 24 && distance < best_distance) {
-            best_distance = distance;
-            best = rich4_game_domain_ref(GAME_DOMAIN_FACILITY, i);
-        }
-    }
-    return best;
+    if (!mask || !build_game_session_render_view(assets, settings, session, &view))
+        return rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    int raw = game_map_object_at(assets, settings, &view.game,
+        session->presentation.dynamic_objects, x, y, NULL);
+    return rich4_card_map_hit(&session->state, player, mask, source, raw);
 }
 
 size_t game_card_panel_cursor_chunk_index(
@@ -283,21 +138,21 @@ size_t game_card_panel_cursor_chunk_index(
     int cursor_x, int cursor_y, size_t default_chunk)
 {
     static const size_t edge_cursor[5] = {41, 34, 40, 38, 36};
-    GameDomainRef target;
+    GameDomainRef source, target;
+    uint32_t mask;
 
     if (assets == NULL || settings == NULL || session == NULL ||
-        panel == NULL || panel->phase != CARD_PANEL_MAP_TARGET ||
-        panel->selected_card != 11)
-        return default_chunk;
+        panel == NULL) return default_chunk;
+    if (panel->phase == CARD_PANEL_STOCK_TARGET) return 12;
+    if (panel->phase != CARD_PANEL_MAP_TARGET) return default_chunk;
     if (panel->edge_scroll.direction >= 1 &&
         panel->edge_scroll.direction <= 4)
         return edge_cursor[panel->edge_scroll.direction];
-    target = card_panel_map_target(
-        assets, settings, session, panel, cursor_x, cursor_y, NULL);
-    /* 0x443B28 passes selector mask 0x0E0C0626 to 0x446AE8.
-     * 0x445E4D uses BYTE2 (12) for a valid case-6 target and cursor 5
-     * when the hit-table ID does not satisfy that case. */
-    return target.kind == GAME_DOMAIN_NONE ? 5 : 12;
+    source = rich4_card_panel_current_property_ref(session);
+    mask = rich4_card_map_mask(panel->selected_card, source.kind);
+    target = card_panel_map_target(assets, settings, session, panel->player,
+        mask, source, cursor_x, cursor_y);
+    return target.kind == GAME_DOMAIN_NONE ? 5 : (mask >> 16) & 0xff;
 }
 
 static int card_panel_projected_god_target(
@@ -345,14 +200,13 @@ static int card_panel_projected_god_target(
     return 1;
 }
 
-void game_card_panel_confirm(
+static void card_panel_confirm(
     GameSession *session, const GamePreviewAssets *assets,
     const NewGameSettings *settings, CardPanelState *panel,
-    int x, int y, Uint32 now, Rich4Audio *audio)
+    int x, int y, Uint32 now, Rich4Audio *audio, int release)
 {
     GameDomainRef target = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
     GameDomainRef projected_god = rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
-    int value = 0;
     int projected_god_type = 0;
     int god_projection_available = 0;
     Rich4CardPanelAction action;
@@ -363,27 +217,67 @@ void game_card_panel_confirm(
         panel->phase == CARD_PANEL_MONSTER_ANIMATION ||
         panel->phase == CARD_PANEL_DEMOLISH_ANIMATION)
         return;
-    if (panel->phase == CARD_PANEL_MAP_TARGET)
-        target = card_panel_map_target(
-            assets, settings, session, panel, x, y, &value);
+    if (panel->phase == CARD_PANEL_MAP_TARGET) {
+        if (panel->edge_scroll.direction) return;
+        GameDomainRef source = rich4_card_panel_current_property_ref(session);
+        target = card_panel_map_target(assets, settings, session, panel->player,
+            rich4_card_map_mask(panel->selected_card, source.kind), source, x, y);
+    }
     if (panel->phase == CARD_PANEL_INVENTORY && panel->player >= 0 &&
         panel->player < session->state.player_count) {
-        int slot = rich4_card_panel_slot_at(x, y);
-        if (slot >= 0 &&
+        int slot = release ? panel->selected_slot : rich4_card_panel_slot_at(x, y);
+        if (slot >= 0 && slot < GAME_PLAYER_CARD_SLOTS &&
             session->state.players[panel->player].card_inventory[slot] == 23)
             god_projection_available = card_panel_projected_god_target(
                 session, assets, settings, panel->player,
                 &projected_god, &projected_god_type);
     }
-    action = god_projection_available
-        ? rich4_card_panel_pointer_action_with_god_target(
-              panel, session, x, y, target, value, now,
-              projected_god, projected_god_type)
-        : rich4_card_panel_pointer_action(
-              panel, session, x, y, target, value, now);
+    if (release && (panel->phase == CARD_PANEL_INVENTORY || panel->phase == CARD_PANEL_ROBBERY_TARGET))
+        action = rich4_card_panel_release_slot(panel, session, god_projection_available,
+            projected_god, projected_god_type, now);
+    else if (god_projection_available)
+        action = rich4_card_panel_pointer_action_with_god_target(
+            panel, session, x, y, target, 0, now, projected_god, projected_god_type);
+    else
+        action = rich4_card_panel_pointer_action(panel, session, x, y, target, 0, now);
     card_panel_play_sound(audio, action.sound);
     card_panel_apply_action(
         session, assets, settings, panel, &action, now, audio);
+}
+
+void game_card_panel_confirm(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, CardPanelState *panel, int x, int y, Uint32 now, Rich4Audio *audio)
+{
+    card_panel_confirm(session, assets, settings, panel, x, y, now, audio, 0);
+}
+
+void game_card_panel_cancel_input(CardPanelState *panel, Rich4Audio *audio)
+{
+    CardPanelPhase phase = panel->phase;
+    if (phase == CARD_PANEL_MAP_TARGET && panel->edge_scroll.direction) return;
+    if (!rich4_card_panel_cancel(panel) || phase == CARD_PANEL_INVENTORY) return;
+    if (phase == CARD_PANEL_MAP_TARGET || phase == CARD_PANEL_FACILITY_CHOICE || phase == CARD_PANEL_STOCK_TARGET)
+        rich4_audio_play_cancel(audio);
+    rich4_audio_play_invalid(audio);
+}
+
+int game_card_panel_button(GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, VirtualCursor *cursor, int button, int release, Rich4Audio *audio)
+{
+    CardPanelState *panel = &session->presentation.card_panel;
+    if (panel->phase == CARD_PANEL_CLOSED || panel->phase == CARD_PANEL_WAIT_HANDLER ||
+        (button != SDL_BUTTON_LEFT && button != SDL_BUTTON_RIGHT)) return 0;
+    cursor->confirm_pressed = cursor->confirm_pointer_pressed = cursor->cancel_pressed = 0;
+    if (!release) {
+        if (button == SDL_BUTTON_LEFT && rich4_card_panel_press_slot(panel, session, cursor->x, cursor->y) &&
+            panel->phase == CARD_PANEL_INVENTORY) rich4_audio_play_ok(audio);
+        return 1;
+    }
+    Uint32 now = rich4_sdl1_ticks();
+    if (rich4_card_use_skip_notice(session, now)) return 1;
+    if (button == SDL_BUTTON_RIGHT) game_card_panel_cancel_input(panel, audio);
+    else card_panel_confirm(session, assets, settings, panel, cursor->x, cursor->y, now, audio, 1);
+    return 1;
 }
 
 void game_card_panel_resume_pre_effect(

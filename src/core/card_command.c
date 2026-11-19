@@ -175,8 +175,7 @@ static GameCardUseResult card_apply_command(GameState *state,
             return GAME_CARD_USE_INVALID;
     } else if (card == 23 || card == 24) {
         target = command->target.id;
-        next.stocks[target].f7 = card == 23 ? 32 : 2;
-        if (!rich4_stock_apply_forced_quote(&next, target))
+        if (!rich4_stock_apply_card_quote(&next, target, card == 23))
             return GAME_CARD_USE_INVALID;
         if (!rich4_game_event_emit_typed_domain(
                 &staged, rich4_game_event_market_changed_from_fields,

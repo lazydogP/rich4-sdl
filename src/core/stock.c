@@ -671,6 +671,20 @@ GameStockPriceState rich4_stock_price_state(float previous, float current)
     return GAME_STOCK_PRICE_FLAT;
 }
 
+int rich4_stock_latest_history_index(const GameState *state)
+{
+    int next = state->stock_history_cursor;
+    return next > 0 && next <= GAME_STOCK_HISTORY_COUNT ? next - 1 : GAME_STOCK_HISTORY_COUNT - 1;
+}
+
+int rich4_stock_apply_card_quote(GameState *state, int stock, int red)
+{
+    if (state == NULL || stock < 0 || stock >= GAME_STOCK_COUNT || !valid_price(state->stocks[stock].f16))
+        return 0;
+    state->stocks[stock].f7 = red ? 32 : 2;
+    return rich4_stock_apply_forced_quote(state, stock);
+}
+
 int rich4_stock_apply_forced_quote(GameState *state, int stock)
 {
     GameStockInfo *info;
@@ -684,8 +698,7 @@ int rich4_stock_apply_forced_quote(GameState *state, int stock)
      * the shared history cursor. */
     info->f28 = (info->f7 & 0xf0u) != 0 ? 10.0f : -10.0f;
     info->f20 = rich4_stock_price_after_trend(info->f16, info->f28);
-    history = state->stock_history_cursor - 1;
-    if (history < 0) history = GAME_STOCK_HISTORY_COUNT - 1;
+    history = rich4_stock_latest_history_index(state);
     state->stock_history[stock][history] = info->f20;
     return 1;
 }

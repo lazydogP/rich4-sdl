@@ -3,7 +3,7 @@
 
 #include "platform/sdl1/game_loop_cancel_panels.h"
 #include "app/ai_settings_flow.h"
-#include "app/card_panel_flow.h"
+#include "platform/sdl1/game_loop_panels.h"
 #include "app/tool_panel_flow.h"
 #include "app/audio_event.h"
 #include "platform/sdl1/game_loop_audio_events.h"
@@ -12,8 +12,7 @@ int game_handle_cancel_panels(GameCancelPanelsContext *context)
 {
     if (context->app_state == RICH4_SCENE_GAME &&
         context->card_panel->phase != CARD_PANEL_CLOSED) {
-        rich4_card_panel_cancel(context->card_panel);
-        rich4_audio_play_cancel(context->audio);
+        game_card_panel_cancel_input(context->card_panel, context->audio);
         context->cursor->cancel_pressed = 0;
         return 1;
     } else if (context->app_state == RICH4_SCENE_GAME &&

@@ -1,5 +1,7 @@
 #include "app/card_panel_flow.h"
 #include "app/card_use_flow.h"
+#include "app/stock_interaction_flow.h"
+#include "core/stock.h"
 
 #include <string.h>
 
@@ -52,13 +54,14 @@ void rich4_card_panel_open(CardPanelState *panel, GameSession *session)
 int rich4_card_panel_cancel(CardPanelState *panel)
 {
     if (panel == NULL || panel->phase == CARD_PANEL_CLOSED) return 0;
-    if (panel->phase == CARD_PANEL_FACILITY_CHOICE) {
-        panel->phase = CARD_PANEL_INVENTORY;
-        rich4_card_panel_set_hover(panel, -1);
-        panel->effect_precedes_handler = 0;
-    } else {
+    if (panel->phase == CARD_PANEL_INVENTORY)
         rich4_card_panel_reset(panel);
-    }
+    else if (panel->phase == CARD_PANEL_MAP_TARGET || panel->phase == CARD_PANEL_STOCK_TARGET ||
+             (panel->phase == CARD_PANEL_FACILITY_CHOICE && panel->selected_card != 8) ||
+             panel->phase == CARD_PANEL_ROBBERY_TARGET)
+        rich4_card_panel_command_rejected(panel);
+    else
+        return 0;
     return 1;
 }
 
@@ -68,6 +71,17 @@ GameDomainRef rich4_card_panel_current_property_ref(
     const RouteEvent *stop_event;
 
     if (session == NULL) return rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    if (session->state.tool_route_node_count > 0) {
+        int actor = session->state.current_player;
+        if (actor >= 0 && actor < session->state.player_count) {
+            int node = session->state.players[actor].node;
+            if (node > 0 && node < session->state.tool_route_node_count &&
+                node < GAME_MAX_MAP_ROUTE_NODES)
+                return rich4_card_property_from_raw(&session->state, session->state.route_object_raw[node]);
+        }
+        return rich4_game_domain_ref(GAME_DOMAIN_NONE, -1);
+    }
+    /* Older sessions without the route table retain their last landing. */
     stop_event = rich4_route_event_collection_last_phase(
         &session->flow.route_facts, ROUTE_EVENT_PHASE_STOP);
     if (stop_event != NULL &&
@@ -186,6 +200,11 @@ static Rich4CardPanelSelection rich4_card_panel_select_inventory_internal(
         selection.kind = RICH4_CARD_PANEL_SELECTION_UNAVAILABLE;
         return selection;
     }
+    if ((id == 4 || id == 5) &&
+        rich4_game_domain_ref_is_none(rich4_card_panel_current_property_ref(session))) {
+        selection.kind = RICH4_CARD_PANEL_SELECTION_UNAVAILABLE;
+        return selection;
+    }
     if (panel->selected_card == 0 || panel->selected_card == 6 ||
         panel->selected_card == 10 || panel->selected_card == 11 ||
         panel->selected_card == 12 ||
@@ -279,15 +298,57 @@ static Rich4CardPanelAction rich4_card_panel_submit_action(
     return action;
 }
 
-static int rich4_card_panel_stock_at(int x, int y)
+int rich4_card_panel_press_slot(CardPanelState *panel, const GameSession *session, int x, int y)
 {
-    int column = (x - 112) / 130;
-    int row = (y - 124) / 31;
-    int stock = column * 8 + row;
-    if (column < 0 || column > 1 || row < 0 || row >= 8 ||
-        stock < 0 || stock >= GAME_STOCK_COUNT)
-        return -1;
-    return stock;
+    int slot, owner;
+    if (panel == NULL || session == NULL) return 0;
+    int robbery = panel->phase == CARD_PANEL_ROBBERY_TARGET;
+    if (!robbery && panel->phase != CARD_PANEL_INVENTORY) return 0;
+    panel->selected_slot = -1;
+    owner = robbery ? panel->primary_target : panel->player;
+    if (owner < 0 || owner >= session->state.player_count) return 0;
+    slot = robbery ? rich4_card_panel_robbery_card_slot_at(x, y) : rich4_card_panel_slot_at(x, y);
+    if (slot >= 0 && session->state.players[owner].card_inventory[slot]) {
+        panel->selected_slot = slot;
+        return 1;
+    }
+    if (robbery) {
+        int tool = rich4_card_panel_robbery_tool_at(session, owner, x, y);
+        if (tool >= 0) {
+            panel->selected_slot = 0x8000 | tool;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+Rich4CardPanelAction rich4_card_panel_release_slot(CardPanelState *panel, const GameSession *session,
+    int has_projected_god, GameDomainRef god, int god_type, uint32_t now)
+{
+    if (panel == NULL || session == NULL)
+        return rich4_card_panel_action(RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
+    int slot = panel->selected_slot;
+    if (panel->phase == CARD_PANEL_INVENTORY && slot >= 0) {
+        Rich4CardPanelSelection selection = rich4_card_panel_select_inventory_internal(
+            panel, session, slot, has_projected_god, god, god_type, 0);
+        if (selection.kind == RICH4_CARD_PANEL_SELECTION_PRE_EFFECT) {
+            rich4_card_panel_begin_effect(panel, panel->selected_card, now, 1);
+            return rich4_card_panel_action(RICH4_CARD_PANEL_ACTION_PRE_EFFECT, RICH4_CARD_PANEL_SOUND_CARD);
+        }
+    }
+    if (panel->phase == CARD_PANEL_ROBBERY_TARGET && slot >= 0 &&
+        panel->primary_target >= 0 && panel->primary_target < session->state.player_count) {
+        GameDomainRef victim = rich4_game_domain_ref(GAME_DOMAIN_PLAYER, panel->primary_target);
+        const GamePlayerState *p = &session->state.players[victim.id];
+        if (slot < GAME_PLAYER_CARD_SLOTS && p->card_inventory[slot])
+            return rich4_card_panel_submit_action(panel, victim, p->card_inventory[slot] - 1,
+                0, 0, RICH4_CARD_PANEL_SOUND_NONE);
+        int tool = slot & 0x7fff;
+        if ((slot & 0x8000) && tool < GAME_TOOL_COUNT && p->tool_inventory[tool])
+            return rich4_card_panel_submit_action(panel, victim, tool, 0,
+                GAME_CARD_FLAG_ROB_TOOL, RICH4_CARD_PANEL_SOUND_NONE);
+    }
+    return rich4_card_panel_action(RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
 }
 
 static Rich4CardPanelAction rich4_card_panel_pointer_action_internal(
@@ -296,9 +357,6 @@ static Rich4CardPanelAction rich4_card_panel_pointer_action_internal(
     int has_projected_god, GameDomainRef projected_god,
     int projected_god_type)
 {
-    Rich4CardPanelSelection selection;
-    int slot;
-
     if (panel == NULL || session == NULL ||
         panel->phase == CARD_PANEL_CLOSED ||
         panel->phase == CARD_PANEL_EFFECT ||
@@ -308,82 +366,29 @@ static Rich4CardPanelAction rich4_card_panel_pointer_action_internal(
         return rich4_card_panel_action(
             RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
 
-    if (panel->phase == CARD_PANEL_INVENTORY) {
-        slot = rich4_card_panel_slot_at(x, y);
-        if (slot < 0) return rich4_card_panel_action(
-            RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
-        selection = rich4_card_panel_select_inventory_internal(
-            panel, session, slot, has_projected_god, projected_god,
-            projected_god_type, 0);
-        if (selection.kind == RICH4_CARD_PANEL_SELECTION_INVALID)
-            return rich4_card_panel_action(
-                RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
-        if (selection.kind == RICH4_CARD_PANEL_SELECTION_UNAVAILABLE)
-            return rich4_card_panel_action(
-                RICH4_CARD_PANEL_ACTION_INVALID_SELECTION,
-                RICH4_CARD_PANEL_SOUND_OK_INVALID);
-        if (selection.kind == RICH4_CARD_PANEL_SELECTION_PRE_EFFECT) {
-            rich4_card_panel_begin_effect(
-                panel, panel->selected_card, now, 1);
-            return rich4_card_panel_action(
-                RICH4_CARD_PANEL_ACTION_PRE_EFFECT,
-                RICH4_CARD_PANEL_SOUND_OK_CARD);
-        }
-        if (selection.kind == RICH4_CARD_PANEL_SELECTION_SUBMIT)
-            return rich4_card_panel_submit_action(
-                panel, selection.target, selection.value, 0, 0,
-                RICH4_CARD_PANEL_SOUND_OK);
-        panel->phase = selection.kind ==
-            RICH4_CARD_PANEL_SELECTION_STOCK_TARGET
-            ? CARD_PANEL_STOCK_TARGET : CARD_PANEL_MAP_TARGET;
-        return rich4_card_panel_action(
-            selection.kind == RICH4_CARD_PANEL_SELECTION_STOCK_TARGET
-                ? RICH4_CARD_PANEL_ACTION_STOCK_TARGET
-                : RICH4_CARD_PANEL_ACTION_MAP_TARGET,
-            RICH4_CARD_PANEL_SOUND_OK);
+    if (panel->phase == CARD_PANEL_INVENTORY || panel->phase == CARD_PANEL_ROBBERY_TARGET) {
+        rich4_card_panel_press_slot(panel, session, x, y);
+        Rich4CardPanelAction action = rich4_card_panel_release_slot(
+            panel, session, has_projected_god, projected_god, projected_god_type, now);
+        if (action.sound == RICH4_CARD_PANEL_SOUND_CARD)
+            action.sound = RICH4_CARD_PANEL_SOUND_OK_CARD;
+        return action;
     }
 
     if (panel->phase == CARD_PANEL_STOCK_TARGET) {
-        int stock = rich4_card_panel_stock_at(x, y);
-        if (stock < 0) return rich4_card_panel_action(
-            RICH4_CARD_PANEL_ACTION_INVALID_TARGET,
-            RICH4_CARD_PANEL_SOUND_INVALID);
+        int hit = rich4_app_stock_interaction_hit(x, y);
+        int stock = hit - RICH4_STOCK_HIT_ROW_BASE;
+        if (rich4_stock_market_is_closed(&session->state) || hit == RICH4_STOCK_HIT_CLOSE) {
+            rich4_card_panel_command_rejected(panel);
+            return rich4_card_panel_action(RICH4_CARD_PANEL_ACTION_INVALID_SELECTION,
+                RICH4_CARD_PANEL_SOUND_INVALID);
+        }
+        if (stock < 0 || stock >= GAME_STOCK_COUNT)
+            return rich4_card_panel_action(RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
         return rich4_card_panel_submit_action(
             panel, rich4_game_domain_ref(GAME_DOMAIN_STOCK, stock),
             0, 0, 0, RICH4_CARD_PANEL_SOUND_NONE);
     }
-
-    if (panel->phase == CARD_PANEL_ROBBERY_TARGET) {
-        int tool = rich4_card_panel_robbery_tool_at(
-            session, panel->primary_target, x, y);
-        slot = rich4_card_panel_robbery_card_slot_at(x, y);
-        if (slot >= 0) {
-            int id = session->state.players[panel->primary_target]
-                .card_inventory[slot];
-            if (id <= 0 || id > GAME_CARD_COUNT)
-                return rich4_card_panel_action(
-                    RICH4_CARD_PANEL_ACTION_NONE,
-                    RICH4_CARD_PANEL_SOUND_NONE);
-            panel->selected_slot = slot;
-            return rich4_card_panel_submit_action(
-                panel,
-                rich4_game_domain_ref(
-                    GAME_DOMAIN_PLAYER, panel->primary_target),
-                id - 1, 0, 0, RICH4_CARD_PANEL_SOUND_NONE);
-        }
-        if (tool >= 0 && session->state.players[panel->primary_target]
-                .tool_inventory[tool] != 0) {
-            panel->selected_slot = 0x8000 | tool;
-            return rich4_card_panel_submit_action(
-                panel,
-                rich4_game_domain_ref(
-                    GAME_DOMAIN_PLAYER, panel->primary_target),
-                tool, 0, GAME_CARD_FLAG_ROB_TOOL,
-                RICH4_CARD_PANEL_SOUND_NONE);
-        }
-    return rich4_card_panel_action(
-        RICH4_CARD_PANEL_ACTION_NONE, RICH4_CARD_PANEL_SOUND_NONE);
-}
 
     if (panel->phase == CARD_PANEL_FACILITY_CHOICE) {
         int choice = rich4_card_panel_facility_choice_at(x, y);
@@ -472,6 +477,7 @@ Rich4CardPanelAction rich4_card_panel_resume_pre_effect(
             RICH4_CARD_PANEL_SOUND_NONE);
     if (selection.kind == RICH4_CARD_PANEL_SELECTION_STOCK_TARGET) {
         panel->phase = CARD_PANEL_STOCK_TARGET;
+        panel->hover = -1;
         return rich4_card_panel_action(
             RICH4_CARD_PANEL_ACTION_STOCK_TARGET,
             RICH4_CARD_PANEL_SOUND_NONE);
@@ -484,8 +490,7 @@ Rich4CardPanelAction rich4_card_panel_resume_pre_effect(
         /* This is the original fcn_004420D5 path: the effect window is
          * visible, then the active handler returns zero.  No command is
          * submitted and the card remains in the inventory. */
-        panel->phase = CARD_PANEL_INVENTORY;
-        panel->effect_precedes_handler = 0;
+        rich4_card_panel_command_rejected(panel);
         return rich4_card_panel_action(
             RICH4_CARD_PANEL_ACTION_INVALID_SELECTION,
             RICH4_CARD_PANEL_SOUND_INVALID);
@@ -521,8 +526,10 @@ Rich4CardPanelAction rich4_card_panel_resume_pre_effect(
 void rich4_card_panel_command_rejected(CardPanelState *panel)
 {
     if (panel == NULL) return;
+    int player = panel->player;
+    rich4_card_panel_reset(panel);
+    panel->player = player;
     panel->phase = CARD_PANEL_INVENTORY;
-    panel->effect_precedes_handler = 0;
 }
 
 Rich4CardPanelCommandResult rich4_card_panel_finish_command(
@@ -543,28 +550,19 @@ Rich4CardPanelCommandResult rich4_card_panel_finish_command(
             panel->primary_target = -1;
     }
     if (panel->effect_precedes_handler) {
-        if (panel->selected_card == 10 && animation_duration > 0) {
-            panel->phase = CARD_PANEL_MONSTER_ANIMATION;
+        int monster = panel->selected_card == 10;
+        int demolish = panel->selected_card == 11 &&
+            (target.kind == GAME_DOMAIN_LAND || target.kind == GAME_DOMAIN_FACILITY);
+        if (animation_duration && (monster || demolish)) {
+            panel->phase = monster ? CARD_PANEL_MONSTER_ANIMATION : CARD_PANEL_DEMOLISH_ANIMATION;
             panel->effect_precedes_handler = 0;
             panel->effect_started = now;
             panel->effect_frame = 0;
-            panel->effect_frame_count = (int)((animation_duration - 500u) / 80u);
+            /* Original Data[557] and Data[529] both have a 71 ms frame interval. */
+            panel->effect_frame_count = animation_duration > 500u ? (int)((animation_duration - 500u) / 71u) : 0;
             rich4_animation_clock_reset(&panel->effect_clock);
             panel->effect_until = now + animation_duration;
-            return RICH4_CARD_PANEL_COMMAND_MONSTER_ANIMATION;
-        }
-        if (panel->selected_card == 11 &&
-            (target.kind == GAME_DOMAIN_LAND ||
-             target.kind == GAME_DOMAIN_FACILITY) &&
-            animation_duration > 0) {
-            panel->phase = CARD_PANEL_DEMOLISH_ANIMATION;
-            panel->effect_precedes_handler = 0;
-            panel->effect_started = now;
-            panel->effect_frame = 0;
-            panel->effect_frame_count = (int)((animation_duration - 500u) / 80u);
-            rich4_animation_clock_reset(&panel->effect_clock);
-            panel->effect_until = now + animation_duration;
-            return RICH4_CARD_PANEL_COMMAND_DEMOLISH_ANIMATION;
+            return monster ? RICH4_CARD_PANEL_COMMAND_MONSTER_ANIMATION : RICH4_CARD_PANEL_COMMAND_DEMOLISH_ANIMATION;
         }
         if (out_speech_player != NULL && panel->selected_card == 10)
             *out_speech_player = panel->primary_target;
@@ -580,7 +578,7 @@ void rich4_card_panel_update_animation(CardPanelState *panel, uint32_t now)
     if (panel == NULL || (panel->phase != CARD_PANEL_MONSTER_ANIMATION &&
                          panel->phase != CARD_PANEL_DEMOLISH_ANIMATION)) return;
     if (panel->effect_frame < panel->effect_frame_count) {
-        if (rich4_animation_clock_step(&panel->effect_clock, now, 80))
+        if (rich4_animation_clock_step(&panel->effect_clock, now, 71))
             panel->effect_frame++;
         panel->effect_until = now + 500u;
     }

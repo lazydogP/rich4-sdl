@@ -304,9 +304,15 @@ int game_update_card_use(GameSession *session, const GamePreviewAssets *assets,
         ai = use->command.source == GAME_COMMAND_SOURCE_AI;
         if (!ai && !use->resume_panel_phase) {
             if (use->accepted) rich4_card_panel_reset(&session->presentation.card_panel);
-            else rich4_card_panel_command_rejected(&session->presentation.card_panel);
+            else {
+                rich4_card_panel_command_rejected(&session->presentation.card_panel);
+                rich4_audio_play_invalid(audio);
+            }
         }
-        memset(use, 0, sizeof(*use));
+        if (use->reserved_card_slot && use->resume_panel_phase == CARD_PANEL_FACILITY_CHOICE)
+            use->phase = GAME_CARD_USE_NONE;
+        else
+            memset(use, 0, sizeof(*use));
         if (ai && !session->state.game_over) {
             if (rich4_ai_prepare_move(session, player, &command))
                 (void)game_session_apply_command(session, assets, settings, &command, now);

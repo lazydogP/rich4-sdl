@@ -96,6 +96,8 @@ int rich4_stock_calendar_special_effect(
     const GameState *state, Rich4CalendarSpecialEffect *out_effect);
 /* Zero-based fixed_music index for the current holiday date, or -1. */
 int rich4_stock_calendar_music_index(const GameState *state);
+int rich4_stock_latest_history_index(const GameState *state);
+int rich4_stock_apply_card_quote(GameState *state, int stock, int red);
 int rich4_stock_apply_forced_quote(GameState *state, int stock);
 GameStockTradeResult rich4_stock_apply_command(GameState *state,
                                                 const GameCommand *command,

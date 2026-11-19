@@ -28,7 +28,7 @@
  * and property entrypoints are dispatched from draw_game_session;
  * draw_facility_choice_selector is also reused by the magic-house renderer. */
 
-static void draw_pressed_region(SDL_Surface *screen,
+void draw_game_pressed_region(SDL_Surface *screen,
                                 int left, int top, int right, int bottom)
 {
     int x;
@@ -115,7 +115,7 @@ static void draw_facility_choice_selector_with_pressed(
         SDL_UnlockSurface(screen);
     }
     if (pressed >= 0 && pressed < 5)
-        draw_pressed_region(screen, 50 + pressed * 68, 286,
+        draw_game_pressed_region(screen, 50 + pressed * 68, 286,
                             118 + pressed * 68, 354);
 }
 
@@ -184,7 +184,7 @@ static void draw_facility_research_selector_with_pressed(
         SDL_UnlockSurface(screen);
     }
     if (pressed >= 0 && pressed < choice_count)
-        draw_pressed_region(screen, 35 + pressed * 76, 297,
+        draw_game_pressed_region(screen, 35 + pressed * 76, 297,
                             101 + pressed * 76, 351);
 }
 

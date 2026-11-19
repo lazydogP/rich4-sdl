@@ -51,6 +51,16 @@ static void finish_speech(uint32_t now)
     assert(!rich4_speech_finish_update(&session, now, 0));
 }
 
+static void assert_speech(int player, int type, int speaking_resource)
+{
+    Rich4PlayerSayText decoded;
+    assert(session.presentation.speech.active);
+    assert(session.presentation.speech.player == player);
+    assert(session.presentation.speech.type == type);
+    rich4_player_say_decode(session.presentation.speech.current->big5, -1, &decoded);
+    assert(decoded.speaking_resource == speaking_resource);
+}
+
 static void all_notices(void)
 {
     int card;
@@ -318,7 +328,111 @@ static void tax_free_choice(int accept)
         fields = rich4_game_event_special_place_notice_requested_fields(notice);
         assert(fields.subject == GAME_SPECIAL_NOTICE_CARD_TAX && fields.value == 2000);
         assert(fields.target_ref.id == 1);
-    } else assert(!rich4_special_place_notice_current(&session.presentation));
+        assert(rich4_special_place_notice_skip(&session, ++now));
+        assert(rich4_special_place_notice_update(&session, now));
+        assert(advance(&now) == RICH4_CARD_USE_WAIT);
+        /* Character 1, victim column, card 26: _card_strings #0527. */
+        assert_speech(1, 2, 527);
+        assert(advance(&now) == RICH4_CARD_USE_FINISHED);
+    } else {
+        assert(!rich4_special_place_notice_current(&session.presentation));
+        assert(advance(&now) == RICH4_CARD_USE_WAIT);
+        assert(!session.presentation.speech.active);
+        assert(advance(&now) == RICH4_CARD_USE_FINISHED);
+    }
+}
+
+static void tax_redirect_victim_speech(int redirect_to_caster)
+{
+    GameCommand command;
+    GameEventQueue events;
+    uint32_t now = 100;
+    int redirect = redirect_to_caster ? 0 : 2;
+    int caster_cash;
+    setup();
+    session.state.player_count = 3;
+    session.state.players[2].play_state = 1;
+    session.state.players[2].character = 2;
+    session.state.players[0].cash = 7000;
+    session.state.players[1].cash = 20000;
+    session.state.players[2].cash = 5000;
+    session.state.players[1].card_inventory[0] = 19;
+    command = player_card(25);
+    caster_cash = session.state.players[0].cash;
+    assert(rich4_card_use_begin(&session, &command, &map, 0, now));
+    assert(advance(&now) == RICH4_CARD_USE_WAIT);
+    assert(session.presentation.card_use.defense.card == 18);
+    assert(rich4_card_use_skip_notice(&session, now));
+    assert(advance(&now) == RICH4_CARD_USE_WAIT);
+    assert(session.presentation.card_use.defense.phase == GAME_PROPERTY_PRESENT_INSURANCE_TARGET);
+    assert(rich4_card_defense_choose(&session, redirect, now));
+    assert(advance(&now) == RICH4_CARD_USE_WAIT);
+    assert(advance(&now) == RICH4_CARD_USE_COMMAND);
+    command = session.presentation.card_use.command;
+    assert(command.flags & GAME_CARD_FLAG_USE_MISDIRECT);
+    assert(command.value == redirect);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_card_apply_command(&session.state, &command, &events) == GAME_CARD_USE_APPLIED);
+    rich4_card_use_command_completed(&session, 1, now);
+    if (redirect_to_caster) {
+        /* 0x44536F jumps over payment, message and victim speech. */
+        assert(session.state.players[0].cash == caster_cash);
+        assert(!rich4_special_place_notice_current(&session.presentation));
+        assert(advance(&now) == RICH4_CARD_USE_WAIT);
+        assert(!session.presentation.speech.active);
+        assert(advance(&now) == RICH4_CARD_USE_FINISHED);
+    } else {
+        const GameEvent *notice = rich4_special_place_notice_current(&session.presentation);
+        Rich4GameEventFields fields;
+        assert(session.state.players[0].cash == caster_cash + 1000);
+        assert(session.state.players[2].cash == 4000);
+        assert(notice != NULL);
+        fields = rich4_game_event_special_place_notice_requested_fields(notice);
+        assert(fields.subject == GAME_SPECIAL_NOTICE_CARD_TAX && fields.value == 1000);
+        assert(fields.target_ref.id == 2);
+        assert(rich4_special_place_notice_skip(&session, ++now));
+        assert(rich4_special_place_notice_update(&session, now));
+        assert(advance(&now) == RICH4_CARD_USE_WAIT);
+        /* Character 2, victim column, card 26: _card_strings #0579. */
+        assert_speech(2, 2, 579);
+        assert(advance(&now) == RICH4_CARD_USE_FINISHED);
+    }
+}
+
+static void tortoise_target_speech(void)
+{
+    GameCommand command;
+    uint32_t now = 100;
+
+    setup(); command = player_card(29);
+    assert(rich4_card_use_begin(&session, &command, &map, 0, now));
+    assert_speech(0, 3, 455);
+    assert(advance(&now) == RICH4_CARD_USE_WAIT);
+    /* Character 1, victim column, card 30: _card_strings #0529. */
+    assert_speech(1, 2, 529);
+    assert(advance(&now) == RICH4_CARD_USE_COMMAND);
+
+    setup();
+    session.state.players[0].card_inventory[0] = 30;
+    command = rich4_game_domain_command(GAME_COMMAND_USE_CARD, GAME_COMMAND_SOURCE_HUMAN,
+        0, rich4_game_domain_ref(GAME_DOMAIN_CARD, 29),
+        rich4_game_domain_ref(GAME_DOMAIN_PLAYER, 0), 0);
+    assert(rich4_card_use_begin(&session, &command, &map, 0, now));
+    assert(!session.presentation.speech.active);
+    assert(rich4_card_use_update(&session, NULL, ++now) == RICH4_CARD_USE_WAIT);
+    /* Self target uses the success column, not the victim column: #0459. */
+    assert_speech(0, 3, 459);
+    assert(advance(&now) == RICH4_CARD_USE_COMMAND);
+
+    setup();
+    session.state.players[0].card_inventory[0] = 30;
+    command = rich4_game_domain_command(GAME_COMMAND_USE_CARD, GAME_COMMAND_SOURCE_HUMAN,
+        0, rich4_game_domain_ref(GAME_DOMAIN_CARD, 29),
+        rich4_game_domain_ref(GAME_DOMAIN_SPECIAL_PLAYER, 0), 0);
+    assert(rich4_card_use_begin(&session, &command, &map, 0, now));
+    assert_speech(0, 3, 455);
+    assert(advance(&now) == RICH4_CARD_USE_COMMAND);
+    assert(!session.presentation.speech.active);
 }
 
 static void revenge_continuation(int card)
@@ -567,6 +681,8 @@ int main(void)
     all_notices();
     passive_attack();
     tax_free_choice(0); tax_free_choice(1);
+    tax_redirect_victim_speech(0); tax_redirect_victim_speech(1);
+    tortoise_target_speech();
     revenge_continuation(15); revenge_continuation(16);
     group_effects();
     invitation_flight(); swap_houses(); target_effect_order();

@@ -128,6 +128,7 @@ int rich4_app_input_display_visible(
         app_state, settings, session, ai_settings_active);
     if (app_state == RICH4_SCENE_GAME && session != NULL) {
         const GamePresentationState *p = &session->presentation;
+        if (p->card_panel.phase == CARD_PANEL_EFFECT) visible = 0;
         /* 0x440706 -> 0x43F23E keeps the pointer hidden while accepting
          * button/key releases. Settlement can yield to a nested auction. */
         if (rich4_presentation_god_owns_frame(p) && p->god_acquisition.money.active)

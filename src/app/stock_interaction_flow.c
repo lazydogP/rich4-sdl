@@ -80,8 +80,8 @@ int rich4_app_stock_interaction_hit(int x, int y)
         return RICH4_STOCK_HIT_INFO;
     if (stock_point_in_rect(x, y, 553, 10, 70, 29))
         return RICH4_STOCK_HIT_CLOSE;
-    if (x >= 16 && x < 624 && y >= 81 && y < 464)
-        return RICH4_STOCK_HIT_ROW_BASE + (y - 81) / 32;
+    if (x > 15 && x < 625 && y > 80 && y < 464)
+        return RICH4_STOCK_HIT_ROW_BASE + (y - 80) / 32;
     return RICH4_STOCK_HIT_NONE;
 }
 

@@ -18,6 +18,10 @@ static void request_animation_wakeup(const VirtualCursorPresentationContext *c)
         rich4_sdl1_wake_at(c->settings->last_anim_tick +
                           (c->settings->transition_active ? 50u : 100u));
     if (p == NULL || c->app_state != RICH4_SCENE_GAME) return;
+    if (p->card_panel.phase == CARD_PANEL_EFFECT)
+        rich4_sdl1_wake_at(p->card_panel.effect_until);
+    if (p->card_use.phase == GAME_CARD_USE_STOCK_HOLD)
+        rich4_sdl1_wake_at(p->card_use.started + 1000u);
     if (p->card_use.phase == GAME_CARD_USE_NOTICE)
         rich4_sdl1_wake_at(p->card_use.started + RICH4_CARD_NOTICE_MS);
     if (p->card_use.phase == GAME_CARD_USE_FLIGHT && p->card_use.flight_steps > 0)

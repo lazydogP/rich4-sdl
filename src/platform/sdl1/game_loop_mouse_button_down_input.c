@@ -7,6 +7,7 @@
 #include "platform/sdl1/game_loop_mouse_button_down_input.h"
 
 #include "app/map_input_flow.h"
+#include "platform/sdl1/game_loop_panels.h"
 #include "app/options_flow.h"
 #include "app/magic_house_flow.h"
 #include "platform/sdl1/game_loop_audio_events.h"
@@ -93,6 +94,12 @@ int game_handle_mouse_button_down_input(
         context->cursor->confirm_pressed = 0;
         context->cursor->confirm_pointer_pressed = 0;
         context->cursor->cancel_pressed = 0;
+        return 1;
+    }
+    if (context->app_state && *context->app_state == RICH4_SCENE_GAME &&
+        context->session && game_card_panel_button(context->session, context->assets,
+            context->settings, context->cursor, context->button, 0, context->audio)) {
+        if (context->mouse_left_down && context->button == SDL_BUTTON_LEFT) *context->mouse_left_down = 1;
         return 1;
     }
     if (context->button == SDL_BUTTON_LEFT && context->session != NULL)
