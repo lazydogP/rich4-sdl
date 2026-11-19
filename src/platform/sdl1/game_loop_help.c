@@ -82,56 +82,6 @@ static int help_selected_text(const HelpAssets *assets,
                out, NULL) == RICH4_MKF_OK;
 }
 
-static size_t help_bounded_strlen(const unsigned char *text, size_t size)
-{
-    size_t length = 0;
-    while (length < size && text[length] != 0)
-        length++;
-    return length;
-}
-
-static int help_page_starts(const unsigned char *data,
-                            size_t size,
-                            size_t *starts,
-                            int capacity)
-{
-    size_t offset = 0;
-    int lines = 0;
-    int pages = 0;
-    if (data == NULL || size == 0 || starts == NULL || capacity <= 0)
-        return 0;
-    starts[pages++] = 0;
-    while (offset < size && data[offset] != 0) {
-        size_t length;
-        if (data[offset] == '@') {
-            offset++;
-            if (offset < size && data[offset] == 0)
-                offset++;
-            lines = 0;
-            if (offset < size && data[offset] != 0 && pages < capacity)
-                starts[pages++] = offset;
-            continue;
-        }
-        length = help_bounded_strlen(data + offset, size - offset);
-        if (length >= size - offset)
-            break;
-        offset += length + 1;
-        lines++;
-        if (lines == HELP_BODY_LINES && offset < size &&
-            data[offset] != 0) {
-            if (data[offset] == '@') {
-                offset++;
-                if (offset < size && data[offset] == 0)
-                    offset++;
-            }
-            lines = 0;
-            if (offset < size && data[offset] != 0 && pages < capacity)
-                starts[pages++] = offset;
-        }
-    }
-    return pages;
-}
-
 static int help_panel_page_count(const HelpAssets *assets,
                                  const HelpPanelState *panel)
 {
@@ -139,8 +89,9 @@ static int help_panel_page_count(const HelpAssets *assets,
     size_t starts[64];
     if (!help_selected_text(assets, panel, &text))
         return 0;
-    return help_page_starts(text.data, text.size, starts,
-                            (int)(sizeof(starts) / sizeof(starts[0])));
+    return help_text_page_starts(
+        text.data, text.size, starts,
+        (int)(sizeof(starts) / sizeof(starts[0])));
 }
 
 static int help_control_at(const HelpPanelState *panel, int x, int y)
@@ -468,7 +419,7 @@ void game_draw_help_panel(SDL_Surface *screen,
 
     if (!help_selected_text(assets, panel, &text))
         return;
-    pages = help_page_starts(
+    pages = help_text_page_starts(
         text.data, text.size, starts,
         (int)(sizeof(starts) / sizeof(starts[0])));
     if (pages <= 0)
@@ -478,22 +429,19 @@ void game_draw_help_panel(SDL_Surface *screen,
     else
         offset = starts[panel->page];
     for (row = 0; row < HELP_BODY_LINES && offset < text.size; row++) {
+        size_t line_offset = offset;
         size_t length;
         char line[512];
-        if (text.data[offset] == 0 || text.data[offset] == '@')
-            break;
-        length = help_bounded_strlen(text.data + offset, text.size - offset);
-        if (length >= text.size - offset)
+        if (!help_text_next_line(
+                text.data, text.size, &offset, &length))
             break;
         if (length >= sizeof(line))
             length = sizeof(line) - 1;
-        memcpy(line, text.data + offset, length);
+        memcpy(line, text.data + line_offset, length);
         line[length] = '\0';
         draw_big5_text_with_spacing(
             screen, left + 232, top + 18 * row + 90,
             line, 12, dark, dark, 0, 1, 0);
-        offset += help_bounded_strlen(
-            text.data + offset, text.size - offset) + 1;
     }
     if (pages > 1) {
         help_draw_chunk(screen, assets,

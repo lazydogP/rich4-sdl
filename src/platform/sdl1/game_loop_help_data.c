@@ -150,3 +150,63 @@ int help_item_label_index(int category, int item)
         return 55 + item;
     return 85 + item;
 }
+
+static size_t help_bounded_strlen(const unsigned char *text, size_t size)
+{
+    size_t length = 0;
+    while (length < size && text[length] != 0)
+        length++;
+    return length;
+}
+
+int help_text_next_line(const unsigned char *data, size_t size,
+                        size_t *offset, size_t *length)
+{
+    size_t line_length;
+    if (data == NULL || offset == NULL || length == NULL ||
+        *offset >= size || data[*offset] == '@')
+        return 0;
+    line_length = help_bounded_strlen(data + *offset, size - *offset);
+    if (line_length >= size - *offset)
+        return 0;
+    *length = line_length;
+    *offset += line_length + 1;
+    return 1;
+}
+
+int help_text_page_starts(const unsigned char *data, size_t size,
+                          size_t *starts, int capacity)
+{
+    size_t offset = 0;
+    int lines = 0;
+    int pages = 0;
+    if (data == NULL || size == 0 || starts == NULL || capacity <= 0)
+        return 0;
+    starts[pages++] = 0;
+    while (offset < size) {
+        size_t length;
+        if (data[offset] == '@') {
+            offset++;
+            if (offset < size && data[offset] == 0)
+                offset++;
+            lines = 0;
+            if (offset < size && pages < capacity)
+                starts[pages++] = offset;
+            continue;
+        }
+        if (!help_text_next_line(data, size, &offset, &length))
+            break;
+        lines++;
+        if (lines == HELP_BODY_LINES && offset < size) {
+            if (data[offset] == '@') {
+                offset++;
+                if (offset < size && data[offset] == 0)
+                    offset++;
+            }
+            lines = 0;
+            if (offset < size && pages < capacity)
+                starts[pages++] = offset;
+        }
+    }
+    return pages;
+}

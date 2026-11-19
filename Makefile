@@ -1142,6 +1142,7 @@ SDL_TESTS := \
 	test_game_view_model_input \
 	test_god_sdl \
 	test_hibernation_sdl \
+	test_help_text \
 	test_sleepwalking_sdl \
 	test_hud_layout \
 	test_insurance_building_sdl \
@@ -1302,6 +1303,7 @@ TEST_UNIT_TESTS := \
 	test_audio_event \
 	test_public_api_contract \
 	test_text_backend_freetype \
+	test_help_text \
 	test_core_headers \
 	test_monthly_finance \
 	test_miyoo_input \
@@ -1382,6 +1384,7 @@ $(eval $(call RICH4_TEST_SUITE,test-god-resident,,test_property_flow test_confin
 $(eval $(call RICH4_TEST_SUITE,test-god-sdl,,test_god_sdl))
 $(eval $(call RICH4_TEST_SUITE,test-hotel,,test_hotel_flow))
 $(eval $(call RICH4_TEST_SUITE,test-hotel-regression,test-hotel test-facility test-insurance test-save-load-replay,test_turn_rotation_flow test_route_event_flow test_game_update_flow test_turn_start_flow test_turn_status_flow test_audio_event test_roulette_flow test_game_view_model test_route_event_executor))
+$(eval $(call RICH4_TEST_SUITE,test-help-text,,test_help_text))
 $(eval $(call RICH4_TEST_SUITE,test-hud-layout,,test_hud_layout))
 $(eval $(call RICH4_TEST_SUITE,test-insurance,,test_insurance test_insurance_alignment))
 $(eval $(call RICH4_TEST_SUITE,test-insurance-building-sdl,,test_insurance_building_sdl))
