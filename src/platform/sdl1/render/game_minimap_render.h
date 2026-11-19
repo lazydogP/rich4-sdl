@@ -39,7 +39,7 @@ int draw_game_player_model(SDL_Surface *screen,
                            int center_x,
                            int center_y,
                            int include_overlay);
-/* 0x4088C7/0x408B26: shared six-frame Map.mkf[25] overlay. */
+/* 0x4088C7/0x408B26: shared six-frame Data.mkf[414] overlay. */
 void draw_game_sleepwalking_overlay(SDL_Surface *screen,
     const GamePreviewAssets *assets, int frame, int center_x, int center_y);
 

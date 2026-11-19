@@ -311,10 +311,11 @@ int draw_game_player_model_part(SDL_Surface *screen,
 void draw_game_sleepwalking_overlay(SDL_Surface *screen,
     const GamePreviewAssets *assets, int frame, int center_x, int center_y)
 {
-    if (assets == NULL || !assets->map.has_map_common_graph[1]) return;
+    const int index = GAME_SLEEPWALKING_MARKER_STATUS_INDEX;
+    if (assets == NULL || !assets->map.has_data_map_status[index]) return;
     frame = wrap_index(frame, 6);
-    draw_spr_smp_center(screen, assets->map.map_common_data[1],
-        assets->map.map_common_size[1], &assets->map.map_common_spr[1],
+    draw_spr_smp_center(screen, assets->map.data_map_status_data[index],
+        assets->map.data_map_status_size[index], &assets->map.data_map_status_spr[index],
         (size_t)frame, center_x, center_y);
 }
 

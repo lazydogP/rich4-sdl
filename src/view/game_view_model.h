@@ -24,7 +24,7 @@ typedef struct GameActorView {
     int character;
     /* 0x4087BE -> 0x4555C5: recolor the primary sprite palette for +54. */
     int sleeping;
-    /* 0x408870: separate Map[25] marker above a sleepwalking player. */
+    /* 0x408870: separate Data[414] marker above a sleepwalking player. */
     int sleepwalking;
     int sleepwalking_frame;
     /* Original player +63 (god slot), distinct from bomb slot +64. */
@@ -64,7 +64,7 @@ typedef struct GameSpecialActorView {
     int visual_direction;
     int resource_part;
     int animation_frame;
-    /* 0x40829D adds a second Map[25] sprite while the special actor is
+    /* 0x40829D adds a second Data[414] sprite while the special actor is
      * sleepwalking.  The original render state advances this common-sprite
      * chunk independently of the actor model. */
     int overlay_chunk;

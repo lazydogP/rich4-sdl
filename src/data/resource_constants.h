@@ -11,6 +11,8 @@
 #define GAME_MAP_VIEW_RESOURCE_COUNT 5
 #define GAME_MAP_STAGE_TILE_RESOURCE_COUNT 17
 #define GAME_DATA_MAP_STATUS_RESOURCE_COUNT 20
+/* 0x496978 = 0x496930 + 18*4: Data.mkf[396+18], six dream markers. */
+#define GAME_SLEEPWALKING_MARKER_STATUS_INDEX 18
 #define GAME_MAX_MAP_OBJECT_SPRITES 260 /* UNKNOWN: prototype cache capacity. */
 #define GAME_MAP_OBJECT_SPRITE_COMMON_25 (-25)
 #define LOADING_SCENE_RESOURCE_INDEX 0x259 /* Existing prototype mapping; original evidence pending. */

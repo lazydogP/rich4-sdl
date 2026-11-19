@@ -16,6 +16,9 @@ static GamePreviewAssets assets;
 static GameSession session;
 static GameViewModel view;
 static GameViewModelInput input;
+static unsigned char *marker_data;
+static size_t marker_size;
+static Rich4SprSmpInfo marker_spr;
 
 static void equal_frames(SDL_Surface *a, SDL_Surface *b)
 {
@@ -92,8 +95,10 @@ static void check_actor(SDL_Surface *actual, SDL_Surface *expected,
         if (actor >= 12 || lane) body_frame += 2 % (spr[lane].num_chunks / 8);
         assert(draw_spr_smp_center(expected, body[lane], size[lane], &spr[lane],
             body_frame, x, y));
-        assert(draw_spr_smp_center(expected, assets.map.map_common_data[1],
-            assets.map.map_common_size[1], &assets.map.map_common_spr[1], frame, x, y));
+        /* 0x496978 = 0x496930 + 18*4: the independent expected image is
+         * Data.mkf[396+18], not the Map.mkf[25] decoy loaded below. */
+        assert(draw_spr_smp_center(expected, marker_data,
+            marker_size, &marker_spr, frame, x, y));
         equal_frames(actual, expected);
     }
     for (lane = 0; lane < 2; lane++) {
@@ -145,11 +150,22 @@ int main(void)
         assets.map.map_common_size[1], &assets.map.map_common_spr[1]));
     assert(assets.map.map_common_spr[1].num_chunks >= 6);
     assets.map.has_map_common_graph[1] = 1;
+    /* Keep the unrelated Map[25] sprite available: selecting it must fail
+     * the image comparison rather than silently skipping the marker. */
+    assert(rich4_mkf_read_resource(data, 414, &marker_data,
+        &marker_size, NULL) == RICH4_MKF_OK);
+    assert(rich4_spr_smp_probe(marker_data, marker_size, &marker_spr));
+    assert(marker_spr.num_chunks == 6);
+    assets.map.data_map_status_data[18] = marker_data;
+    assets.map.data_map_status_size[18] = marker_size;
+    assets.map.data_map_status_spr[18] = marker_spr;
+    assets.map.has_data_map_status[18] = 1;
     routes[1].x = routes[1].y = 320;
     map.routes = routes; map.route_count = 2;
     for (actor = 0; actor < 16; actor++) check_actor(actual, expected, data, actor, &map);
     check_automatic_turn(&map);
     free(assets.map.map_common_data[1]);
+    free(marker_data);
     rich4_mkf_close(map_archive); rich4_mkf_close(data);
     SDL_FreeSurface(actual); SDL_FreeSurface(expected);
     puts("sleepwalking SDL: 12 players + 4 special actors, 8 directions, 6 marker frames, automatic turn: ok");

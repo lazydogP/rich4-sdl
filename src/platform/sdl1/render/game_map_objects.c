@@ -205,7 +205,8 @@ void draw_game_map_objects(SDL_Surface *screen,
             inputs[input_count].world_x = actor->world_x;
             inputs[input_count].world_y = actor->world_y;
             inputs[input_count].sort_bias = i == view->hud.current_player ? 0x0f : 0x0e;
-            inputs[input_count].drawable = actor->visible && actor->world_x != 0;
+            inputs[input_count].drawable = actor->visible && actor->world_x != 0 &&
+                assets->map.has_data_map_status[GAME_SLEEPWALKING_MARKER_STATUS_INDEX];
             input_count++;
         }
         if (actor->overlay_part >= 0 && input_count < GAME_MAP_RENDER_QUEUE_CAPACITY) {
@@ -253,7 +254,7 @@ void draw_game_map_objects(SDL_Surface *screen,
                 (view->current_actor == i + GAME_MAX_PLAYERS)
                     ? 0x0f : 0x0e;
             inputs[input_count].drawable = actor->visible &&
-                assets->map.has_map_common_graph[1];
+                assets->map.has_data_map_status[GAME_SLEEPWALKING_MARKER_STATUS_INDEX];
             input_count++;
         }
     }
