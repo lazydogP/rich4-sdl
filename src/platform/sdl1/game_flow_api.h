@@ -41,5 +41,8 @@ int game_session_load_menu_slot(GameSession *session,
 const char *game_card_big5_name(int card);
 const char *game_tool_big5_name(int tool);
 const char *game_stock_name_for_state(const GameState *state, int stock);
+const char *game_land_development_big5_name(int type, int level);
+const char *game_facility_big5_name(int type, int level);
+const char *game_facility_level_big5_name(int level);
 
 #endif

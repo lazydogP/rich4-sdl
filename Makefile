@@ -924,8 +924,8 @@ $(BIN_DIR)/test_game_loop_frame_end: tests/unit/test_game_loop_frame_end.c $(BUI
 $(BIN_DIR)/test_game_loop_scene_update: tests/unit/test_game_loop_scene_update.c $(BUILD_DIR)/sdl1_game_loop_scene_update.o | dirs
 	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_game_loop_scene_update.c $(BUILD_DIR)/sdl1_game_loop_scene_update.o
 
-$(BIN_DIR)/test_player_info_name_spacing: tests/unit/test_player_info_name_spacing.c $(BUILD_DIR)/sdl1_game_loop_player_info_panel.o | dirs
-	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_player_info_name_spacing.c $(BUILD_DIR)/sdl1_game_loop_player_info_panel.o
+$(BIN_DIR)/test_player_info_name_spacing: tests/unit/test_player_info_name_spacing.c $(BUILD_DIR)/sdl1_game_loop_player_info_panel.o $(BUILD_DIR)/sdl1_game_catalog_text.o | dirs
+	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ $^
 
 $(BIN_DIR)/test_sdl1_blit: tests/unit/test_sdl1_blit.c $(BUILD_DIR)/sdl1_blit.o $(BUILD_DIR)/spr_smp.o $(BUILD_DIR)/byte_reader.o | dirs
 	$(CC) $(CPPFLAGS) $(SDL_CFLAGS) $(CFLAGS) $(WARNFLAGS) -o $@ tests/unit/test_sdl1_blit.c $(BUILD_DIR)/sdl1_blit.o $(BUILD_DIR)/spr_smp.o $(BUILD_DIR)/byte_reader.o $(SDL_LIBS)

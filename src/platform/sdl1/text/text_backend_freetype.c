@@ -199,6 +199,55 @@ static int rich4_ft_copy_line(const char *cursor, char *line,
     return 1;
 }
 
+static void rich4_ft_blit_styled_glyph(Rich4TextTarget *target,
+                                      SDL_Surface *glyph, int dst_x, int dst_y,
+                                      uint16_t color, const Rich4TextStyle *style);
+
+/* The original sets a character extra of spacing - 1 before measuring
+ * and drawing. SDL_ttf's ordinary whole-line draw has no tracking option. */
+static int rich4_ft_spaced_line(TTF_Font *font, const char *line,
+                                const Rich4TextStyle *style,
+                                Rich4TextTarget *target, int x, int y,
+                                int *out_width)
+{
+    const unsigned char *cursor = (const unsigned char *)line;
+    int extra = rich4_text_character_extra(style->spacing);
+    int pen = 0;
+    SDL_Color white = {255, 255, 255, 0};
+    while (*cursor != 0) {
+        int size = rich4_ft_utf8_char_size(cursor);
+        char character[5];
+        int width;
+        memcpy(character, cursor, (size_t)size);
+        character[size] = '\0';
+        if (TTF_SizeUTF8(font, character, &width, NULL) != 0) return 0;
+        if (target != NULL) {
+            SDL_Surface *glyph = TTF_RenderUTF8_Solid(font, character, white);
+            Rich4TextEffect effect = rich4_text_effect(style->style);
+            if (glyph == NULL) return 0;
+            if (effect != RICH4_TEXT_EFFECT_NONE)
+                rich4_ft_blit_styled_glyph(target, glyph, x + pen + 1, y + 1,
+                                          style->shadow, style);
+            rich4_ft_blit_styled_glyph(target, glyph, x + pen, y,
+                                      style->fg, style);
+            SDL_FreeSurface(glyph);
+        }
+        cursor += size;
+        pen += width;
+        if (*cursor != 0) pen += extra;
+    }
+    if (out_width != NULL) *out_width = pen;
+    return 1;
+}
+
+static int rich4_ft_line_width(TTF_Font *font, const char *line,
+                               const Rich4TextStyle *style, int *width)
+{
+    if (rich4_text_character_extra(style->spacing) != 0)
+        return rich4_ft_spaced_line(font, line, style, NULL, 0, 0, width);
+    return TTF_SizeUTF8(font, line, width, NULL) == 0;
+}
+
 static int rich4_ft_measure_horizontal(TTF_Font *font, const char *utf8,
                                        const Rich4TextStyle *style,
                                        int *out_width, int *out_height)
@@ -214,10 +263,9 @@ static int rich4_ft_measure_horizontal(TTF_Font *font, const char *utf8,
     if (line_skip <= 0) line_skip = font_height;
     do {
         int line_width = 0;
-        int line_height = 0;
         if (!rich4_ft_copy_line(cursor, line, sizeof(line), &next)) return 0;
         if (line[0] != '\0' &&
-            TTF_SizeUTF8(font, line, &line_width, &line_height) != 0)
+            !rich4_ft_line_width(font, line, style, &line_width))
             return 0;
         if (line_width > max_width) max_width = line_width;
         line_count++;
@@ -394,26 +442,31 @@ static int rich4_ft_render(Rich4TextBackend *self,
         if (line_skip <= 0) line_skip = style->height;
         do {
             int line_width = 0;
-            int line_height = 0;
             int line_x = x;
             SDL_Surface *glyph = NULL;
             if (!rich4_ft_copy_line(cursor, line, sizeof(line), &next))
                 return 0;
             if (line[0] != '\0') {
-                if (TTF_SizeUTF8(font, line, &line_width, &line_height) != 0)
+                if (!rich4_ft_line_width(font, line, style, &line_width))
                     return 0;
                 line_width += rich4_ft_bold_spread(style);
                 if (rich4_text_centers_lines(style->mode))
                     line_x += (w - line_width) / 2;
-                glyph = TTF_RenderUTF8_Solid(font, line, white);
-                if (glyph == NULL) return 0;
-                if (off != 0)
+                if (rich4_text_character_extra(style->spacing) != 0) {
+                    if (!rich4_ft_spaced_line(font, line, style, target,
+                                              line_x, pen_y, NULL))
+                        return 0;
+                } else {
+                    glyph = TTF_RenderUTF8_Solid(font, line, white);
+                    if (glyph == NULL) return 0;
+                    if (off != 0)
+                        rich4_ft_blit_styled_glyph(
+                            target, glyph, line_x + off, pen_y + off,
+                            style->shadow, style);
                     rich4_ft_blit_styled_glyph(
-                        target, glyph, line_x + off, pen_y + off,
-                        style->shadow, style);
-                rich4_ft_blit_styled_glyph(
-                    target, glyph, line_x, pen_y, style->fg, style);
-                SDL_FreeSurface(glyph);
+                        target, glyph, line_x, pen_y, style->fg, style);
+                    SDL_FreeSurface(glyph);
+                }
             }
             pen_y += line_skip;
             cursor = next;

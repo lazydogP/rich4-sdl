@@ -15,6 +15,7 @@ int main(void)
     Rich4TextStyle regular_style = { 20, 0, 1, 0, 0xffff, 0 };
     int regular_width = 0;
     int bold_width = 0;
+    int tight_width = 0;
     int single_height = 0;
     int two_line_height = 0;
     int three_line_height = 0;
@@ -32,6 +33,11 @@ int main(void)
     assert(rich4_text_backend_measure(
         &backend, "\xa8\xfa\xae\xf8", &style, &bold_width, NULL));
     assert(bold_width == regular_width + 1);
+    style.spacing = 0;
+    assert(rich4_text_backend_measure(
+        &backend, "\xa8\xfa\xae\xf8", &style, &tight_width, NULL));
+    assert(tight_width == bold_width - 1);
+    style.spacing = 1;
     assert(rich4_text_backend_measure(
         &backend, "\xa8\xfa\xae\xf8\n\xbd\x54\xa9\x77", &style,
         NULL, &two_line_height));

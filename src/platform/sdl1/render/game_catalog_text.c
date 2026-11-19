@@ -64,6 +64,44 @@ const char *new_game_character_name(int character)
     return names[character];
 }
 
+const char *game_land_development_big5_name(int type, int level)
+{
+    /* 0x475138; converted plots use 0x463E30. */
+    static const char *const names[] = {
+        "\xaa\xc5  \xa6\x61", "\xa5\xad  \xa9\xd0",
+        "\xa9\xb1  \xe7\x45", "\xb0\xd3  \xb3\xf5",
+        "\xb0\xd3\xb7\x7e\xa4\x6a\xbc\xd3",
+        "\xbc\xaf\xa4\xd1\xa4\x6a\xbc\xd3"
+    };
+    if (type != 0) return "\xb3\x73\xc2\xea\xa9\xb1";
+    if (level < 0) level = 0;
+    if (level > 5) level = 5;
+    return names[level];
+}
+
+const char *game_facility_big5_name(int type, int level)
+{
+    /* 0x475150; a level-zero plot is labeled 空  地. */
+    static const char *const names[] = {
+        "\xa4\xbd  \xb6\xe9", "\xae\xc8  \xc0\x5d",
+        "\xc1\xca\xaa\xab\xa4\xa4\xa4\xdf",
+        "\xa5\x5b\xaa\x6f\xaf\xb8", "\xac\xe3\xa8\x73\xa9\xd2"
+    };
+    if (level == 0) return game_land_development_big5_name(0, 0);
+    if (type < 0 || type >= (int)(sizeof(names) / sizeof(names[0]))) type = 0;
+    return names[type];
+}
+
+const char *game_facility_level_big5_name(int level)
+{
+    /* 0x475164. */
+    static const char *const names[] = {
+        "\xa2\xaf\xaf\xc5", "\xa4\x40\xaf\xc5", "\xa4\x47\xaf\xc5",
+        "\xa4\x54\xaf\xc5", "\xa5\x7c\xaf\xc5", "\xa4\xad\xaf\xc5"
+    };
+    return level >= 0 && level <= 5 ? names[level] : "";
+}
+
 void game_compact_display_name(char *out, size_t capacity,
                                const char *source)
 {

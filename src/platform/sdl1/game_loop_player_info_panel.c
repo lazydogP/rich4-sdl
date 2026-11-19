@@ -86,24 +86,6 @@ static const char *const player_info_property_headers[5] = {
     "\xaf\xb2\x20\x20\xb4\xc1"          /* 租  期 */
 };
 
-/* ref_00475138 / ref_00475150: the status text in 0x4225A3. */
-static const char *const player_info_land_development[6] = {
-    "\xaa\xc5\x20\x20\xa6\x61", /* 空  地 */
-    "\xa5\xad\x20\x20\xa9\xd0", /* 平  房 */
-    "\xa9\xb1\x20\x20\xe7\x45", /* 店  舖 */
-    "\xb0\xd3\x20\x20\xb3\xf5", /* 商  場 */
-    "\xb0\xd3\xb7\x7e\xa4\x6a\xbc\xd3", /* 商業大樓 */
-    "\xbc\xaf\xa4\xd1\xa4\x6a\xbc\xd3"  /* 摩天大樓 */
-};
-
-static const char *const player_info_facility_development[5] = {
-    "\xa4\xbd\x20\x20\xb6\xe9", /* 公  園 */
-    "\xae\xc8\x20\x20\xc0\x5d", /* 旅  館 */
-    "\xc1\xca\xaa\xab\xa4\xa4\xa4\xdf", /* 購物中心 */
-    "\xa5\x5b\xaa\x6f\xaf\xb8", /* 加油站 */
-    "\xac\xe3\xa8\x73\xa9\xd2"  /* 研究所 */
-};
-
 static int player_info_god_panel_chunk(const GamePlayerState *player)
 {
     /* 0x423109..0x42314A indexes 0x475464 with player +63, the one-based
@@ -397,21 +379,11 @@ static void player_info_property_name(char out_name[21],
 static const char *player_info_property_kind(const GameState *state,
                                              PlayerInfoPropertyRow row)
 {
-    if (row.kind == PLAYER_INFO_PROPERTY_FACILITY) {
-        int level = state->facility_level[row.index];
-        int type = state->facility_type[row.index];
-        if (level == 0) return player_info_land_development[0];
-        if (type < 0 || type >= 5) type = 0;
-        return player_info_facility_development[type];
-    }
-    if (state->land_type[row.index] != 0)
-        return "\xb3\x73\xc2\xea\xa9\xb1"; /* 連鎖店 */
-    {
-        int level = state->land_level[row.index];
-        if (level < 0) level = 0;
-        if (level > 5) level = 5;
-        return player_info_land_development[level];
-    }
+    if (row.kind == PLAYER_INFO_PROPERTY_FACILITY)
+        return game_facility_big5_name(state->facility_type[row.index],
+                                       state->facility_level[row.index]);
+    return game_land_development_big5_name(state->land_type[row.index],
+                                           state->land_level[row.index]);
 }
 
 static int player_info_land_fee(const GameState *state, int land)

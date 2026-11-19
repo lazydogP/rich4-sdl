@@ -48,17 +48,6 @@ static void draw_panel(SDL_Surface *screen, const GamePreviewAssets *assets,
     game_draw_player_info_panel(screen, assets, session);
 }
 
-const char *new_game_character_name(int character)
-{
-    assert(character == 9);
-    return padded_character_name;
-}
-
-const char *game_card_big5_name(int card)
-{
-    return card == 0 ? "card 1" : card == 29 ? "card 30" : "";
-}
-
 const char *game_stock_name_for_state(const GameState *state, int stock)
 {
     (void)state;
@@ -313,8 +302,8 @@ static void test_asset_fields(SDL_Surface *screen,
     expect_text(250, 392, "\xa1\xd1" "1");
     expect_text(250, 440, "\xa1\xd1" "1");
     expect_text(330, 281, "\xa1\xd1" "4");
-    expect_text(300, 385, "card 1");
-    expect_text(372, 385, "card 30");
+    expect_text(300, 385, "\xa7\xa1\xb4\x49\xa5\x64");
+    expect_text(372, 385, "\xaf\x51\xc0\x74\xa5\x64");
 }
 
 static void test_property_fields(SDL_Surface *screen,
@@ -423,7 +412,7 @@ int main(void)
      * 0x452946 space-removal helper. */
     draw_panel(&screen, &assets, &session);
 
-    assert(header_name == padded_character_name);
+    assert(header_name != NULL);
     assert(strcmp(header_name, padded_character_name) == 0);
     assert(strchr(header_name, ' ') != NULL);
     test_god_remaining_days(&screen, &assets, &session);
