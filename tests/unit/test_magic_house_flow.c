@@ -201,6 +201,51 @@ static void turn_effect_holds_for_500_ms(void)
     assert(session.presentation.magic_house.target_player == 1);
 }
 
+static void turn_action_skips_status_blocked_targets(void)
+{
+    int status;
+    for (status = 0; status < 4; status++) {
+        GameSession session;
+        GameEventQueue events;
+        begin_two_target_magic(&session, 7, 1000);
+        session.state.tool_route_node_count = 5;
+        session.state.players[0].node = 1;
+        session.state.players[0].next_node = 2;
+        session.state.players[1].node = 2;
+        session.state.players[1].next_node = 1;
+        session.state.tool_route_next[1][0] = 2;
+        session.state.tool_route_next[1][1] = 3;
+        session.state.tool_route_next[2][0] = 1;
+        session.state.tool_route_next[2][1] = 4;
+        session.presentation.actors[0].direction = 1;
+        session.presentation.actors[1].direction = 2;
+        if (status == 0)
+            session.state.players[0].delayed_status_block = 1;
+        else if (status == 1)
+            session.state.players[0].days_disappearing = 1;
+        else if (status == 2)
+            session.state.players[0].days_in_prison = 1;
+        else
+            session.state.players[0].days_in_hospital = 1;
+
+        rich4_game_event_queue_reset(&events);
+        assert(rich4_magic_house_update(
+            &session, 0, 0, 1000, 0, NULL, &events));
+        assert(session.presentation.magic_house.phase ==
+               RICH4_MAGIC_HOUSE_TARGET);
+        assert(session.presentation.magic_house.target_player == 1);
+        assert(session.state.players[0].next_node == 2);
+        assert(session.presentation.actors[0].direction == 1);
+
+        assert(rich4_magic_house_update(
+            &session, 0, 0, 2500, 0, NULL, &events));
+        assert(session.state.players[0].next_node == 2);
+        assert(session.presentation.actors[0].direction == 1);
+        assert(session.state.players[1].next_node == 4);
+        assert(session.presentation.actors[1].direction == 6);
+    }
+}
+
 static void property_actions_emit_original_flcs(void)
 {
     int action;
@@ -533,6 +578,7 @@ int main(void)
     target_notices_interleave_effects_and_skip();
     per_target_holds_precede_next_notice();
     turn_effect_holds_for_500_ms();
+    turn_action_skips_status_blocked_targets();
     property_actions_emit_original_flcs();
     skipped_intro_suppresses_turn_prompt();
     puts("app magic-house flow: ok");

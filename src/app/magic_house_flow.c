@@ -338,6 +338,7 @@ static int rich4_magic_house_action_shows_target(
     const GameSession *session, int player, int action)
 {
     const GameState *state;
+    const GamePlayerState *target;
     int node;
     int raw;
     if (session == NULL || player < 0 ||
@@ -346,7 +347,12 @@ static int rich4_magic_house_action_shows_target(
     if ((session->presentation.magic_house.targets & (1u << player)) == 0 ||
         (state->players[player].play_state & 0xff) == 0) return 0;
     if (action != 5 && action != 7 && action != 9 && action != 11) return 1;
-    if (state->players[player].delayed_status_block != 0) return 0;
+    target = &state->players[player];
+    /* 0x431CAA tests the original dword at player +50, covering all four
+     * consecutive status bytes rather than only the hotel/delay byte. */
+    if (target->delayed_status_block != 0 ||
+        target->days_disappearing != 0 || target->days_in_prison != 0 ||
+        target->days_in_hospital != 0) return 0;
     if (action == 7) return 1;
     node = state->players[player].node;
     if (node < 0 || node >= state->tool_route_node_count) return 0;
