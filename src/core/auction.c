@@ -199,6 +199,16 @@ static GameAuctionAction action_for_difference(int64_t difference)
     return GAME_AUCTION_PASS;
 }
 
+static GameAuctionAction action_for_leader_cash_limit(int64_t difference)
+{
+    /* 0x43B1C7..0x43B214 selects the smallest button increment that is
+     * not less than the remaining leader-cash threshold. */
+    if (difference > 1000) return GAME_AUCTION_BID_5000;
+    if (difference > 500) return GAME_AUCTION_BID_1000;
+    if (difference > 100) return GAME_AUCTION_BID_500;
+    return GAME_AUCTION_BID_100;
+}
+
 GameAuctionAction rich4_auction_ai_action(
     const GameAuctionState *auction, const GameState *state, int player)
 {
@@ -220,7 +230,7 @@ GameAuctionAction rich4_auction_ai_action(
             auction->current_price;
         if (rich4_auction_action_amount(action) > threshold &&
             threshold <= 5000)
-            action = action_for_difference(threshold);
+            action = action_for_leader_cash_limit(threshold);
     }
     if (auction->eligible_count == 1 && action != GAME_AUCTION_PASS)
         action = GAME_AUCTION_BID_100;
@@ -433,14 +443,20 @@ GameAuctionSettlementResult rich4_auction_settle(
                 return GAME_AUCTION_SETTLEMENT_REJECTED;
             (void)level;
             (void)base_price;
+            (void)asset_value;
             next = *state;
             rich4_game_event_queue_reset(&staged);
-            if (!update_fixed_assets(&next, owner, -1, asset_value))
-                return GAME_AUCTION_SETTLEMENT_REJECTED;
-            if (auction->target.kind == GAME_DOMAIN_LAND)
+            /* Auction-card callers clear the authoritative owner and lease
+             * directly at 0x44335B/0x44335F and 0x443486/0x44348A.  Derived
+             * SDL aggregates may be stale, so rebuild them after the write. */
+            if (auction->target.kind == GAME_DOMAIN_LAND) {
                 next.land_owner[auction->target.id] = -1;
-            else
+                next.land_lease_date[auction->target.id] = 0;
+            } else {
                 next.facility_owner[auction->target.id] = -1;
+                next.facility_last_change[auction->target.id] = 0;
+            }
+            recompute_fixed_assets(&next);
             if (owner >= 0 &&
                 (!rich4_game_event_emit_typed_domain(
                      &staged,

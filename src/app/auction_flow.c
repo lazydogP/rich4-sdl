@@ -450,8 +450,9 @@ int rich4_auction_flow_update(
     case RICH4_AUCTION_PRESENT_SOLD_CALL:
         presentation->celebration_tick = (int)(
             (uint32_t)(now - presentation->celebration_started) / 100u);
-        if (presentation->celebration_tick > 60)
-            presentation->celebration_tick = 60;
+        /* 0x43AD4E/0x43AEB0 clears the high-word counter at tick 60. */
+        if (presentation->celebration_tick >= 60)
+            presentation->celebration_tick = 0;
         if (speech_done) {
             player = presentation->bidding.leader;
             presentation->mouth_drawn = 0;
@@ -466,8 +467,8 @@ int rich4_auction_flow_update(
     case RICH4_AUCTION_PRESENT_WINNER:
         presentation->celebration_tick = (int)(
             (uint32_t)(now - presentation->celebration_started) / 100u);
-        if (presentation->celebration_tick > 60)
-            presentation->celebration_tick = 60;
+        if (presentation->celebration_tick >= 60)
+            presentation->celebration_tick = 0;
         if (speech_done)
             begin_post_sale_wait(session, now);
         break;

@@ -6,6 +6,7 @@
 #include "platform/sdl1/game_loop_mouse_button_down.h"
 #include "platform/sdl1/game_loop_mouse_button_down_input.h"
 
+#include "app/auction_flow.h"
 #include "app/map_input_flow.h"
 #include "platform/sdl1/game_loop_panels.h"
 #include "app/options_flow.h"
@@ -115,6 +116,21 @@ int game_handle_mouse_button_down_input(
                     context->cursor->x, context->cursor->y, context->audio);
         }
         context->cursor->confirm_pressed = context->cursor->cancel_pressed = 0;
+        context->cursor->confirm_pointer_pressed = 0;
+        return 1;
+    }
+    if (context->button == SDL_BUTTON_LEFT && context->app_state != NULL &&
+        *context->app_state == RICH4_SCENE_GAME && context->session != NULL &&
+        context->session->presentation.auction.active &&
+        context->session->presentation.auction.speech_visible) {
+        Rich4AudioEventQueue *audio_events =
+            rich4_app_session_audio_borrow(context->session);
+        /* 0x43BB25 calls 0x44EE18(1) before checking bidding state.  The
+         * pointer remains hidden during announcements, but the click still
+         * dismisses the current line. */
+        rich4_auction_flow_skip_speech(context->session, audio_events);
+        game_session_audio_flush(context->session, context->audio);
+        context->cursor->confirm_pressed = 0;
         context->cursor->confirm_pointer_pressed = 0;
         return 1;
     }

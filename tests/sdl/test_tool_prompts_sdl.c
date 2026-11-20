@@ -177,8 +177,33 @@ static void physical_selector_releases(void)
     }
 }
 
+static void hidden_auction_speech_accepts_left_down(void)
+{
+    Rich4SceneId scene = RICH4_SCENE_GAME;
+    VirtualCursor cursor = {0};
+    int held = 0;
+    GameMouseButtonDownInputContext down = {0};
+    (void)setup(1, 1);
+    rich4_audio_event_queue_init(&session.audio_events);
+    session.presentation.auction.active = 1;
+    session.presentation.auction.stage = RICH4_AUCTION_PRESENT_INTRO;
+    session.presentation.auction.speech_visible = 1;
+    down.app_state = &scene;
+    down.session = &session;
+    down.cursor = &cursor;
+    down.mouse_left_down = &held;
+    down.button = SDL_BUTTON_LEFT;
+    assert(!rich4_app_input_ui_active(
+        RICH4_SCENE_GAME, &settings, &session, 0));
+    assert(game_handle_mouse_button_down_input(&down));
+    assert(!session.presentation.auction.speech_visible);
+    assert(session.presentation.auction.speech_skipped);
+    assert(!cursor.confirm_pressed && !cursor.confirm_pointer_pressed);
+}
+
 int main(void)
 {
+    hidden_auction_speech_accepts_left_down();
     physical_selector_releases();
     missile_frames_use_the_original_map();
     GameCommand command = setup(1, 0);

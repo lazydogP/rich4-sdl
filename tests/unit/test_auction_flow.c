@@ -154,7 +154,8 @@ static void deferred_speech_and_unsold_policy(void)
     Rich4AudioEvent sound;
     setup(&session, 1);
     session.state.land_owner[0] = 0;
-    session.state.fixed_asset_value[0] = 1000;
+    session.state.fixed_asset_value[0] = 0;
+    session.state.land_lease_date[0] = 0x07d10a0fu;
     auction_request = request(0, GAME_AUCTION_CLEAR_OWNER_IF_UNSOLD);
     assert(rich4_auction_flow_enqueue(&session, &auction_request, NULL));
     assert(session.presentation.auction.speech_pending);
@@ -171,6 +172,30 @@ static void deferred_speech_and_unsold_policy(void)
     assert(!rich4_auction_flow_update(&session, 0, 0, &audio, &events));
     assert(session.state.land_owner[0] == -1);
     assert(session.state.fixed_asset_value[0] == 0);
+    assert(session.state.land_lease_date[0] == 0);
+}
+
+static void celebration_stops_at_sixty_ticks(void)
+{
+    GameSession session;
+    GameEventQueue events;
+    GameAuctionPresentationState *presentation;
+    setup(&session, 1);
+    rich4_game_event_queue_reset(&events);
+    presentation = &session.presentation.auction;
+    presentation->active = 1;
+    presentation->stage = RICH4_AUCTION_PRESENT_WINNER;
+    presentation->bidding.leader = 0;
+    presentation->celebration_started = 0;
+    presentation->speech_visible = 1;
+    presentation->speech_clock_started = 1;
+    presentation->speech_until = 10000;
+    assert(rich4_auction_flow_update(
+        &session, 5999, 1, &session.audio_events, &events));
+    assert(presentation->celebration_tick == 59);
+    assert(rich4_auction_flow_update(
+        &session, 6000, 1, &session.audio_events, &events));
+    assert(presentation->celebration_tick == 0);
 }
 
 static void owned_sale_repairs_stale_asset_cache(void)
@@ -430,6 +455,7 @@ int main(void)
     human_sale_timeline_and_settlement();
     deferred_speech_and_unsold_policy();
     owned_sale_repairs_stale_asset_cache();
+    celebration_stops_at_sixty_ticks();
     invalid_bid_and_cash_overrun_follow_callback();
     puts("auction flow tests: ok");
     return 0;
