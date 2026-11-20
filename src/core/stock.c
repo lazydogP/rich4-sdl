@@ -421,34 +421,35 @@ int rich4_stock_elapsed_months(const GameState *state)
            month - state->calendar_start_month;
 }
 
-static void update_company_ranking(GameState *state, int stock, int player)
+static void update_company_ranking(GameState *state, int stock, int player,
+                                  int preserve_other_ranks)
 {
     int next[GAME_MAX_PLAYERS];
     int count = 0;
-    int inserted = 0;
+    int company = state->stock_company_auxiliary[stock];
     int i;
-    if (state->stocks[stock].f4 == 0 ||
-        state->stock_company_auxiliary[stock] < 0) return;
-    for (i = 0; i < GAME_MAX_PLAYERS; i++) {
+    if (state->stocks[stock].f4 == 0 || company < 0) return;
+    for (i = 0; i < GAME_MAX_PLAYERS && count < GAME_MAX_PLAYERS - 1; i++) {
         int ranked = state->stock_company_ranking[stock][i];
         if (ranked >= 0 && ranked < state->player_count && ranked != player &&
-            state->player_stock_amount[ranked][stock] > 0)
+            (preserve_other_ranks || state->player_stock_amount[ranked][stock] > 0))
             next[count++] = ranked;
     }
     if (state->player_stock_amount[player][stock] > 0) {
         int amount = state->player_stock_amount[player][stock];
-        int at = 0;
-        while (at < count &&
-               state->player_stock_amount[next[at]][stock] >= amount) at++;
+        int at = count;
+        while (at > 0 &&
+               state->player_stock_amount[next[at - 1]][stock] < amount) at--;
         for (i = count; i > at; i--) next[i] = next[i - 1];
         next[at] = player;
         count++;
-        inserted = 1;
     }
-    (void)inserted;
     for (i = 0; i < GAME_MAX_PLAYERS; i++)
         state->stock_company_ranking[stock][i] = i < count ? next[i] : -1;
     state->stock_company_owner[stock] = count != 0 ? next[0] : -1;
+    /* The original company record shares this owner with the bank lookup. */
+    if (company < state->company_count && company < GAME_MAX_MAP_PROPERTIES)
+        state->company_owner[company] = state->stock_company_owner[stock];
 }
 
 void rich4_stock_refresh_company_ownership(GameState *state, int stock,
@@ -456,7 +457,17 @@ void rich4_stock_refresh_company_ownership(GameState *state, int stock,
 {
     if (state == NULL || stock < 0 || stock >= GAME_STOCK_COUNT ||
         player < 0 || player >= GAME_MAX_PLAYERS) return;
-    update_company_ranking(state, stock, player);
+    update_company_ranking(state, stock, player, 0);
+}
+
+void rich4_stock_refresh_market_buyer_ownership(GameState *state, int stock,
+                                                 int buyer)
+{
+    /* 0x425739 calls 0x4294D5 only for the buyer. Keep the other slots
+     * in place, even when the seller just reduced their holding to zero. */
+    if (state == NULL || stock < 0 || stock >= GAME_STOCK_COUNT ||
+        buyer < 0 || buyer >= GAME_MAX_PLAYERS) return;
+    update_company_ranking(state, stock, buyer, 1);
 }
 
 void rich4_stock_tick_status(GameState *state)
@@ -615,7 +626,7 @@ GameStockTradeResult rich4_stock_apply_command(GameState *state,
         next.player_stock_amount[player][id] = amount;
         if (amount == 0) next.player_stock_average_cost[player][id] = 0.0f;
     }
-    update_company_ranking(&next, id, player);
+    update_company_ranking(&next, id, player, 0);
     if (!emit_trade_events(events, command,
                            command->type == GAME_COMMAND_BUY_STOCK ? -cost : cost,
                            amount, old_owner, next.stock_company_owner[id]))

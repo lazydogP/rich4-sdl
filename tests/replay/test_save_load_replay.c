@@ -988,12 +988,17 @@ int main(void)
     source->presentation.bank_settlement.eye_state = 64;
     source->presentation.bank_settlement.mouth_chunk = 23 | (22 << 8);
     round_trip_case(directory, "monthly-banker-state", source, 2, &map);
+    source->state.market_listings[0][0] = (GameMarketListing){
+        .type = GAME_MARKET_LISTING_STOCK, .quantity = 40000, .ask_price = 10000
+    };
+    round_trip_case(directory, "market-unsigned-quantity", source, 2, &map);
     /* Formats 4..11 called the last two listing bytes reserved and normally
      * wrote zero.  The current loader reconstructs the original type/level
      * snapshot semantics from the listed property. */
     source->state.land_type[0] = 3;
     source->state.land_level[0] = 2;
     source->state.market_listings[0][0].type = GAME_MARKET_LISTING_ASSET;
+    source->state.market_listings[0][0].quantity = 0;
     source->state.market_listings[0][0].item_id = 0x7d1;
     source->state.market_listings[0][0].asset_type_snapshot = 0;
     source->state.market_listings[0][0].asset_level_snapshot = 0;

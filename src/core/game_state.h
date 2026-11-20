@@ -25,7 +25,7 @@ typedef struct GameMarketListing {
     uint8_t age_months;
     uint16_t item_id;
     int32_t ask_price;
-    int16_t quantity;
+    uint16_t quantity;
     uint8_t asset_type_snapshot;
     uint8_t asset_level_snapshot;
 } GameMarketListing;

@@ -5,6 +5,7 @@
 
 #include "core/card.h"
 #include "core/facility.h"
+#include "core/ledger.h"
 #include "core/property.h"
 #include "core/rng.h"
 #include "core/stock.h"
@@ -249,10 +250,16 @@ static void ai_market_preactions(GameSession *session, int player,
                                  Rich4AiCommandSink *sink)
 {
     Rich4Rng rng;
+    GameCommand finish = rich4_game_command(
+        GAME_COMMAND_FINISH_MARKET, GAME_COMMAND_SOURCE_AI, player, 0);
+    /* 0x4284BE validates all sellers before drawing or rolling for AI
+     * actions, and calls 0x436B0A(0) after the last attempt. */
+    rich4_ledger_clean_market_listings(&session->state);
     rng.state = session->state.ai_rng_state;
     ai_market_try_create_listing(session, player, &rng, now, sink);
     ai_market_try_reprice(session, player, &rng, now, sink);
     ai_market_try_buy_listing(session, player, &rng, now, sink);
+    (void)ai_market_submit(session, &rng, sink, &finish, now);
     session->state.ai_rng_state = rng.state;
 }
 

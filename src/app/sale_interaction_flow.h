@@ -7,7 +7,9 @@
 
 enum {
     RICH4_SALE_POINTER_BUTTON_LEFT = 1,
-    RICH4_SALE_POINTER_BUTTON_RIGHT = 3
+    RICH4_SALE_POINTER_BUTTON_RIGHT = 3,
+    RICH4_SALE_KEYPAD_X = 256,
+    RICH4_SALE_KEYPAD_Y = 144
 };
 
 typedef enum Rich4SaleMessage {
@@ -33,6 +35,7 @@ typedef struct Rich4AppSaleInteractionResult {
 } Rich4AppSaleInteractionResult;
 
 int rich4_app_sale_interaction_is_active(const GameSession *session);
+void rich4_app_sale_interaction_clear_notice(GameSession *session);
 int rich4_app_sale_item_count(
     const GameSession *session, Rich4SaleInteractionCategory category);
 int rich4_app_sale_item_at(
@@ -42,7 +45,6 @@ int rich4_app_sale_browse_count(const GameSession *session);
 int rich4_app_sale_browse_listing_at(
     const GameSession *session, int ordinal, int *out_seller, int *out_slot);
 void rich4_app_sale_interaction_open(GameSession *session);
-void rich4_app_sale_interaction_cancel(GameSession *session);
 int rich4_app_sale_interaction_entry_value(const GameSession *session);
 int rich4_app_sale_interaction_entry_maximum(const GameSession *session);
 int rich4_app_sale_market_value(const GameState *state, GameDomainRef item,
@@ -62,7 +64,7 @@ void rich4_app_sale_interaction_mouse_motion(
 void rich4_app_sale_interaction_mouse_release(
     GameSession *session, const Rich4StockQuantityMask *mask, int button,
     int x, int y, int stock_panel_width, int property_panel_width,
-    int confirm_dialog_width, int confirm_dialog_height,
+    int confirm_dialog_width, int confirm_dialog_height, int virtual_press,
     Rich4AppSaleInteractionResult *out_result);
 void rich4_app_sale_interaction_key_down(
     GameSession *session, Rich4AppKey key,

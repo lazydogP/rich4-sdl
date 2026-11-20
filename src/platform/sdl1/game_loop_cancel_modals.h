@@ -6,6 +6,7 @@
 #include "app/input_flow.h"
 #include "app/scene.h"
 #include "app/tool_panel_state.h"
+#include "platform/sdl1/app_asset_types.h"
 #include "platform/sdl1/app_panel_types.h"
 
 /* R10.1d: early virtual-cancel modal branches moved out of runtime_main.c.
@@ -14,6 +15,8 @@
 typedef struct GameCancelModalsContext {
     Rich4SceneId app_state;
     GameSession *session;
+    const GamePreviewAssets *assets;
+    const NewGameSettings *settings;
     StockPanelState *stock_panel;
     VirtualCursor *cursor;
     Rich4Audio *audio;

@@ -69,6 +69,7 @@ int rich4_ledger_sell_asset(GameState *state, const GameCommand *command,
                             GameEventQueue *events);
 int rich4_ledger_market_inventory_full(
     const GameState *state, int buyer, const GameMarketListing *listing);
+void rich4_ledger_clean_market_listings(GameState *state);
 int rich4_ledger_apply_market_command(
     GameState *state, const GameCommand *command, GameEventQueue *events);
 

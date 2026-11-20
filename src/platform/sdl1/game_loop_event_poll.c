@@ -161,6 +161,9 @@ void game_poll_runtime_events(GameEventPollContext *context)
         } else if (event.type == SDL_KEYUP) {
             Rich4AppCommand command;
             key_up->app_state = *app_state;
+            if (*app_state == RICH4_SCENE_GAME &&
+                game_sale_panel_release_notice(key_up->session))
+                continue;
             if (!rich4_sdl1_key_command(
                     &command, RICH4_APP_COMMAND_KEY_UP,
                     event.key.keysym.sym, event.key.keysym.mod)) {

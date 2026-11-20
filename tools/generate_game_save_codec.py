@@ -241,6 +241,8 @@ class CodecGenerator:
                     "target_effect_applied", "target_card",
                     "effect_returns_to_targets", "target_hold_until"},
                 "CardPanelState": {"effect_frame", "effect_frame_count", "effect_clock"},
+                "GameSaleInteractionPresentationState": {
+                    "keypad_dx", "keypad_dy", "keypad_grab_x", "keypad_grab_y"},
             }
             if field.name in transient.get(alias, set()):
                 continue

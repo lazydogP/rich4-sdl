@@ -925,6 +925,42 @@ static int market_item_is_owned(const GameState *state, int player,
     }
 }
 
+static void market_compact_listings(GameMarketListing *listings, int slot)
+{
+    int tail = GAME_MARKET_LISTING_SLOT_COUNT - 1;
+    memmove(&listings[slot], &listings[slot + 1],
+            (size_t)(tail - slot) * sizeof(listings[0]));
+    memset(&listings[tail], 0, sizeof(listings[0]));
+}
+
+void rich4_ledger_clean_market_listings(GameState *state)
+{
+    int seller;
+    if (state == NULL) return;
+    for (seller = 0; seller < state->player_count &&
+                     seller < GAME_MAX_PLAYERS; seller++) {
+        GameMarketListing *listings = state->market_listings[seller];
+        int slot = 0;
+        int removed = 0;
+        int scanned;
+        /* 0x42483E/0x4249AD: after the first removal the scan stays at
+         * that slot, so the first valid replacement ends this pass. */
+        for (scanned = 0; scanned < GAME_MARKET_LISTING_SLOT_COUNT; scanned++) {
+            GameDomainRef item;
+            if (listings[slot].type != GAME_MARKET_LISTING_EMPTY &&
+                (!market_listing_item_ref(&listings[slot], &item) ||
+                 !market_item_is_owned(state, seller, &listings[slot], item))) {
+                market_compact_listings(listings, slot);
+                removed = 1;
+            } else if (removed) {
+                break;
+            } else {
+                slot++;
+            }
+        }
+    }
+}
+
 static int market_add_listing(GameState *state, const GameCommand *command,
                               GameEventQueue *events)
 {
@@ -945,7 +981,7 @@ static int market_add_listing(GameState *state, const GameCommand *command,
     listing.type = (uint8_t)type;
     listing.item_id = (uint16_t)item_id;
     listing.ask_price = command->value;
-    listing.quantity = (int16_t)command->value2;
+    listing.quantity = (uint16_t)command->value2;
     if (item.kind == GAME_DOMAIN_LAND) {
         listing.asset_type_snapshot = (uint8_t)state->land_type[item.id];
         listing.asset_level_snapshot = (uint8_t)state->land_level[item.id];
@@ -988,12 +1024,7 @@ static int market_remove_listing(GameState *state, int seller, int slot,
         state->market_listings[seller][slot].type == GAME_MARKET_LISTING_EMPTY)
         return 0;
     next = *state;
-    memmove(&next.market_listings[seller][slot],
-            &next.market_listings[seller][slot + 1],
-            (size_t)(GAME_MARKET_LISTING_SLOT_COUNT - slot - 1) *
-                sizeof(next.market_listings[seller][0]));
-    memset(&next.market_listings[seller][GAME_MARKET_LISTING_SLOT_COUNT - 1],
-           0, sizeof(next.market_listings[seller][0]));
+    market_compact_listings(next.market_listings[seller], slot);
     rich4_game_event_queue_reset(&staged);
     for (i = slot; i < GAME_MARKET_LISTING_SLOT_COUNT; i++) {
         if (!market_emit_listing_changed(
@@ -1065,8 +1096,7 @@ static int market_transfer_item(GameState *state, int buyer, int seller,
         state->player_stock_average_cost[buyer][item.id] =
             (float)((double)total_cost /
                     state->player_stock_amount[buyer][item.id]);
-        rich4_stock_refresh_company_ownership(state, item.id, seller);
-        rich4_stock_refresh_company_ownership(state, item.id, buyer);
+        rich4_stock_refresh_market_buyer_ownership(state, item.id, buyer);
         return rich4_game_event_emit_typed_domain(
                    events, rich4_game_event_inventory_changed_from_fields,
                    seller, item, none, -quantity,

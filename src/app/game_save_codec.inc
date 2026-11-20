@@ -321,7 +321,7 @@ static void codec_GameMarketListing(SaveCodec *codec, GameMarketListing *value)
     codec_scalar(codec, &(value->age_months), SAVE_CODEC_U8);
     codec_scalar(codec, &(value->item_id), SAVE_CODEC_U16);
     codec_scalar(codec, &(value->ask_price), SAVE_CODEC_I32);
-    codec_scalar(codec, &(value->quantity), SAVE_CODEC_I16);
+    codec_scalar(codec, &(value->quantity), SAVE_CODEC_U16);
     codec_scalar(codec, &(value->asset_type_snapshot), SAVE_CODEC_U8);
     codec_scalar(codec, &(value->asset_level_snapshot), SAVE_CODEC_U8);
 }

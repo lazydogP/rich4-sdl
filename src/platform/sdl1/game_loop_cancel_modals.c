@@ -41,8 +41,9 @@ int game_handle_cancel_modals(GameCancelModalsContext *context)
     }
     if (context->app_state == RICH4_SCENE_GAME &&
         rich4_app_sale_interaction_is_active(context->session)) {
-        rich4_app_sale_interaction_cancel(context->session);
-        rich4_audio_play_cancel(context->audio);
+        game_sale_panel_mouse_release(
+            context->session, context->assets, context->settings,
+            context->audio, SDL_BUTTON_RIGHT, context->cursor->x, context->cursor->y);
         context->cursor->cancel_pressed = 0;
         return 1;
     }

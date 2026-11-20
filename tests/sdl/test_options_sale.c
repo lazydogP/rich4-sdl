@@ -279,9 +279,11 @@ static void check_sale_listing_details(
     } cases[] = {
         {{.type = GAME_MARKET_LISTING_STOCK, .ask_price = 2000, .quantity = 8},
          112, 236, "8\xb1\x69", 178, 124, 6},
-        {{.type = GAME_MARKET_LISTING_ASSET, .item_id = 2001, .ask_price = 2000},
+        {{.type = GAME_MARKET_LISTING_ASSET, .item_id = 2001, .ask_price = 2000,
+          .asset_level_snapshot = 1},
          96, 265, "\xa5\xad  \xa9\xd0", 120, 156, 2},
-        {{.type = GAME_MARKET_LISTING_ASSET, .item_id = 4001, .ask_price = 2000},
+        {{.type = GAME_MARKET_LISTING_ASSET, .item_id = 4001, .ask_price = 2000,
+          .asset_type_snapshot = 1, .asset_level_snapshot = 2},
          96, 265, "\xa4\x47\xaf\xc5", 120, 156, 2},
         {{.type = GAME_MARKET_LISTING_TOOL, .item_id = 1, .ask_price = 2000},
          128, 203, "2,000\xa4\xb8", 178, 152, 6},
@@ -319,6 +321,9 @@ static void check_sale_listing_details(
         "\xa4\xbd\xa7\x47\xc4\xe6\xa4\x77\xba\xa1\n\n"
         "\xbd\xd0\xa5\xfd\xba\x4d\xa5\xf3\xa1\x49",
         16, 0x1082, 2, 1, 4);
+    game_sale_panel_mouse_release(session, assets, NULL, NULL,
+                                  SDL_BUTTON_LEFT, 500, 90);
+    assert(sale->message == 0 && sale->page == RICH4_SALE_PAGE_BROWSE);
 }
 
 static void check_sale_purchase_notices(
@@ -347,6 +352,10 @@ static void check_sale_purchase_notices(
     size_t i;
     state->player_count = 2;
     state->players[1].play_state = 1;
+    state->players[1].tool_inventory[0] = 1;
+    state->players[1].card_inventory[0] = 1;
+    state->players[1].bank = 1000;
+    state->players[1].special_finance = 600;
     memset(state->market_listings, 0, sizeof(state->market_listings));
     state->players[0].tool_inventory[0] = 9;
     memset(state->players[0].card_inventory, 1,
@@ -356,6 +365,9 @@ static void check_sale_purchase_notices(
     state->stocks[0].f4 = 1;
     state->stock_company_auxiliary[0] = 0;
     state->stock_company_owner[0] = 1;
+    state->company_count = 1;
+    state->company_type[0] = 7;
+    state->company_owner[0] = 1;
     state->stock_company_ranking[0][0] = 1;
     for (i = 1; i < GAME_MAX_PLAYERS; ++i)
         state->stock_company_ranking[0][i] = -1;
@@ -379,9 +391,18 @@ static void check_sale_purchase_notices(
         assert(sale->message == cases[i].notice);
         game_draw_sale_panel(screen, assets, session, sale);
         check_sale_text(screen, 320, 240, cases[i].text, 16, 0x1082, 2, 1, 4);
+        assert(game_sale_panel_release_notice(session));
+        assert(!game_sale_panel_release_notice(session));
     }
     assert(state->stock_company_owner[0] == 0);
+    assert(state->company_owner[0] == 0);
     assert(state->market_listings[1][0].type == GAME_MARKET_LISTING_EMPTY);
+    assert(state->players[1].special_finance == 600);
+    game_sale_panel_mouse_down(session, assets, 570, 90);
+    game_sale_panel_mouse_release(session, assets, NULL, NULL,
+                                  SDL_BUTTON_LEFT, 80, 400);
+    assert(!sale->active && state->players[1].special_finance == 0);
+    assert(state->players[1].bank == 2400);
 }
 
 static void check_sale_keypad(SDL_Surface *screen, GamePreviewAssets *assets,
@@ -425,6 +446,9 @@ static void check_sale_keypad(SDL_Surface *screen, GamePreviewAssets *assets,
     session.state.facility_type[0] = 1;
     session.state.facility_level[0] = 2;
     session.state.price_index = 2;
+    session.state.market_listings[0][0] = (GameMarketListing){
+        .type = GAME_MARKET_LISTING_CARD, .item_id = 2, .ask_price = 100
+    };
 
     for (category = 0; category < RICH4_SALE_CATEGORY_COUNT; ++category) {
         int picker_x = 500 + (category / 2) * 63;
@@ -433,6 +457,7 @@ static void check_sale_keypad(SDL_Surface *screen, GamePreviewAssets *assets,
         int item_y = item_position[category][1];
         int is_stock = category == RICH4_SALE_CATEGORY_STOCK;
         rich4_app_sale_interaction_open(&session);
+        assert(rich4_app_sale_browse_count(&session) == 0);
         game_sale_panel_mouse_down(&session, assets, 500, 90);
         game_sale_panel_mouse_motion(&session, assets, picker_x, picker_y, 1);
         game_sale_panel_mouse_release(&session, assets, NULL, NULL,
@@ -466,7 +491,7 @@ static void check_sale_keypad(SDL_Surface *screen, GamePreviewAssets *assets,
         }
         game_sale_panel_mouse_down(&session, assets, item_x, item_y);
         game_sale_panel_mouse_release(&session, assets, NULL, NULL,
-                                      SDL_BUTTON_LEFT, item_x, item_y);
+                                      SDL_BUTTON_LEFT, 80, 400);
         assert(sale->page == RICH4_SALE_PAGE_PRICE);
         assert(rich4_app_sale_interaction_entry_is_quantity(&session) == is_stock);
         if (category == RICH4_SALE_CATEGORY_PROPERTY)
@@ -475,13 +500,38 @@ static void check_sale_keypad(SDL_Surface *screen, GamePreviewAssets *assets,
         /* Panel.mkf[21] chunk 0, keypad pixel at local (30,102). */
         assert(*key_pixel == map_resource_pixel(screen, 0x5b19));
         if (is_stock) {
-            game_sale_panel_mouse_down(&session, assets, 286, 317);
+            size_t grab = 0;
+            int grab_x, grab_y;
+            const uint16_t *moved_pixel = (const uint16_t *)(
+                (const unsigned char *)screen->pixels + 276 * screen->pitch) + 306;
+            game_sale_panel_key_down(&session, assets, NULL, NULL,
+                                     RICH4_APP_KEY_LETTER_H);
+            assert(sale->quantity == 51);
+            game_sale_panel_key_down(&session, assets, NULL, NULL,
+                                     RICH4_APP_KEY_LETTER_C);
+            game_sale_panel_mouse_down(&session, assets, 320, 191);
+            assert(sale->quantity == 51);
             game_sale_panel_mouse_release(&session, assets, NULL, NULL,
-                                          SDL_BUTTON_LEFT, 286, 317);
+                                          SDL_BUTTON_LEFT, 80, 400);
+            game_sale_panel_key_down(&session, assets, NULL, NULL,
+                                     RICH4_APP_KEY_LETTER_C);
+            while (grab < 128 * 192 && assets->ui.panel_data[22][grab] != 1) ++grab;
+            assert(grab < 128 * 192);
+            grab_x = 256 + (int)(grab % 128);
+            grab_y = 144 + (int)(grab / 128);
+            game_sale_panel_mouse_down(&session, assets, grab_x, grab_y);
+            game_sale_panel_mouse_motion(&session, assets, grab_x + 20, grab_y + 30, 1);
+            game_sale_panel_mouse_release(&session, assets, NULL, NULL,
+                                          SDL_BUTTON_LEFT, grab_x + 20, grab_y + 30);
+            game_draw_sale_panel(screen, assets, &session, sale);
+            assert(*moved_pixel == map_resource_pixel(screen, 0x5b19));
+            game_sale_panel_mouse_down(&session, assets, 306, 347);
+            game_sale_panel_mouse_release(&session, assets, NULL, NULL,
+                                          SDL_BUTTON_LEFT, 80, 400);
             assert(rich4_app_sale_interaction_entry_value(&session) == 1);
-            game_sale_panel_mouse_down(&session, assets, 365, 220);
+            game_sale_panel_mouse_down(&session, assets, 385, 250);
             game_sale_panel_mouse_release(&session, assets, NULL, NULL,
-                                          SDL_BUTTON_LEFT, 365, 220);
+                                          SDL_BUTTON_LEFT, 80, 400);
             assert(sale->page == RICH4_SALE_PAGE_PRICE);
             assert(!rich4_app_sale_interaction_entry_is_quantity(&session));
             assert(rich4_app_sale_interaction_entry_reference_price(&session) == 12);

@@ -318,7 +318,7 @@ static int is_property(GameDomainRef ref)
 int rich4_game_command_is_valid(const GameCommand *command)
 {
     if (command == 0 || command->type <= GAME_COMMAND_NONE ||
-        command->type > GAME_COMMAND_REPRICE_MARKET_LISTING ||
+        command->type > GAME_COMMAND_FINISH_MARKET ||
         (command->source != GAME_COMMAND_SOURCE_HUMAN &&
          command->source != GAME_COMMAND_SOURCE_AI) || command->player < 0 ||
         command->player >= GAME_MAX_PLAYERS ||
@@ -383,7 +383,7 @@ int rich4_game_command_is_valid(const GameCommand *command)
     case GAME_COMMAND_CREATE_MARKET_LISTING:
         return command->value > 0 &&
                ((command->subject.kind == GAME_DOMAIN_STOCK &&
-                 command->value2 > 0 && command->value2 <= INT16_MAX) ||
+                 command->value2 > 0 && command->value2 <= UINT16_MAX) ||
                 ((command->subject.kind == GAME_DOMAIN_LAND ||
                   command->subject.kind == GAME_DOMAIN_FACILITY ||
                   command->subject.kind == GAME_DOMAIN_CARD ||
@@ -414,6 +414,7 @@ int rich4_game_command_is_valid(const GameCommand *command)
                command->subject.kind == GAME_DOMAIN_SAVE_SLOT &&
                rich4_game_domain_ref_is_none(command->target);
     case GAME_COMMAND_SETTLE_AI_SPECIAL_FINANCE:
+    case GAME_COMMAND_FINISH_MARKET:
         return command->value == 0 &&
                rich4_game_domain_ref_is_none(command->subject) &&
                rich4_game_domain_ref_is_none(command->target);

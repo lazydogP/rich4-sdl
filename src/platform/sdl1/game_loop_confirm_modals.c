@@ -44,9 +44,9 @@ int game_handle_confirm_modals(GameConfirmModalsContext *context)
     }
     if (context->app_state == RICH4_SCENE_GAME &&
         rich4_app_sale_interaction_is_active(context->session)) {
-        game_sale_panel_mouse_release(
+        game_sale_panel_virtual_confirm(
             context->session, context->assets, context->settings,
-            context->audio, SDL_BUTTON_LEFT,
+            context->audio,
             context->cursor->x, context->cursor->y);
         context->cursor->confirm_pressed = 0;
         return 1;

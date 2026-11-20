@@ -476,6 +476,10 @@ typedef struct GameSaleInteractionPresentationState {
     int edit_quantity;
     int pressed_control;
     int message;
+    int keypad_dx;
+    int keypad_dy;
+    int keypad_grab_x;
+    int keypad_grab_y;
 } GameSaleInteractionPresentationState;
 
 #endif

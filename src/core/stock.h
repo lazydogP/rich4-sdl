@@ -77,6 +77,8 @@ typedef struct Rich4CalendarSpecialEffect {
 void rich4_stock_state_init(GameState *state, Rich4Rng *rng);
 void rich4_stock_refresh_company_ownership(GameState *state, int stock,
                                            int player);
+void rich4_stock_refresh_market_buyer_ownership(GameState *state, int stock,
+                                                 int buyer);
 void rich4_stock_tick_status(GameState *state);
 int rich4_stock_market_is_closed(const GameState *state);
 /* sub_4523D5 calendar closure only: Sunday plus map holidays.  Unlike

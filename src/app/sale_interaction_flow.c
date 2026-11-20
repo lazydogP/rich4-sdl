@@ -24,6 +24,10 @@ enum {
     SALE_HIT_CONFIRM_YES,
     SALE_HIT_GRID_BASE = 300,
     SALE_HIT_PRICE_KEY_BASE = 400,
+    SALE_HIT_PRICE_DRAG = SALE_HIT_PRICE_KEY_BASE +
+        RICH4_STOCK_QUANTITY_CONTROL_DRAG,
+    SALE_HIT_PRICE_SLIDER = SALE_HIT_PRICE_KEY_BASE +
+        RICH4_STOCK_QUANTITY_CONTROL_SLIDER,
     SALE_HIT_PURCHASE_CONFIRM_YES = 500,
     SALE_HIT_PURCHASE_CONFIRM_NO
 };
@@ -304,8 +308,9 @@ static int sale_control_at(
             }
         }
     } else if (state->page == RICH4_SALE_PAGE_PRICE) {
-        int control = rich4_app_stock_quantity_control_at_mask(mask, x, y);
-        if (control >= RICH4_STOCK_QUANTITY_CONTROL_MAX &&
+        int control = rich4_app_stock_quantity_control_at_mask(
+            mask, x - state->keypad_dx, y - state->keypad_dy);
+        if (control >= RICH4_STOCK_QUANTITY_CONTROL_DRAG &&
             control <= RICH4_STOCK_QUANTITY_CONTROL_SLIDER)
             return SALE_HIT_PRICE_KEY_BASE + control;
     } else if (state->page == RICH4_SALE_PAGE_CONFIRM) {
@@ -500,10 +505,13 @@ static int sale_activate_item(GameSession *session)
                    &state->selected_item, &maximum)) {
         return 0;
     }
-    state->item_quantity_max = maximum;
+    state->item_quantity_max = state->selected_item.kind == GAME_DOMAIN_STOCK &&
+        maximum > UINT16_MAX ? UINT16_MAX : maximum;
     state->ask_price = 0;
     state->quantity = 0;
     state->edit_quantity = state->selected_item.kind == GAME_DOMAIN_STOCK;
+    state->keypad_dx = 0;
+    state->keypad_dy = 0;
     state->message = 0;
     state->page = RICH4_SALE_PAGE_PRICE;
     /* Native stock/property WM_LBUTTONUP restores the transient row frame
@@ -666,6 +674,8 @@ static void sale_prepare_command(GameSession *session,
             }
             state->edit_quantity = 0;
             state->ask_price = 0;
+            state->keypad_dx = 0;
+            state->keypad_dy = 0;
             state->message = 0;
             result->audio_cue = RICH4_APP_SALE_AUDIO_SELECT;
             return;
@@ -774,8 +784,10 @@ static void sale_keypad_control(
         return;
     control -= SALE_HIT_PRICE_KEY_BASE;
     if (control == RICH4_STOCK_QUANTITY_CONTROL_SLIDER) {
+        const GameSaleInteractionPresentationState *state = sale_state_const(session);
         value = rich4_app_stock_quantity_from_bar(
-            rich4_app_sale_interaction_entry_maximum(session), pointer_x);
+            rich4_app_sale_interaction_entry_maximum(session),
+            pointer_x - state->keypad_dx);
         if (value >= 0) sale_set_entry_value(session, value);
         return;
     }
@@ -801,6 +813,16 @@ static void sale_keypad_control(
     if (result != NULL) result->audio_cue = RICH4_APP_SALE_AUDIO_SELECT;
 }
 
+static void sale_finish_market(GameSession *session,
+                               Rich4AppSaleInteractionResult *result)
+{
+    int player = sale_current_player(&session->state);
+    if (player < 0) return;
+    result->command = rich4_game_command(
+        GAME_COMMAND_FINISH_MARKET, GAME_COMMAND_SOURCE_HUMAN, player, 0);
+    result->command_ready = 1;
+}
+
 static void sale_activate(GameSession *session, int control,
                           Rich4AppSaleInteractionResult *result)
 {
@@ -811,7 +833,7 @@ static void sale_activate(GameSession *session, int control,
             state->page = RICH4_SALE_PAGE_BROWSE;
             sale_clear_selection(state);
         } else {
-            state->active = 0;
+            sale_finish_market(session, result);
         }
         state->message = 0;
         result->audio_cue = RICH4_APP_SALE_AUDIO_CANCEL;
@@ -959,6 +981,13 @@ int rich4_app_sale_interaction_is_active(const GameSession *session)
     return state != NULL && state->active;
 }
 
+void rich4_app_sale_interaction_clear_notice(GameSession *session)
+{
+    GameSaleInteractionPresentationState *state = sale_state(session);
+    if (state != NULL && state->message >= RICH4_SALE_NOTICE_CASH)
+        state->message = 0;
+}
+
 void rich4_app_sale_interaction_open(GameSession *session)
 {
     GameSaleInteractionPresentationState *state = sale_state(session);
@@ -967,6 +996,7 @@ void rich4_app_sale_interaction_open(GameSession *session)
         (player = sale_current_player(&session->state)) < 0 ||
         session->state.players[player].is_ai)
         return;
+    rich4_ledger_clean_market_listings(&session->state);
     memset(state, 0, sizeof(*state));
     state->active = 1;
     state->page = RICH4_SALE_PAGE_BROWSE;
@@ -978,7 +1008,8 @@ void rich4_app_sale_interaction_open(GameSession *session)
     state->pressed_control = SALE_HIT_NONE;
 }
 
-void rich4_app_sale_interaction_cancel(GameSession *session)
+static void sale_cancel(GameSession *session,
+                        Rich4AppSaleInteractionResult *result)
 {
     GameSaleInteractionPresentationState *state = sale_state(session);
     if (state == NULL || !state->active) return;
@@ -1003,7 +1034,7 @@ void rich4_app_sale_interaction_cancel(GameSession *session)
         state->message = 0;
         sale_clear_selection(state);
     } else {
-        state->active = 0;
+        sale_finish_market(session, result);
     }
 }
 
@@ -1018,7 +1049,12 @@ void rich4_app_sale_interaction_mouse_down(
     state->pressed_control = sale_control_at(
         session, state, mask, x, y, stock_panel_width, property_panel_width,
         confirm_dialog_width, confirm_dialog_height);
-    if (state->page == RICH4_SALE_PAGE_BROWSE &&
+    if (state->pressed_control == SALE_HIT_PRICE_DRAG) {
+        state->keypad_grab_x = x - state->keypad_dx;
+        state->keypad_grab_y = y - state->keypad_dy;
+    } else if (state->pressed_control == SALE_HIT_PRICE_SLIDER) {
+        sale_keypad_control(session, SALE_HIT_PRICE_SLIDER, x, NULL);
+    } else if (state->page == RICH4_SALE_PAGE_BROWSE &&
         state->pressed_control == SALE_HIT_SELL) {
         sale_open_picker(session);
     } else if (state->page == RICH4_SALE_PAGE_BROWSE &&
@@ -1046,14 +1082,21 @@ void rich4_app_sale_interaction_mouse_motion(
     GameSaleInteractionPresentationState *state = sale_state(session);
     int control;
     if (state == NULL || !state->active) return;
-    if (state->page == RICH4_SALE_PAGE_PRICE && mouse_left_down &&
-        state->pressed_control == SALE_HIT_PRICE_KEY_BASE +
-            RICH4_STOCK_QUANTITY_CONTROL_SLIDER &&
-        rich4_app_stock_quantity_control_at_mask(mask, x, y) ==
-            RICH4_STOCK_QUANTITY_CONTROL_SLIDER) {
-        int value = rich4_app_stock_quantity_from_bar(
-            rich4_app_sale_interaction_entry_maximum(session), x);
-        if (value >= 0) sale_set_entry_value(session, value);
+    if (state->page == RICH4_SALE_PAGE_PRICE && mouse_left_down) {
+        if (state->pressed_control == SALE_HIT_PRICE_DRAG) {
+            int left = x - state->keypad_grab_x + RICH4_SALE_KEYPAD_X;
+            int top = y - state->keypad_grab_y + RICH4_SALE_KEYPAD_Y;
+            /* 0x45321F clamps the 128x192 keypad within the 640x480 frame. */
+            state->keypad_dx = (left < 0 ? 0 : left > 512 ? 512 : left) -
+                               RICH4_SALE_KEYPAD_X;
+            state->keypad_dy = (top < 0 ? 0 : top > 288 ? 288 : top) -
+                               RICH4_SALE_KEYPAD_Y;
+        } else if (state->pressed_control == SALE_HIT_PRICE_SLIDER &&
+            rich4_app_stock_quantity_control_at_mask(
+                mask, x - state->keypad_dx, y - state->keypad_dy) ==
+                    RICH4_STOCK_QUANTITY_CONTROL_SLIDER) {
+            sale_keypad_control(session, SALE_HIT_PRICE_SLIDER, x, NULL);
+        }
     } else if (state->page == RICH4_SALE_PAGE_BROWSE &&
         state->message == RICH4_SALE_PICKER_OPEN &&
         state->pressed_control == SALE_HIT_SELL) {
@@ -1081,7 +1124,7 @@ void rich4_app_sale_interaction_mouse_motion(
 void rich4_app_sale_interaction_mouse_release(
     GameSession *session, const Rich4StockQuantityMask *mask, int button,
     int x, int y, int stock_panel_width, int property_panel_width,
-    int confirm_dialog_width, int confirm_dialog_height,
+    int confirm_dialog_width, int confirm_dialog_height, int virtual_press,
     Rich4AppSaleInteractionResult *out_result)
 {
     Rich4AppSaleInteractionResult ignored_result;
@@ -1094,7 +1137,7 @@ void rich4_app_sale_interaction_mouse_release(
                               stock_panel_width, property_panel_width,
                               confirm_dialog_width, confirm_dialog_height);
     if (button == RICH4_SALE_POINTER_BUTTON_RIGHT) {
-        rich4_app_sale_interaction_cancel(session);
+        sale_cancel(session, out_result);
         out_result->audio_cue = RICH4_APP_SALE_AUDIO_CANCEL;
         return;
     }
@@ -1119,13 +1162,15 @@ void rich4_app_sale_interaction_mouse_release(
         }
         return;
     }
-    if (state->pressed_control != SALE_HIT_NONE &&
-        state->pressed_control != control)
-        control = SALE_HIT_NONE;
+    /* The original callbacks dispatch the button-down selection on mouse-up,
+     * including when the pointer is now outside the pressed rectangle. */
+    if (state->pressed_control != SALE_HIT_NONE || !virtual_press)
+        control = state->pressed_control;
     state->pressed_control = SALE_HIT_NONE;
-    if (control >= SALE_HIT_PRICE_KEY_BASE &&
-        control <= SALE_HIT_PRICE_KEY_BASE +
-                       RICH4_STOCK_QUANTITY_CONTROL_SLIDER) {
+    if (control == SALE_HIT_PRICE_DRAG ||
+        (control == SALE_HIT_PRICE_SLIDER && !virtual_press))
+        return;
+    if (control > SALE_HIT_PRICE_KEY_BASE && control <= SALE_HIT_PRICE_SLIDER) {
         sale_keypad_control(session, control, x, out_result);
         return;
     }
@@ -1144,7 +1189,7 @@ void rich4_app_sale_interaction_key_down(
     sale_result_clear(out_result);
     if (state == NULL || !state->active) return;
     if (key == RICH4_APP_KEY_ESCAPE) {
-        rich4_app_sale_interaction_cancel(session);
+        sale_cancel(session, out_result);
         if (out_result != NULL)
             out_result->audio_cue = RICH4_APP_SALE_AUDIO_CANCEL;
         return;
@@ -1164,6 +1209,10 @@ void rich4_app_sale_interaction_key_down(
         } else if (key == RICH4_APP_KEY_LETTER_M) {
             sale_set_entry_value(
                 session, rich4_app_sale_interaction_entry_maximum(session));
+        } else if (key == RICH4_APP_KEY_LETTER_H) {
+            /* 0x452F73 posts a slider move at keypad-local (64,47). */
+            sale_keypad_control(session, SALE_HIT_PRICE_SLIDER,
+                RICH4_SALE_KEYPAD_X + state->keypad_dx + 64, out_result);
         } else if (key == RICH4_APP_KEY_RETURN ||
                    key == RICH4_APP_KEY_KP_ENTER) {
             sale_prepare_command(session, out_result);
@@ -1234,6 +1283,10 @@ void rich4_app_sale_interaction_command_applied(
 {
     GameSaleInteractionPresentationState *state = sale_state(session);
     if (state == NULL || result == NULL || !result->command_ready) return;
+    if (result->command.type == GAME_COMMAND_FINISH_MARKET) {
+        if (succeeded) state->active = 0;
+        return;
+    }
     if (!succeeded) {
         if (state->page == RICH4_SALE_PAGE_PURCHASE_CONFIRM) {
             state->page = RICH4_SALE_PAGE_CONFIRM;

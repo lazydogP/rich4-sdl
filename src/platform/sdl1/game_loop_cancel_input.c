@@ -40,6 +40,8 @@ void game_handle_cancel_input(GameCancelInputContext *context)
 
     cancel_modals.app_state = *context->app_state;
     cancel_modals.session = context->session;
+    cancel_modals.assets = context->assets;
+    cancel_modals.settings = context->settings;
     cancel_modals.stock_panel = context->stock_panel;
     cancel_modals.cursor = context->cursor;
     cancel_modals.audio = context->audio;

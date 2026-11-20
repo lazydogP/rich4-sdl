@@ -734,11 +734,13 @@ static void sale_draw_price_page(
     sale_draw_text(screen, 320, 86, prompt, 16,
                    0x1082, 0x0000, 2, 4);
 
-    /* 0x453544 draws the palette-indexed Panel[21] keypad at (256,144). */
+    /* 0x453544 opens the keypad centered. 0x452C02 then lets it move. */
     draw_game_quantity_panel(
         screen, assets, rich4_app_sale_interaction_entry_value(session),
         rich4_app_sale_interaction_entry_maximum(session),
-        ui->pressed_control - SALE_HIT_PRICE_KEY_BASE, 256, 144);
+        ui->pressed_control - SALE_HIT_PRICE_KEY_BASE,
+        RICH4_SALE_KEYPAD_X + ui->keypad_dx,
+        RICH4_SALE_KEYPAD_Y + ui->keypad_dy);
 }
 
 static void sale_draw_confirm_page(
@@ -967,13 +969,23 @@ static void sale_play_audio(Rich4Audio *audio, Rich4AppSaleAudioCue cue)
 
 static int sale_waiting_for_notice(GameSession *session)
 {
-    GameSaleInteractionPresentationState *ui;
+    const GameSaleInteractionPresentationState *ui;
     if (session == NULL) return 0;
     ui = &session->presentation.sale_interaction;
     if (sale_notice_visible(ui->message)) return 1;
-    if (ui->message >= RICH4_SALE_NOTICE_CASH) ui->message = 0;
+    rich4_app_sale_interaction_clear_notice(session);
     sale_notice_message = 0;
     return 0;
+}
+
+int game_sale_panel_release_notice(GameSession *session)
+{
+    if (!rich4_app_sale_interaction_is_active(session) ||
+        !sale_waiting_for_notice(session)) return 0;
+    /* 0x4528B9 consumes the first left/right button-up or key-up. */
+    rich4_app_sale_interaction_clear_notice(session);
+    sale_notice_message = 0;
+    return 1;
 }
 
 static void sale_start_notice(int message)
@@ -1022,23 +1034,39 @@ static void sale_apply_result(
     sale_play_audio(audio, result->audio_cue);
 }
 
-void game_sale_panel_mouse_release(
+static void sale_panel_release(
     GameSession *session, const GamePreviewAssets *assets,
     const NewGameSettings *settings, Rich4Audio *audio,
-    int button, int x, int y)
+    int button, int x, int y, int virtual_press)
 {
     Rich4AppSaleInteractionResult result;
     Rich4StockQuantityMask mask;
     int dialog_width;
     int dialog_height;
-    if (sale_waiting_for_notice(session)) return;
+    if (game_sale_panel_release_notice(session)) return;
     mask = sale_quantity_mask(assets);
     sale_confirm_dialog_size(assets, &dialog_width, &dialog_height);
     rich4_app_sale_interaction_mouse_release(
         session, &mask, button, x, y, sale_stock_panel_width(assets),
-        sale_property_panel_width(assets), dialog_width, dialog_height,
+        sale_property_panel_width(assets), dialog_width, dialog_height, virtual_press,
         &result);
     sale_apply_result(session, assets, settings, audio, &result);
+}
+
+void game_sale_panel_mouse_release(
+    GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, Rich4Audio *audio,
+    int button, int x, int y)
+{
+    if (button != SDL_BUTTON_LEFT && button != SDL_BUTTON_RIGHT) return;
+    sale_panel_release(session, assets, settings, audio, button, x, y, 0);
+}
+
+void game_sale_panel_virtual_confirm(
+    GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, Rich4Audio *audio, int x, int y)
+{
+    sale_panel_release(session, assets, settings, audio, SDL_BUTTON_LEFT, x, y, 1);
 }
 
 void game_sale_panel_mouse_down(

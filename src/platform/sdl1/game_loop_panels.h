@@ -55,6 +55,10 @@ void game_sale_panel_mouse_release(
     GameSession *session, const GamePreviewAssets *assets,
     const NewGameSettings *settings, Rich4Audio *audio,
     int button, int x, int y);
+void game_sale_panel_virtual_confirm(
+    GameSession *session, const GamePreviewAssets *assets,
+    const NewGameSettings *settings, Rich4Audio *audio, int x, int y);
+int game_sale_panel_release_notice(GameSession *session);
 void game_sale_panel_mouse_down(
     GameSession *session, const GamePreviewAssets *assets, int x, int y);
 void game_sale_panel_mouse_motion(

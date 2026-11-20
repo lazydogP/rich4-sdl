@@ -13,6 +13,7 @@ typedef struct SinkProbe {
     int sales;
     int reject_sale;
     int count_changes;
+    int market_finishes;
     GameCommand first;
     GameCommand last;
 } SinkProbe;
@@ -25,6 +26,7 @@ static int accept_command(Rich4AiCommandSink *sink,
     if (probe->calls == 0) probe->first = *command;
     probe->calls++;
     probe->last = *command;
+    if (command->type == GAME_COMMAND_FINISH_MARKET) probe->market_finishes++;
     if (probe->session && command->type == GAME_COMMAND_SELL_STOCK) {
         GameEventQueue events;
         probe->sales++;
@@ -175,11 +177,16 @@ int main(void)
     session.state.players[0].is_ai = 1;
     session.state.players[0].play_state = 2;
     session.state.players[0].ai_action_flags = 0;
+    session.state.market_listings[0][0] = (GameMarketListing){
+        .type = GAME_MARKET_LISTING_CARD, .item_id = 1, .ask_price = 100
+    };
     probe.sink.submit = accept_command;
 
     rich4_ai_run_preactions(&session, current_property, player_on_map,
                             NULL, 0, 123, &probe.sink);
-    assert(probe.calls == 2);
+    assert(probe.calls == 3);
+    assert(probe.market_finishes == 1);
+    assert(session.state.market_listings[0][0].type == GAME_MARKET_LISTING_EMPTY);
     assert(probe.first.type == GAME_COMMAND_SETTLE_AI_SPECIAL_FINANCE);
     assert(probe.last.type == GAME_COMMAND_ROLL_DICE);
     probe.calls = 0;

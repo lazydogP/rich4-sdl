@@ -41,6 +41,55 @@ static void configure_beggar_route(GameState *s)
     s->tool_route_next[7][0] = 2;
 }
 
+static void check_market_cleanup_and_stock_trade(void)
+{
+    static GameState state;
+    GameEventQueue events;
+    GameCommand command;
+    GameMarketListing invalid_card = {
+        .type = GAME_MARKET_LISTING_CARD, .item_id = 1, .ask_price = 100
+    };
+    GameMarketListing valid_tool = {
+        .type = GAME_MARKET_LISTING_TOOL, .item_id = 1, .ask_price = 100
+    };
+    init_state(&state, 3);
+    state.players[0].tool_inventory[0] = 1;
+    state.market_listings[0][0] = invalid_card;
+    state.market_listings[0][1] = valid_tool;
+    state.market_listings[0][2] = invalid_card;
+    rich4_ledger_clean_market_listings(&state);
+    assert(state.market_listings[0][0].type == GAME_MARKET_LISTING_TOOL);
+    assert(state.market_listings[0][1].type == GAME_MARKET_LISTING_CARD);
+    rich4_ledger_clean_market_listings(&state);
+    assert(state.market_listings[0][0].type == GAME_MARKET_LISTING_TOOL);
+    assert(state.market_listings[0][1].type == GAME_MARKET_LISTING_EMPTY);
+
+    /* 0x4255DA transfers an unsigned word and reinserts only the buyer. */
+    state.stocks[0].f4 = 1;
+    state.stock_company_auxiliary[0] = 0;
+    state.stock_company_owner[0] = 0;
+    state.stock_company_ranking[0][0] = 0;
+    state.stock_company_ranking[0][1] = 1;
+    state.stock_company_ranking[0][2] = 2;
+    state.stock_company_ranking[0][3] = -1;
+    state.player_stock_amount[0][0] = 90000;
+    state.player_stock_amount[1][0] = 50000;
+    state.player_stock_amount[2][0] = 1;
+    state.players[2].cash = 100;
+    command = rich4_game_command_create_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 0,
+        rich4_game_domain_ref(GAME_DOMAIN_STOCK, 0), 100, 40000);
+    rich4_game_event_queue_reset(&events);
+    assert(rich4_ledger_apply_market_command(&state, &command, &events));
+    assert(state.market_listings[0][1].quantity == 40000);
+    command = rich4_game_command_buy_market_listing(
+        GAME_COMMAND_SOURCE_HUMAN, 2, 0, 1);
+    assert(rich4_ledger_apply_market_command(&state, &command, &events));
+    assert(state.player_stock_amount[0][0] == 50000);
+    assert(state.player_stock_amount[2][0] == 40001);
+    assert(state.stock_company_owner[0] == 0);
+}
+
 int main(void)
 {
     GameState s, before;
@@ -284,6 +333,7 @@ int main(void)
         GAME_COMMAND_SOURCE_HUMAN, 1, 0, 0);
     assert(rich4_ledger_apply_market_command(&s, &command, &q));
     assert(s.players[1].card_inventory[9] == 1);
+    check_market_cleanup_and_stock_trade();
     puts("ledger/payment/bankruptcy: ok");
     return 0;
 }

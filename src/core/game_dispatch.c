@@ -142,22 +142,14 @@ static int dispatch_command(GameState *state,
         *state = next;
         return 1;
     }
-    case GAME_COMMAND_SETTLE_AI_SPECIAL_FINANCE: {
-        GameState next;
-        GameEventQueue staged;
-        if (command->source != GAME_COMMAND_SOURCE_AI || !player->is_ai ||
-            flow->turn_flow_active || flow->steps_remaining > 0)
+    case GAME_COMMAND_SETTLE_AI_SPECIAL_FINANCE:
+    case GAME_COMMAND_FINISH_MARKET:
+        if ((command->type == GAME_COMMAND_SETTLE_AI_SPECIAL_FINANCE &&
+             command->source != GAME_COMMAND_SOURCE_AI) ||
+            flow->turn_flow_active || flow->steps_remaining > 0 ||
+            !rich4_bank_settle_special_finance(state, 0, current, events))
             return reject(events, command, GAME_COMMAND_REJECT_STATE);
-        next = *state;
-        rich4_game_event_queue_reset(&staged);
-        if (!rich4_bank_settle_special_finance(
-                &next, 0, current, &staged) ||
-            events->count + staged.count > GAME_EVENT_QUEUE_CAPACITY ||
-            !rich4_game_event_queue_append(events, &staged))
-            return reject(events, command, GAME_COMMAND_REJECT_STATE);
-        *state = next;
         return 1;
-    }
     case GAME_COMMAND_PURCHASE_PROPERTY:
     case GAME_COMMAND_UPGRADE_PROPERTY:
         if (flow->turn_flow_active || flow->steps_remaining > 0)
